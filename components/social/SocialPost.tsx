@@ -161,14 +161,14 @@ export function SocialPost({
               <View className="p-3 gap-2">
                 <View className="flex-row items-center gap-2">
                   <Image 
-                    source={{ uri: displayPost.quoted_post.author.avatar_url || `https://ui-avatars.com/api/?name=${displayPost.quoted_post.author.username}&background=10B981&color=fff` }} 
+                    source={{ uri: displayPost.quoted_post.author?.avatar_url || `https://ui-avatars.com/api/?name=${displayPost.quoted_post.author?.username || "U"}&background=10B981&color=fff` }} 
                     style={{ width: 20, height: 20, borderRadius: 10 }} 
                   />
                   <Text className="font-bold text-sm text-text-primary" numberOfLines={1}>
-                    {displayPost.quoted_post.author.display_name || displayPost.quoted_post.author.username}
+                    {displayPost.quoted_post.author?.display_name || displayPost.quoted_post.author?.username || "Unknown"}
                   </Text>
                   <Text className="text-text-muted text-xs">
-                    @{displayPost.quoted_post.author.username}
+                    @{displayPost.quoted_post.author?.username || "user"}
                   </Text>
                 </View>
                 <Text className="text-sm text-text-primary" numberOfLines={3}>
