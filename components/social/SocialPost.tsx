@@ -92,9 +92,12 @@ export function SocialPost({
   onMore,
   onShare
 }: SocialPostProps) {
+  // Check if quoted_post is valid (has actual data, not just an empty object from the join)
+  const hasValidQuotedPost = post.quoted_post && post.quoted_post.id && post.quoted_post.content;
+  
   // Handle Simple Repost: Only show repost UI when explicitly marked as a repost
-  // AND there's a quoted_post to display. This prevents false positives.
-  const isSimpleRepost = (post.type === 'repost' || post.is_repost === true) && !!post.quoted_post;
+  // AND there's a valid quoted_post to display. This prevents false positives.
+  const isSimpleRepost = (post.type === 'repost' || post.is_repost === true) && hasValidQuotedPost;
   
   // If it's a simple repost, we effectively "swap" the post to be the quoted one,
   // but keep the "reposted by" context.
@@ -156,8 +159,8 @@ export function SocialPost({
             </Text>
           )}
 
-          {/* Quote Post (Only if it's a Quote Post, NOT a simple repost) */}
-          {!isSimpleRepost && displayPost.quoted_post && (
+          {/* Quote Post (Only if it's a Quote Post with valid quoted content, NOT a simple repost) */}
+          {!isSimpleRepost && hasValidQuotedPost && displayPost === post && (
             <QuoteContainer onPress={() => {
               console.log("Pressed quoted post:", displayPost.quoted_post?.id);
             }}>
