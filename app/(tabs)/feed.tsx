@@ -73,6 +73,17 @@ export default function FeedScreen() {
           }
         }
       );
+    } else if (Platform.OS === 'web') {
+      // Web: Use browser confirm dialog
+      if (isOwnPost) {
+        if (window.confirm("Delete this post? This cannot be undone.")) {
+          deleteMutation.mutate(post.id);
+        }
+      } else {
+        if (window.confirm("Report this post?")) {
+          window.alert("Thank you for reporting this post.");
+        }
+      }
     } else {
       // Android Alert Fallback
       Alert.alert(
@@ -123,6 +134,14 @@ export default function FeedScreen() {
           }
         }
       );
+    } else if (Platform.OS === 'web') {
+      // Web: Use custom prompt
+      const choice = window.prompt("Enter '1' to Repost, '2' to Quote Post, or Cancel:");
+      if (choice === '1') {
+        repostMutation.mutate({ originalPost: post, content: "" });
+      } else if (choice === '2') {
+        router.push(`/compose/quote?postId=${post.id}` as any);
+      }
     } else {
       // Android Alert Fallback
       Alert.alert("Share Post", "How would you like to share this?", [
