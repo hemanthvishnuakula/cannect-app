@@ -5,7 +5,7 @@ import { FlashList } from "@shopify/flash-list";
 import { Send, ArrowLeft } from "lucide-react-native";
 import { useState } from "react";
 
-import { usePost, usePostReplies, useCreatePost, useLikePost, useUnlikePost, useDeletePost, useRepost } from "@/lib/hooks";
+import { usePost, usePostReplies, useCreatePost, useLikePost, useUnlikePost, useDeletePost, useToggleRepost } from "@/lib/hooks";
 import { SocialPost, ThreadComment } from "@/components/social";
 import { useAuthStore } from "@/lib/stores";
 import type { PostWithAuthor } from "@/lib/types/database";
@@ -23,7 +23,7 @@ export default function PostDetailsScreen() {
   const likeMutation = useLikePost();
   const unlikeMutation = useUnlikePost();
   const deleteMutation = useDeletePost();
-  const repostMutation = useRepost();
+  const toggleRepostMutation = useToggleRepost();
 
   const handleReply = async () => {
     if (!replyText.trim() || !id) return;
@@ -49,10 +49,19 @@ export default function PostDetailsScreen() {
   };
 
   const handleLike = (targetPost: PostWithAuthor) => {
+    // For simple reposts of internal posts, like the ORIGINAL post
+    const isSimpleRepostOfInternal = (targetPost.type === 'repost' || targetPost.is_repost) && 
+      targetPost.repost_of_id && 
+      !(targetPost as any).external_id;
+    
+    const likeTargetId = isSimpleRepostOfInternal && targetPost.repost_of_id 
+      ? targetPost.repost_of_id 
+      : targetPost.id;
+    
     if (targetPost.is_liked) {
-      unlikeMutation.mutate(targetPost.id);
+      unlikeMutation.mutate(likeTargetId);
     } else {
-      likeMutation.mutate(targetPost.id);
+      likeMutation.mutate(likeTargetId);
     }
   };
 
@@ -69,10 +78,17 @@ export default function PostDetailsScreen() {
 
   const handleRepost = () => {
     if (!post) return;
-    Alert.alert("Repost", "Share this with your followers?", [
-      { text: "Cancel", style: "cancel" },
-      { text: "Repost", onPress: () => repostMutation.mutate(post) }
-    ]);
+    const isReposted = (post as any).is_reposted_by_me === true;
+    
+    if (isReposted) {
+      // Undo repost
+      toggleRepostMutation.mutate({ post, undo: true });
+    } else {
+      Alert.alert("Repost", "Share this with your followers?", [
+        { text: "Cancel", style: "cancel" },
+        { text: "Repost", onPress: () => toggleRepostMutation.mutate({ post }) }
+      ]);
+    }
   };
 
   const handleMore = () => {
