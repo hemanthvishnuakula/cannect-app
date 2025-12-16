@@ -146,6 +146,86 @@ export function SocialPost({
   // =====================================================
   const interactionsDisabled = isLiveGlobal && !isCannectRepostOfGlobal;
   
+  // =====================================================
+  // RECURSIVE UI GUARD - renderQuotedContent()
+  // Prevents infinite nesting by only rendering ONE level of quotes
+  // =====================================================
+  const renderQuotedContent = () => {
+    // Live Global items don't show nested quotes in the feed
+    if (isLiveGlobal) return null;
+    
+    // Simple reposts swap the display - quote already shown as main content
+    if (isSimpleRepost) return null;
+    
+    // Shadow Repost of external content (Bluesky snapshot)
+    if (isCannectRepostOfGlobal && externalData && post.type === 'quote') {
+      return (
+        <QuoteContainer onPress={() => {}}>
+          <View className="p-3 gap-2">
+            <View className="flex-row items-center gap-2">
+              <Image 
+                source={{ uri: externalData.author?.avatar_url || `https://ui-avatars.com/api/?name=${externalData.author?.display_name || externalData.author?.handle || "U"}&background=3B82F6&color=fff` }} 
+                style={{ width: 20, height: 20, borderRadius: 10 }} 
+              />
+              <Text className="font-bold text-sm text-text-primary" numberOfLines={1}>
+                {externalData.author?.display_name || externalData.author?.handle || "Unknown"}
+              </Text>
+              <View className="flex-row items-center gap-1 bg-blue-500/20 px-1.5 py-0.5 rounded-full">
+                <Globe2 size={10} color="#3B82F6" />
+                <Text className="text-xs text-blue-500 font-medium">Bluesky</Text>
+              </View>
+            </View>
+            <Text className="text-sm text-text-primary" numberOfLines={3}>
+              {externalData.content}
+            </Text>
+          </View>
+        </QuoteContainer>
+      );
+    }
+    
+    // Internal Cannect quote post
+    if (hasValidQuotedPost && displayPost === post) {
+      return (
+        <QuoteContainer onPress={() => {
+          onQuotedPostPress?.(displayPost.quoted_post?.id);
+        }}>
+          <View className="p-3 gap-2">
+            <View className="flex-row items-center gap-2">
+              <Image 
+                source={{ uri: displayPost.quoted_post.author?.avatar_url || `https://ui-avatars.com/api/?name=${displayPost.quoted_post.author?.username || "U"}&background=10B981&color=fff` }} 
+                style={{ width: 20, height: 20, borderRadius: 10 }} 
+              />
+              <Text className="font-bold text-sm text-text-primary" numberOfLines={1}>
+                {displayPost.quoted_post.author?.display_name || displayPost.quoted_post.author?.username || "Unknown"}
+              </Text>
+              {/* CIRCULAR REFERENCE GUARD: Show badge if quoted post is itself a quote */}
+              {displayPost.quoted_post.quoted_post_id && (
+                <Pressable 
+                  onPress={(e) => {
+                    e.stopPropagation?.();
+                    onQuotedPostPress?.(displayPost.quoted_post.id);
+                  }}
+                  className="bg-primary/20 px-1.5 py-0.5 rounded active:bg-primary/30"
+                >
+                  <Text className="text-xs text-primary font-medium">Quote ↗</Text>
+                </Pressable>
+              )}
+              <Text className="text-text-muted text-xs">
+                @{displayPost.quoted_post.author?.username || "user"}
+              </Text>
+            </View>
+            {/* Only show quoted post's own content - NEVER render nested quoted_post */}
+            <Text className="text-sm text-text-primary" numberOfLines={3}>
+              {displayPost.quoted_post.content}
+            </Text>
+          </View>
+        </QuoteContainer>
+      );
+    }
+    
+    return null;
+  };
+
   return (
     <Pressable onPress={onPress}>
       <PostRoot>
@@ -202,50 +282,8 @@ export function SocialPost({
             </Text>
           )}
 
-          {/* 
-            Quote Post Rendering with CIRCULAR REFERENCE GUARD:
-            - Only render ONE level of quoting to keep feed clean
-            - If the quoted post itself quotes another post, we show the quoted post's content
-              but NOT the nested quote (prevents infinite nesting)
-            - Condition: !isSimpleRepost ensures we don't double-render for simple reposts
-          */}
-          {!isSimpleRepost && hasValidQuotedPost && displayPost === post && (
-            <QuoteContainer onPress={() => {
-              onQuotedPostPress?.(displayPost.quoted_post?.id);
-            }}>
-              <View className="p-3 gap-2">
-                <View className="flex-row items-center gap-2">
-                  <Image 
-                    source={{ uri: displayPost.quoted_post.author?.avatar_url || `https://ui-avatars.com/api/?name=${displayPost.quoted_post.author?.username || "U"}&background=10B981&color=fff` }} 
-                    style={{ width: 20, height: 20, borderRadius: 10 }} 
-                  />
-                  <Text className="font-bold text-sm text-text-primary" numberOfLines={1}>
-                    {displayPost.quoted_post.author?.display_name || displayPost.quoted_post.author?.username || "Unknown"}
-                  </Text>
-                  {/* Show if quoted post is itself a quote (but we won't nest deeper) 
-                      INTERACTIVE: Tap to see the full quoted post with its own quote context */}
-                  {displayPost.quoted_post.quoted_post_id && (
-                    <Pressable 
-                      onPress={(e) => {
-                        e.stopPropagation?.();
-                        onQuotedPostPress?.(displayPost.quoted_post.id);
-                      }}
-                      className="bg-primary/20 px-1.5 py-0.5 rounded active:bg-primary/30"
-                    >
-                      <Text className="text-xs text-primary font-medium">Quote ↗</Text>
-                    </Pressable>
-                  )}
-                  <Text className="text-text-muted text-xs">
-                    @{displayPost.quoted_post.author?.username || "user"}
-                  </Text>
-                </View>
-                {/* Only show quoted post's own content - NEVER render nested quoted_post */}
-                <Text className="text-sm text-text-primary" numberOfLines={3}>
-                  {displayPost.quoted_post.content}
-                </Text>
-              </View>
-            </QuoteContainer>
-          )}
+          {/* ✅ THE GUARDED QUOTE CARD - Uses renderQuotedContent() helper */}
+          {renderQuotedContent()}
 
           {/* Media */}
           {!displayPost.quoted_post && displayPost.media_urls && displayPost.media_urls.length > 0 && (
