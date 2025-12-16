@@ -1,41 +1,51 @@
 /**
  * Bluesky Federation Service
- * Fetches public posts from Bluesky without authentication.
- * Maps them to our internal PostWithAuthor format.
+ * Fetches public posts from Bluesky via Supabase Edge Function proxy.
+ * This avoids CORS issues when running in the browser.
  */
+
+const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL || "";
 
 export async function getFederatedPosts(limit = 25) {
   try {
-    // searchPosts with q=* pulls the most recent public posts globally
-    const response = await fetch(
-      `https://public.api.bsky.app/xrpc/app.bsky.feed.searchPosts?q=*&sort=latest&limit=${limit}`
-    );
+    // Use Supabase Edge Function proxy to avoid CORS
+    const proxyUrl = `${SUPABASE_URL}/functions/v1/bluesky-proxy?action=feed&limit=${limit}`;
+    
+    const response = await fetch(proxyUrl, {
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
     
     if (!response.ok) {
-      throw new Error(`Bluesky API error: ${response.status}`);
+      throw new Error(`Proxy error: ${response.status}`);
     }
     
     const data = await response.json();
+    const posts = data.feed || [];
 
-    return data.posts.map((bskyPost: any) => ({
-      id: bskyPost.cid,
-      user_id: bskyPost.author.did,
-      content: bskyPost.record.text,
-      created_at: bskyPost.record.createdAt,
-      media_urls: bskyPost.embed?.images?.map((img: any) => img.fullsize) || [],
-      likes_count: bskyPost.likeCount || 0,
-      reposts_count: bskyPost.repostCount || 0,
-      comments_count: bskyPost.replyCount || 0,
-      is_federated: true, // Internal flag for UI logic
-      type: 'post',
-      author: {
-        id: bskyPost.author.did,
-        username: bskyPost.author.handle,
-        display_name: bskyPost.author.displayName || bskyPost.author.handle,
-        avatar_url: bskyPost.author.avatar,
-        is_verified: false,
-      },
-    }));
+    return posts.map((item: any) => {
+      const bskyPost = item.post;
+      return {
+        id: bskyPost.cid,
+        user_id: bskyPost.author.did,
+        content: bskyPost.record?.text || "",
+        created_at: bskyPost.record?.createdAt || bskyPost.indexedAt,
+        media_urls: bskyPost.embed?.images?.map((img: any) => img.fullsize) || [],
+        likes_count: bskyPost.likeCount || 0,
+        reposts_count: bskyPost.repostCount || 0,
+        comments_count: bskyPost.replyCount || 0,
+        is_federated: true, // Internal flag for UI logic
+        type: 'post',
+        author: {
+          id: bskyPost.author.did,
+          username: bskyPost.author.handle,
+          display_name: bskyPost.author.displayName || bskyPost.author.handle,
+          avatar_url: bskyPost.author.avatar,
+          is_verified: false,
+        },
+      };
+    });
   } catch (error) {
     console.error("Bluesky fetch failed:", error);
     return [];
@@ -47,21 +57,26 @@ export async function getFederatedPosts(limit = 25) {
  */
 export async function searchFederatedPosts(query: string, limit = 25) {
   try {
-    const response = await fetch(
-      `https://public.api.bsky.app/xrpc/app.bsky.feed.searchPosts?q=${encodeURIComponent(query)}&sort=latest&limit=${limit}`
-    );
+    const proxyUrl = `${SUPABASE_URL}/functions/v1/bluesky-proxy?action=search&q=${encodeURIComponent(query)}&limit=${limit}`;
+    
+    const response = await fetch(proxyUrl, {
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
     
     if (!response.ok) {
-      throw new Error(`Bluesky API error: ${response.status}`);
+      throw new Error(`Proxy error: ${response.status}`);
     }
     
     const data = await response.json();
+    const posts = data.posts || [];
 
-    return data.posts.map((bskyPost: any) => ({
+    return posts.map((bskyPost: any) => ({
       id: bskyPost.cid,
       user_id: bskyPost.author.did,
-      content: bskyPost.record.text,
-      created_at: bskyPost.record.createdAt,
+      content: bskyPost.record?.text || "",
+      created_at: bskyPost.record?.createdAt || bskyPost.indexedAt,
       media_urls: bskyPost.embed?.images?.map((img: any) => img.fullsize) || [],
       likes_count: bskyPost.likeCount || 0,
       reposts_count: bskyPost.repostCount || 0,
