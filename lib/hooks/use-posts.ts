@@ -142,13 +142,52 @@ export function usePostReplies(postId: string) {
   return useQuery({
     queryKey: queryKeys.posts.replies(postId),
     queryFn: async () => {
-      const query = supabase
-        .from("posts")
-        .select(`*, author:profiles!user_id(*), likes:likes(count)`)
-        .eq("reply_to_id", postId)
-        .order("created_at", { ascending: true });
-
-      return fetchPostsWithCounts(query, user?.id);
+      // Fetch all replies in the thread recursively
+      // First get direct replies, then get replies to those replies
+      const allReplies: any[] = [];
+      const idsToFetch = [postId];
+      const fetchedIds = new Set<string>();
+      
+      while (idsToFetch.length > 0) {
+        const currentId = idsToFetch.shift()!;
+        if (fetchedIds.has(currentId)) continue;
+        fetchedIds.add(currentId);
+        
+        const { data: replies, error } = await supabase
+          .from("posts")
+          .select(`*, author:profiles!user_id(*), likes:likes(count)`)
+          .eq("reply_to_id", currentId)
+          .order("created_at", { ascending: true });
+        
+        if (error) throw error;
+        if (replies && replies.length > 0) {
+          allReplies.push(...replies);
+          // Add these reply IDs to fetch their nested replies
+          replies.forEach((r: any) => idsToFetch.push(r.id));
+        }
+      }
+      
+      // Enrich with is_liked and counts
+      if (allReplies.length === 0) return [];
+      
+      const postIds = allReplies.map((p: any) => p.id);
+      let likedPostIds = new Set<string>();
+      
+      if (user?.id) {
+        const { data: myLikes } = await supabase
+          .from("likes")
+          .select("post_id")
+          .eq("user_id", user.id)
+          .in("post_id", postIds);
+        myLikes?.forEach((l: any) => likedPostIds.add(l.post_id));
+      }
+      
+      return allReplies.map((post: any) => ({
+        ...post,
+        likes_count: post.likes?.[0]?.count ?? 0,
+        comments_count: post.comments_count ?? 0,
+        is_liked: likedPostIds.has(post.id),
+      }));
     },
     enabled: !!postId,
   });
@@ -166,6 +205,7 @@ export function useUserPosts(userId: string) {
         .from("posts")
         .select(`*, author:profiles!user_id(*), likes:likes(count)`)
         .eq("user_id", userId)
+        .eq("is_reply", false) // Filter out replies - only show original posts and reposts
         .order("created_at", { ascending: false })
         .range(from, to);
 
@@ -316,12 +356,23 @@ export function useCreatePost() {
       }).select(`*, author:profiles!user_id(*)`).single();
       
       if (error) throw error;
-      return data;
+      return { ...data, _replyToId: replyToId }; // Pass through for onSuccess
     },
     onSuccess: (data) => {
-      // Invalidate both feed and the user's own profile to update post_count
+      // Invalidate feed and profile
       queryClient.invalidateQueries({ queryKey: queryKeys.posts.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.profiles.detail(user?.id!) });
+      
+      // If this was a reply, invalidate the thread's replies
+      if (data._replyToId) {
+        // Invalidate replies for the immediate parent
+        queryClient.invalidateQueries({ queryKey: queryKeys.posts.replies(data._replyToId) });
+        // Also need to invalidate the root post's replies since we fetch recursively
+        // The parent post might be a reply itself, so we invalidate all reply queries
+        queryClient.invalidateQueries({ predicate: (query) => 
+          query.queryKey[0] === 'posts' && query.queryKey[1] === 'replies'
+        });
+      }
     },
   });
 }

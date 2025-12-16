@@ -177,6 +177,7 @@ export default function PostDetailsScreen() {
                 is_liked: item.is_liked,
               }}
               isLast={index === (replies?.length ?? 0) - 1}
+              isReply={item.reply_to_id !== id} // Nested reply if parent is not the main post
               onReplyPress={() => startReplyToComment({ id: item.id, author: item.author })}
               onLikePress={() => handleLike(item)}
               onProfilePress={() => router.push(`/user/${item.user_id}` as any)}
