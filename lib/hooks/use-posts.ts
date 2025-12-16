@@ -32,14 +32,15 @@ async function fetchPostsWithCounts(query: any, userId?: string) {
     myLikes?.forEach((l: any) => likedPostIds.add(l.post_id));
   }
 
-  // 4. Get "Reposted By Me" status - check for posts where I reposted these IDs
+  // 4. Get "Reposted By Me" status - check for SIMPLE reposts only (type='repost')
+  // Quote posts (type='quote') don't count as "reposted" for the toggle button
   let repostedPostIds = new Set<string>();
   if (userId) {
     const { data: myReposts } = await supabase
       .from("posts")
       .select("repost_of_id, external_id")
       .eq("user_id", userId)
-      .eq("is_repost", true);
+      .eq("type", "repost");
       
     myReposts?.forEach((r: any) => {
       if (r.repost_of_id) repostedPostIds.add(r.repost_of_id);

@@ -109,9 +109,9 @@ export function SocialPost({
   const isCannectRepostOfGlobal = !!(post as any).external_id && (post as any).external_metadata;
   const externalData = isCannectRepostOfGlobal ? (post as any).external_metadata : null;
   
-  // Handle Simple Repost: Only show repost UI when explicitly marked as a repost
-  // AND there's a valid quoted_post to display. This prevents false positives.
-  const isSimpleRepost = (post.type === 'repost' || post.is_repost === true) && (hasValidQuotedPost || isCannectRepostOfGlobal);
+  // Handle Simple Repost: Only show repost UI when type is explicitly 'repost'
+  // Quote posts (type='quote') have is_repost=true but should NOT show the "reposted" banner
+  const isSimpleRepost = post.type === 'repost' && (hasValidQuotedPost || isCannectRepostOfGlobal);
   
   // For external reposts, construct a virtual quoted_post from the metadata
   const virtualQuotedPost = isCannectRepostOfGlobal ? {
