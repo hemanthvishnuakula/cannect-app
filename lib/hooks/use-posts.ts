@@ -53,13 +53,14 @@ export function useFeed() {
       const to = from + POSTS_PER_PAGE - 1;
 
       // Select with a Count for likes
+      // Note: For quoted_post, we use repost_of_id to get the original post this one is quoting
       const query = supabase
         .from("posts")
         .select(`
           *,
           author:profiles!user_id(*),
           likes:likes(count),
-          quoted_post:posts!repost_of_id(
+          quoted_post:repost_of_id(
             id,
             content,
             created_at,
@@ -89,7 +90,7 @@ export function usePost(postId: string) {
           *,
           author:profiles!user_id(*),
           likes:likes(count),
-          quoted_post:posts!repost_of_id(
+          quoted_post:repost_of_id(
             id,
             content,
             created_at,
