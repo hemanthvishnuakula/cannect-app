@@ -14,9 +14,9 @@ import type { PostWithAuthor } from "@/lib/types/database";
 type FeedTab = "for-you" | "following" | "federated";
 
 const TABS: { id: FeedTab; label: string }[] = [
-  { id: "for-you", label: "For You" },
+  { id: "for-you", label: "Cannect" },
   { id: "following", label: "Following" },
-  { id: "federated", label: "Federated" },
+  { id: "federated", label: "Global" },
 ];
 
 export default function FeedScreen() {
