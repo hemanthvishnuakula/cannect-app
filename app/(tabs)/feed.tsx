@@ -181,52 +181,54 @@ export default function FeedScreen() {
           <ActivityIndicator size="large" color="#10B981" />
         </View>
       ) : (
-        <FlashList
-          data={posts}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <SocialPost 
-              post={item}
-              onLike={() => handleLike(item)}
-              onReply={() => handlePostPress(item.id)}
-              onRepost={() => handleRepost(item)}
-              onProfilePress={() => handleProfilePress(item.user_id)}
-              onPress={() => handlePostPress(item.id)}
-              onMore={() => handleMore(item)}
-              onShare={() => handleShare(item)}
-            />
-          )}
-          estimatedItemSize={200}
-          refreshControl={
-            <RefreshControl 
-              refreshing={isRefetching} 
-              onRefresh={refetch} 
-              tintColor="#10B981"
-              colors={["#10B981"]} // Android
-            />
-          }
-          onEndReached={() => {
-            if (hasNextPage && !isFetchingNextPage) {
-              fetchNextPage();
+        <View style={{ flex: 1 }}>
+          <FlashList
+            data={posts}
+            keyExtractor={(item) => item.id}
+            renderItem={({ item }) => (
+              <SocialPost 
+                post={item}
+                onLike={() => handleLike(item)}
+                onReply={() => handlePostPress(item.id)}
+                onRepost={() => handleRepost(item)}
+                onProfilePress={() => handleProfilePress(item.user_id)}
+                onPress={() => handlePostPress(item.id)}
+                onMore={() => handleMore(item)}
+                onShare={() => handleShare(item)}
+              />
+            )}
+            estimatedItemSize={200}
+            refreshControl={
+              <RefreshControl 
+                refreshing={isRefetching} 
+                onRefresh={refetch} 
+                tintColor="#10B981"
+                colors={["#10B981"]} // Android
+              />
             }
-          }}
-          onEndReachedThreshold={0.5}
-          contentContainerStyle={{ paddingBottom: 20 }}
-          ListEmptyComponent={
-            <View className="flex-1 items-center justify-center pt-24">
-              <Text className="text-text-secondary text-base">
-                No posts yet. Be the first!
-              </Text>
-            </View>
-          }
-          ListFooterComponent={
-            isFetchingNextPage ? (
-              <View className="py-4 items-center">
-                <ActivityIndicator size="small" color="#10B981" />
+            onEndReached={() => {
+              if (hasNextPage && !isFetchingNextPage) {
+                fetchNextPage();
+              }
+            }}
+            onEndReachedThreshold={0.5}
+            contentContainerStyle={{ paddingBottom: 20 }}
+            ListEmptyComponent={
+              <View className="flex-1 items-center justify-center pt-24">
+                <Text className="text-text-secondary text-base">
+                  No posts yet. Be the first!
+                </Text>
               </View>
-            ) : null
-          }
-        />
+            }
+            ListFooterComponent={
+              isFetchingNextPage ? (
+                <View className="py-4 items-center">
+                  <ActivityIndicator size="small" color="#10B981" />
+                </View>
+              ) : null
+            }
+          />
+        </View>
       )}
     </SafeAreaView>
   );
