@@ -5,7 +5,7 @@ import { useRouter } from "expo-router";
 import { Leaf, Globe2 } from "lucide-react-native";
 import { useState, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useFeed, useLikePost, useUnlikePost, useDeletePost, useRepost } from "@/lib/hooks";
+import { useFeed, useLikePost, useUnlikePost, useDeletePost, useRepost, useToggleRepost } from "@/lib/hooks";
 import { useAuthStore } from "@/lib/stores";
 import { SocialPost } from "@/components/social";
 import { getFederatedPosts } from "@/lib/services/bluesky";
@@ -42,6 +42,7 @@ export default function FeedScreen() {
   const unlikeMutation = useUnlikePost();
   const deleteMutation = useDeletePost();
   const repostMutation = useRepost();
+  const toggleRepostMutation = useToggleRepost();
   
   // Flatten infinite query pages into a single array
   const internalPosts = data?.pages?.flat() || [];
@@ -152,6 +153,13 @@ export default function FeedScreen() {
 
   const handleRepost = (post: PostWithAuthor) => {
     const isFederated = (post as any).is_federated === true;
+    const isReposted = (post as any).is_reposted_by_me === true;
+    
+    // If already reposted, UNDO (toggle off) - no menu needed
+    if (isReposted) {
+      toggleRepostMutation.mutate({ post, undo: true });
+      return;
+    }
     
     // For federated posts, we need to pass the data via URL params since they don't have a DB id
     const getQuoteUrl = () => {
@@ -178,8 +186,8 @@ export default function FeedScreen() {
         },
         (buttonIndex) => {
           if (buttonIndex === 1) {
-            // Simple Repost
-            repostMutation.mutate({ originalPost: post, content: "" });
+            // Simple Repost - use toggle mutation
+            toggleRepostMutation.mutate({ post });
           } else if (buttonIndex === 2) {
             // Quote Post - navigate to quote screen
             router.push(getQuoteUrl() as any);
@@ -190,7 +198,7 @@ export default function FeedScreen() {
       // Web: Use custom prompt
       const choice = window.prompt("Enter '1' to Repost, '2' to Quote Post, or Cancel:");
       if (choice === '1') {
-        repostMutation.mutate({ originalPost: post, content: "" });
+        toggleRepostMutation.mutate({ post });
       } else if (choice === '2') {
         router.push(getQuoteUrl() as any);
       }
@@ -200,7 +208,7 @@ export default function FeedScreen() {
         { text: "Cancel", style: "cancel" },
         { 
           text: "Repost", 
-          onPress: () => repostMutation.mutate({ originalPost: post, content: "" })
+          onPress: () => toggleRepostMutation.mutate({ post })
         },
         { 
           text: "Quote Post", 

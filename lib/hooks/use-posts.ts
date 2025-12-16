@@ -7,7 +7,7 @@ import { useAuthStore } from "@/lib/stores";
 const POSTS_PER_PAGE = 20;
 
 /**
- * Helper to enrich posts with "is_liked" and "likes_count"
+ * Helper to enrich posts with "is_liked", "likes_count", and "is_reposted_by_me"
  */
 async function fetchPostsWithCounts(query: any, userId?: string) {
   // 1. Get the raw posts
@@ -32,10 +32,26 @@ async function fetchPostsWithCounts(query: any, userId?: string) {
     myLikes?.forEach((l: any) => likedPostIds.add(l.post_id));
   }
 
-  // 4. Return Enriched Posts
+  // 4. Get "Reposted By Me" status - check for posts where I reposted these IDs
+  let repostedPostIds = new Set<string>();
+  if (userId) {
+    const { data: myReposts } = await supabase
+      .from("posts")
+      .select("repost_of_id, external_id")
+      .eq("user_id", userId)
+      .eq("is_repost", true);
+      
+    myReposts?.forEach((r: any) => {
+      if (r.repost_of_id) repostedPostIds.add(r.repost_of_id);
+      if (r.external_id) repostedPostIds.add(r.external_id);
+    });
+  }
+
+  // 5. Return Enriched Posts
   return posts.map((post: any) => ({
     ...post,
     is_liked: likedPostIds.has(post.id),
+    is_reposted_by_me: repostedPostIds.has(post.id),
     // Get count from the likes aggregate or fallback to column
     likes_count: post.likes?.[0]?.count ?? post.likes_count ?? 0,
   }));
@@ -318,6 +334,107 @@ export function useRepost() {
       if (error) throw error;
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.posts.all });
+    },
+  });
+}
+
+/**
+ * Toggle Repost - Creates or Undoes a simple repost
+ * Green icon = already reposted (click to undo)
+ * Grey icon = not reposted (click to repost)
+ */
+export function useToggleRepost() {
+  const queryClient = useQueryClient();
+  const { user } = useAuthStore();
+
+  return useMutation({
+    mutationFn: async ({ post, undo = false }: { post: any, undo?: boolean }) => {
+      if (!user) throw new Error("Not authenticated");
+
+      if (undo || post.is_reposted_by_me) {
+        // UNDO REPOST: Delete the repost row from our posts table
+        if (post.is_federated) {
+          // For federated posts, match by external_id
+          const { error } = await supabase
+            .from("posts")
+            .delete()
+            .eq("user_id", user.id)
+            .eq("external_id", post.id)
+            .eq("is_repost", true);
+          if (error) throw error;
+        } else {
+          // For internal posts, match by repost_of_id and type="repost" (not quote)
+          const { error } = await supabase
+            .from("posts")
+            .delete()
+            .eq("user_id", user.id)
+            .eq("repost_of_id", post.id)
+            .eq("type", "repost");
+          if (error) throw error;
+        }
+      } else {
+        // CREATE SIMPLE REPOST
+        const insertData: any = {
+          user_id: user.id,
+          content: "",
+          is_repost: true,
+          type: "repost",
+        };
+
+        if (post.is_federated) {
+          insertData.external_id = post.id;
+          insertData.external_source = "bluesky";
+          insertData.external_metadata = {
+            author: post.author,
+            content: post.content,
+            media_urls: post.media_urls,
+            created_at: post.created_at,
+            likes_count: post.likes_count,
+            reposts_count: post.reposts_count,
+            comments_count: post.comments_count,
+          };
+        } else {
+          insertData.repost_of_id = post.id;
+        }
+
+        const { error } = await supabase.from("posts").insert(insertData);
+        if (error) throw error;
+      }
+    },
+    // Optimistic update for instant feedback
+    onMutate: async ({ post, undo }) => {
+      await queryClient.cancelQueries({ queryKey: queryKeys.posts.all });
+      const previousPosts = queryClient.getQueryData(queryKeys.posts.all);
+      
+      const shouldUndo = undo || post.is_reposted_by_me;
+
+      queryClient.setQueryData(queryKeys.posts.all, (old: any) => {
+        if (!old) return old;
+        return {
+          ...old,
+          pages: old.pages.map((page: any) => 
+            page.map((p: any) => 
+              p.id === post.id 
+                ? { 
+                    ...p, 
+                    is_reposted_by_me: !shouldUndo,
+                    reposts_count: shouldUndo 
+                      ? Math.max(0, (p.reposts_count || 0) - 1)
+                      : (p.reposts_count || 0) + 1
+                  }
+                : p
+            )
+          ),
+        };
+      });
+
+      return { previousPosts };
+    },
+    onError: (err, vars, context) => {
+      queryClient.setQueryData(queryKeys.posts.all, context?.previousPosts);
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.posts.all });
     },
   });

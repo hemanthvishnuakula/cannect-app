@@ -255,7 +255,7 @@ export function SocialPost({
           <ActionButton 
             icon={Repeat2} 
             count={isCannectRepostOfGlobal ? post.reposts_count : displayPost?.reposts_count} 
-            active={false} 
+            active={(post as any).is_reposted_by_me === true} 
             activeColor="#10B981"
             onPress={onRepost} // Always enabled - allows shadow reposting
           />
