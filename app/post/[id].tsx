@@ -83,6 +83,15 @@ export default function PostDetailsScreen() {
     if (isReposted) {
       // Undo repost
       toggleRepostMutation.mutate({ post, undo: true });
+      return;
+    }
+    
+    // Platform-aware repost confirmation
+    if (Platform.OS === 'web') {
+      const confirmRepost = window.confirm('Repost this to your followers?');
+      if (confirmRepost) {
+        toggleRepostMutation.mutate({ post });
+      }
     } else {
       Alert.alert("Repost", "Share this with your followers?", [
         { text: "Cancel", style: "cancel" },
@@ -97,6 +106,15 @@ export default function PostDetailsScreen() {
     
     if (isReposted) {
       toggleRepostMutation.mutate({ post: comment, undo: true });
+      return;
+    }
+    
+    // Platform-aware repost confirmation
+    if (Platform.OS === 'web') {
+      const confirmRepost = window.confirm('Repost this comment to your followers?');
+      if (confirmRepost) {
+        toggleRepostMutation.mutate({ post: comment });
+      }
     } else {
       Alert.alert("Repost Comment", "Share this reply with your followers?", [
         { text: "Cancel", style: "cancel" },
