@@ -44,8 +44,9 @@ serve(async (req) => {
         bskyUrl += `&cursor=${encodeURIComponent(cursor)}`;
       }
     } else if (action === "trending") {
-      // Get suggested/trending actors for discovery
-      bskyUrl = `${BSKY_PUBLIC_API}/app.bsky.actor.getSuggestions?limit=${limit}`;
+      // Get popular/trending actors for discovery
+      // getSuggestions requires auth, so we search for popular accounts instead
+      bskyUrl = `${BSKY_PUBLIC_API}/app.bsky.actor.searchActors?q=*&limit=${limit}`;
       if (cursor) {
         bskyUrl += `&cursor=${encodeURIComponent(cursor)}`;
       }
