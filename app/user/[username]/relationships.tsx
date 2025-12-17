@@ -39,12 +39,12 @@ export default function UserRelationshipsScreen() {
           <ActivityIndicator size="large" color="#10B981" />
         </View>
       ) : (
-        <View style={{ flex: 1, minHeight: 2 }}>
+        <View className="flex-1">
           <FlashList
             data={users}
             estimatedItemSize={70}
             keyExtractor={(item) => item.id}
-            contentContainerStyle={{ paddingHorizontal: 16 }}
+            contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 8 }}
             renderItem={({ item }) => (
               <ProfileRow 
                 profile={item} 
