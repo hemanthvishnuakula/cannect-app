@@ -463,6 +463,9 @@ export function useCreatePost() {
       queryClient.invalidateQueries({ queryKey: queryKeys.posts.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.profiles.detail(user?.id!) });
       
+      // ✅ Invalidate user posts for ALL tabs (posts, replies, media) to update profile tabs
+      queryClient.invalidateQueries({ queryKey: queryKeys.posts.byUser(user?.id!) });
+      
       // If this was a reply, invalidate the thread's replies
       if (data._replyToId) {
         // Invalidate replies for the immediate parent
