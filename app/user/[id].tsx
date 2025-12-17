@@ -1,4 +1,4 @@
-import { View, ActivityIndicator, Alert, Pressable, Text } from "react-native";
+import { View, Alert, Text } from "react-native";
 import { useState } from "react";
 import { useLocalSearchParams, Stack, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -7,13 +7,9 @@ import { useProfileByUsername, useUserPosts, useLikePost, useUnlikePost, useTogg
 import { ProfileHeader } from "@/components/social/ProfileHeader";
 import { SocialPost } from "@/components/social/SocialPost";
 import { MediaGridItem } from "@/components/Profile";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/Tabs";
+import { SkeletonProfile, SkeletonCard } from "@/components/ui/Skeleton";
 import { useAuthStore } from "@/lib/stores";
-
-const TABS: { id: ProfileTab; label: string }[] = [
-  { id: 'posts', label: 'Posts' },
-  { id: 'replies', label: 'Replies' },
-  { id: 'media', label: 'Media' },
-];
 
 export default function UserProfileScreen() {
   // The route param is named 'id' but it's actually a username
@@ -59,7 +55,7 @@ export default function UserProfileScreen() {
     }
   };
 
-  // Render the profile header with sticky tab bar
+  // Render the profile header with Platinum Tab Bar
   const renderHeader = () => (
     <View>
       <ProfileHeader 
@@ -67,27 +63,14 @@ export default function UserProfileScreen() {
         isCurrentUser={currentUser?.id === profile!.id} 
       />
       
-      {/* Gold Standard Tab Bar */}
-      <View className="flex-row border-b border-border bg-background">
-        {TABS.map((tab) => {
-          const isActive = activeTab === tab.id;
-          return (
-            <Pressable
-              key={tab.id}
-              onPress={() => setActiveTab(tab.id)}
-              className={`flex-1 items-center py-4 border-b-2 ${
-                isActive ? "border-primary" : "border-transparent"
-              }`}
-            >
-              <Text className={`text-sm font-bold ${
-                isActive ? "text-text" : "text-text-muted"
-              }`}>
-                {tab.label}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
+      {/* ✅ Platinum Tab Bar (RNR) */}
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as ProfileTab)}>
+        <TabsList>
+          <TabsTrigger value="posts">Posts</TabsTrigger>
+          <TabsTrigger value="replies">Replies</TabsTrigger>
+          <TabsTrigger value="media">Media</TabsTrigger>
+        </TabsList>
+      </Tabs>
     </View>
   );
 
@@ -120,11 +103,15 @@ export default function UserProfileScreen() {
     );
   };
 
+  // ✅ Platinum Loading State: Skeleton Shimmer
   if (isProfileLoading || !profile) {
     return (
-      <View className="flex-1 items-center justify-center bg-background">
-        <ActivityIndicator color="#10B981" />
-      </View>
+      <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
+        <Stack.Screen options={{ title: "Profile", headerBackTitle: "Back" }} />
+        <SkeletonProfile />
+        <SkeletonCard />
+        <SkeletonCard />
+      </SafeAreaView>
     );
   }
 

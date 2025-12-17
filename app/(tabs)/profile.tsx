@@ -1,4 +1,4 @@
-import { View, Text, ActivityIndicator, Pressable } from "react-native";
+import { View, Text } from "react-native";
 import { useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { FlashList } from "@shopify/flash-list";
@@ -10,12 +10,8 @@ import { ProfileHeader } from "@/components/social";
 import { SocialPost } from "@/components/social";
 import { MediaGridItem } from "@/components/Profile";
 import { Button } from "@/components/ui/Button";
-
-const TABS: { id: ProfileTab; label: string }[] = [
-  { id: 'posts', label: 'Posts' },
-  { id: 'replies', label: 'Replies' },
-  { id: 'media', label: 'Media' },
-];
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/Tabs";
+import { SkeletonProfile, SkeletonCard } from "@/components/ui/Skeleton";
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -44,7 +40,7 @@ export default function ProfileScreen() {
     router.push("/settings/edit-profile" as any);
   };
 
-  // Render header with sticky tab bar
+  // Render header with Platinum Tab Bar
   const renderHeader = () => (
     <View>
       <ProfileHeader 
@@ -53,27 +49,14 @@ export default function ProfileScreen() {
         onEditPress={handleEditProfile}
       />
       
-      {/* Gold Standard Tab Bar */}
-      <View className="flex-row border-b border-border bg-background">
-        {TABS.map((tab) => {
-          const isActive = activeTab === tab.id;
-          return (
-            <Pressable
-              key={tab.id}
-              onPress={() => setActiveTab(tab.id)}
-              className={`flex-1 items-center py-4 border-b-2 ${
-                isActive ? "border-primary" : "border-transparent"
-              }`}
-            >
-              <Text className={`text-sm font-bold ${
-                isActive ? "text-text" : "text-text-muted"
-              }`}>
-                {tab.label}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
+      {/* ✅ Platinum Tab Bar (RNR) */}
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as ProfileTab)}>
+        <TabsList>
+          <TabsTrigger value="posts">Posts</TabsTrigger>
+          <TabsTrigger value="replies">Replies</TabsTrigger>
+          <TabsTrigger value="media">Media</TabsTrigger>
+        </TabsList>
+      </Tabs>
     </View>
   );
 
@@ -93,12 +76,13 @@ export default function ProfileScreen() {
     );
   };
 
+  // ✅ Platinum Loading State: Skeleton Shimmer
   if (isProfileLoading || !profile) {
     return (
-      <SafeAreaView className="flex-1 bg-background">
-        <View className="flex-1 items-center justify-center">
-          <ActivityIndicator size="large" color="#10B981" />
-        </View>
+      <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
+        <SkeletonProfile />
+        <SkeletonCard />
+        <SkeletonCard />
       </SafeAreaView>
     );
   }
