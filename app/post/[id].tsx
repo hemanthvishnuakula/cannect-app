@@ -152,12 +152,17 @@ export default function PostDetailsScreen() {
     );
   }
 
+  // Gold Standard: "Look through" the repost to see the original content
+  const displayPost = (post as any)?.quoted_post || post;
+  const showViewParent = displayPost?.is_reply && displayPost?.reply_to_id;
+  const isViewingRepost = post?.type === 'repost' && (post as any)?.quoted_post;
+
   return (
     <SafeAreaView className="flex-1 bg-background" edges={["bottom"]}>
       <Stack.Screen 
         options={{ 
           headerShown: true,
-          headerTitle: post.is_reply ? "Reply" : "Thread",
+          headerTitle: displayPost?.is_reply ? "Reply" : "Thread",
           headerStyle: { backgroundColor: "#0A0A0A" },
           headerTintColor: "#FAFAFA",
         }} 
@@ -179,10 +184,10 @@ export default function PostDetailsScreen() {
           // The Main Post is the Header
           ListHeaderComponent={
             <View>
-              {/* Gold Standard: View Parent anchor for upward navigation */}
-              {post.is_reply && post.reply_to_id && (
+              {/* Gold Standard: View Parent anchor - "looks through" reposts to find the original's parent */}
+              {showViewParent && (
                 <Pressable 
-                  onPress={() => router.push(`/post/${post.reply_to_id}` as any)}
+                  onPress={() => router.push(`/post/${displayPost.reply_to_id}` as any)}
                   className="flex-row items-center px-4 py-3 bg-primary/5 border-b border-border active:bg-primary/10"
                 >
                   <ArrowUpLeft size={16} color="#10B981" />
