@@ -23,11 +23,27 @@ if (Platform.OS === "web") {
   ]);
 }
 
-export default function RootLayout() {
-  const { setSession, setLoading } = useAuthStore();
-
+// Inner component that uses hooks requiring QueryClient
+function AppContent() {
   // Initialize push notifications (registers token when authenticated)
   usePushNotifications();
+
+  return (
+    <SafeAreaProvider>
+      <StatusBar style="light" />
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: "#0A0A0A" },
+          animation: "slide_from_right",
+        }}
+      />
+    </SafeAreaProvider>
+  );
+}
+
+export default function RootLayout() {
+  const { setSession, setLoading } = useAuthStore();
 
   useEffect(() => {
     // Single listener to sync Supabase Auth with Zustand Store
@@ -46,16 +62,7 @@ export default function RootLayout() {
   return (
     <QueryClientProvider client={queryClient}>
       <GestureHandlerRootView style={{ flex: 1 }}>
-        <SafeAreaProvider>
-          <StatusBar style="light" />
-          <Stack
-            screenOptions={{
-              headerShown: false,
-              contentStyle: { backgroundColor: "#0A0A0A" },
-              animation: "slide_from_right",
-            }}
-          />
-        </SafeAreaProvider>
+        <AppContent />
       </GestureHandlerRootView>
     </QueryClientProvider>
   );
