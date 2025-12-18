@@ -182,6 +182,9 @@ export function useFollowUser() {
       queryClient.invalidateQueries({ queryKey: queryKeys.follows.isFollowing("current", targetUserId!) });
       queryClient.invalidateQueries({ queryKey: queryKeys.profiles.detail(targetUserId!) });
       queryClient.invalidateQueries({ queryKey: queryKeys.profiles.detail(user?.id!) });
+      // ✅ Invalidate relationships lists so they refresh
+      queryClient.invalidateQueries({ queryKey: ['user-relationships', targetUserId!] });
+      queryClient.invalidateQueries({ queryKey: ['user-relationships', user?.id!] });
     },
   });
 }
@@ -281,6 +284,9 @@ export function useUnfollowUser() {
       queryClient.invalidateQueries({
         queryKey: queryKeys.profiles.detail(user?.id!),
       });
+      // ✅ Invalidate relationships lists so they refresh
+      queryClient.invalidateQueries({ queryKey: ['user-relationships', targetUserId!] });
+      queryClient.invalidateQueries({ queryKey: ['user-relationships', user?.id!] });
     },
   });
 }

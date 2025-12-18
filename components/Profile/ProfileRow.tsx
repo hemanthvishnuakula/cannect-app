@@ -1,12 +1,18 @@
-import { View, Text, Pressable } from "react-native";
+import { View, Text, Pressable, ActivityIndicator, Platform } from "react-native";
 import { router } from "expo-router";
 import { BadgeCheck, Globe2 } from "lucide-react-native";
+import * as Haptics from "expo-haptics";
 import { Avatar } from "@/components/ui/Avatar";
 import { useFollowUser, useUnfollowUser, useIsFollowing } from "@/lib/hooks";
 import type { Profile } from "@/lib/types/database";
 
+// Extended profile type with pre-enriched is_following
+interface EnrichedProfile extends Profile {
+  is_following?: boolean;
+}
+
 interface ProfileRowProps {
-  profile: Profile | any; // Allow federated profiles too
+  profile: EnrichedProfile | any; // Allow federated profiles too
   showFollowButton?: boolean;
   isFederated?: boolean;
   onPress?: () => void;
@@ -18,12 +24,25 @@ export function ProfileRow({
   isFederated = false,
   onPress 
 }: ProfileRowProps) {
-  const { data: isFollowing } = useIsFollowing(isFederated ? "" : profile.id);
+  // ✅ Use pre-enriched is_following if available, fallback to query
+  const hasEnrichedFollowStatus = profile.is_following !== undefined;
+  const { data: queryIsFollowing } = useIsFollowing(
+    hasEnrichedFollowStatus || isFederated ? "" : profile.id
+  );
+  const isFollowing = hasEnrichedFollowStatus ? profile.is_following : queryIsFollowing;
+  
   const followUser = useFollowUser();
   const unfollowUser = useUnfollowUser();
+  const isPending = followUser.isPending || unfollowUser.isPending;
 
   const handleFollow = () => {
     if (isFederated) return; // Can't follow federated users directly
+    
+    // ✅ Haptic feedback on follow/unfollow
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    
     if (isFollowing) {
       unfollowUser.mutate(profile.id);
     } else {
@@ -86,20 +105,27 @@ export function ProfileRow({
       {showFollowButton && !isFederated && (
         <Pressable
           onPress={handleFollow}
-          disabled={followUser.isPending || unfollowUser.isPending}
-          className={`px-4 py-2 rounded-full ${
+          disabled={isPending}
+          className={`px-4 py-2 rounded-full min-w-[90px] items-center justify-center ${
             isFollowing
               ? "border border-border"
               : "bg-primary"
           }`}
         >
-          <Text
-            className={`font-medium ${
-              isFollowing ? "text-text-primary" : "text-white"
-            }`}
-          >
-            {isFollowing ? "Following" : "Follow"}
-          </Text>
+          {isPending ? (
+            <ActivityIndicator 
+              size="small" 
+              color={isFollowing ? "#6B7280" : "white"} 
+            />
+          ) : (
+            <Text
+              className={`font-medium ${
+                isFollowing ? "text-text-primary" : "text-white"
+              }`}
+            >
+              {isFollowing ? "Following" : "Follow"}
+            </Text>
+          )}
         </Pressable>
       )}
 
