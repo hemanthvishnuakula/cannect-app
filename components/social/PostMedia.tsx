@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { View } from 'react-native';
+import { View, Text } from 'react-native';
 import { Image } from 'expo-image';
+import { ImageOff } from 'lucide-react-native';
 import { BLURHASH_PLACEHOLDERS } from '@/lib/utils/assets';
 
 const MAX_HEIGHT = 500; // Prevent ultra-tall images from taking over the screen
@@ -13,6 +14,7 @@ interface PostMediaProps {
 export function PostMedia({ uri, isFederated = false }: PostMediaProps) {
   // Start with a safe 4:3 placeholder ratio (common photo aspect)
   const [aspectRatio, setAspectRatio] = useState(4 / 3);
+  const [hasError, setHasError] = useState(false);
 
   return (
     <View 
@@ -23,21 +25,30 @@ export function PostMedia({ uri, isFederated = false }: PostMediaProps) {
         maxHeight: MAX_HEIGHT 
       }}
     >
-      <Image
-        source={uri}
-        style={{ width: '100%', height: '100%' }}
-        contentFit="cover"
-        placeholder={isFederated ? BLURHASH_PLACEHOLDERS.GLOBAL : BLURHASH_PLACEHOLDERS.NEUTRAL}
-        transition={300}
-        cachePolicy="memory-disk"
-        onLoad={(e) => {
-          const { width, height } = e.source;
-          if (width && height) {
-            // ✅ Diamond Standard: Calculate exact aspect ratio
-            setAspectRatio(width / height);
-          }
-        }}
-      />
+      {hasError ? (
+        // ✅ Error fallback: Show placeholder when image fails to load
+        <View className="flex-1 items-center justify-center bg-surface">
+          <ImageOff size={32} color="#6B7280" />
+          <Text className="text-text-muted text-xs mt-2">Image unavailable</Text>
+        </View>
+      ) : (
+        <Image
+          source={uri}
+          style={{ width: '100%', height: '100%' }}
+          contentFit="cover"
+          placeholder={isFederated ? BLURHASH_PLACEHOLDERS.GLOBAL : BLURHASH_PLACEHOLDERS.NEUTRAL}
+          transition={300}
+          cachePolicy="memory-disk"
+          onLoad={(e) => {
+            const { width, height } = e.source;
+            if (width && height) {
+              // ✅ Diamond Standard: Calculate exact aspect ratio
+              setAspectRatio(width / height);
+            }
+          }}
+          onError={() => setHasError(true)}
+        />
+      )}
     </View>
   );
 }

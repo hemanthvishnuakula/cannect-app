@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, ScrollView, Pressable, NativeSyntheticEvent, NativeScrollEvent, useWindowDimensions } from 'react-native';
+import { View, ScrollView, Pressable, NativeSyntheticEvent, NativeScrollEvent, useWindowDimensions, Platform } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { PostMedia } from './PostMedia';
 import { MediaViewer } from '../ui/MediaViewer';
 
@@ -24,6 +25,9 @@ export function PostCarousel({ mediaUrls, isFederated = false }: PostCarouselPro
   };
 
   const openViewer = (index: number) => {
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
     setViewerIndex(index);
     setViewerOpen(true);
   };

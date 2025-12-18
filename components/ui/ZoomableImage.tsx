@@ -1,5 +1,5 @@
-import React from 'react';
-import { StyleSheet, Dimensions } from 'react-native';
+import React, { useState } from 'react';
+import { StyleSheet, Dimensions, View, Text } from 'react-native';
 import { Image } from 'expo-image';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
@@ -8,6 +8,7 @@ import Animated, {
   withTiming,
   runOnJS,
 } from 'react-native-reanimated';
+import { ImageOff } from 'lucide-react-native';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -21,6 +22,7 @@ interface ZoomableImageProps {
 }
 
 export function ZoomableImage({ uri, onSwipeDown }: ZoomableImageProps) {
+  const [hasError, setHasError] = useState(false);
   // Scale values
   const scale = useSharedValue(1);
   const savedScale = useSharedValue(1);
@@ -53,13 +55,22 @@ export function ZoomableImage({ uri, onSwipeDown }: ZoomableImageProps) {
       savedScale.value = scale.value;
     });
 
-  // Pan gesture for moving zoomed image
+  // Pan gesture for moving zoomed image with boundary limits
   const panGesture = Gesture.Pan()
     .onUpdate((e) => {
       if (scale.value > 1) {
-        // Only allow panning when zoomed in
-        translateX.value = savedTranslateX.value + e.translationX;
-        translateY.value = savedTranslateY.value + e.translationY;
+        // ✅ Fix: Add boundary constraints to prevent panning off-screen
+        const maxTranslateX = (scale.value - 1) * SCREEN_WIDTH / 2;
+        const maxTranslateY = (scale.value - 1) * SCREEN_HEIGHT / 2;
+        
+        translateX.value = Math.max(
+          -maxTranslateX,
+          Math.min(maxTranslateX, savedTranslateX.value + e.translationX)
+        );
+        translateY.value = Math.max(
+          -maxTranslateY,
+          Math.min(maxTranslateY, savedTranslateY.value + e.translationY)
+        );
       } else if (e.translationY > 50 && Math.abs(e.translationX) < 50 && onSwipeDown) {
         // Swipe down to dismiss when not zoomed
         runOnJS(onSwipeDown)();
@@ -103,6 +114,16 @@ export function ZoomableImage({ uri, onSwipeDown }: ZoomableImageProps) {
     ],
   }));
 
+  // ✅ Error fallback for broken images
+  if (hasError) {
+    return (
+      <View style={styles.errorContainer}>
+        <ImageOff size={48} color="#6B7280" />
+        <Text style={styles.errorText}>Image unavailable</Text>
+      </View>
+    );
+  }
+
   return (
     <GestureDetector gesture={composedGesture}>
       <Animated.View style={[styles.container, animatedStyle]}>
@@ -112,6 +133,7 @@ export function ZoomableImage({ uri, onSwipeDown }: ZoomableImageProps) {
           contentFit="contain"
           priority="high"
           transition={300}
+          onError={() => setHasError(true)}
         />
       </Animated.View>
     </GestureDetector>
@@ -129,5 +151,18 @@ const styles = StyleSheet.create({
   image: {
     width: '100%',
     height: '100%',
+  },
+  errorContainer: {
+    flex: 1,
+    width: SCREEN_WIDTH,
+    height: SCREEN_HEIGHT,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+  },
+  errorText: {
+    color: '#6B7280',
+    fontSize: 14,
+    marginTop: 12,
   },
 });

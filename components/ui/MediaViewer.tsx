@@ -45,6 +45,24 @@ export function MediaViewer({
     }
   }, [isVisible, initialIndex]);
 
+  // ✅ Fix: Add keyboard navigation for web accessibility
+  React.useEffect(() => {
+    if (!isVisible) return;
+    
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      } else if (e.key === 'ArrowLeft') {
+        goToPrevious();
+      } else if (e.key === 'ArrowRight') {
+        goToNext();
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isVisible, onClose]);
+
   const handleScroll = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const page = Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH);
     if (page !== currentPage && page >= 0 && page < images.length) {
@@ -53,8 +71,23 @@ export function MediaViewer({
   }, [currentPage, images.length]);
 
   const handleDownload = useCallback(() => {
-    // Web: Open image in new tab for download
-    window.open(images[currentPage], '_blank');
+    // ✅ Fix: Proper download using blob for cross-origin images
+    const imageUrl = images[currentPage];
+    fetch(imageUrl)
+      .then(res => res.blob())
+      .then(blob => {
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `image_${Date.now()}.jpg`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(link.href);
+      })
+      .catch(() => {
+        // Fallback to opening in new tab
+        window.open(imageUrl, '_blank');
+      });
   }, [images, currentPage]);
 
   const goToPrevious = useCallback(() => {

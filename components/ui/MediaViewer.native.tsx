@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import {
   Modal,
   View,
@@ -42,12 +42,17 @@ export function MediaViewer({
   const [currentPage, setCurrentPage] = useState(initialIndex);
   const [isSaving, setIsSaving] = useState(false);
   const [hasSaved, setHasSaved] = useState(false);
+  const pagerRef = useRef<PagerView>(null);
 
-  // Reset state when modal opens with new images
+  // ✅ Fix: Reset state AND scroll PagerView when modal opens
   React.useEffect(() => {
     if (isVisible) {
       setCurrentPage(initialIndex);
       setHasSaved(false);
+      // Programmatically set page for re-opens
+      setTimeout(() => {
+        pagerRef.current?.setPage(initialIndex);
+      }, 50);
     }
   }, [isVisible, initialIndex]);
 
@@ -156,11 +161,13 @@ export function MediaViewer({
 
           {/* Native PagerView with Zoomable Images */}
           <PagerView
+            ref={pagerRef}
             style={styles.pager}
             initialPage={initialIndex}
             onPageSelected={handlePageSelected}
             layoutDirection="ltr"
             overdrag
+            offscreenPageLimit={1}
           >
             {images.map((url, index) => (
               <View key={`${url}-${index}`} style={styles.page}>
