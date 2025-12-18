@@ -93,6 +93,9 @@ export default function PostDetailsScreen() {
 
   const handleRepost = () => {
     if (!post) return;
+    // ✅ Fix: Prevent rapid clicking during mutation
+    if (toggleRepostMutation.isPending) return;
+    
     const isReposted = (post as any).is_reposted_by_me === true;
     
     // If already reposted, UNDO (toggle off) - no menu needed

@@ -160,6 +160,9 @@ export default function FeedScreen() {
   };
 
   const handleRepost = (post: PostWithAuthor) => {
+    // ✅ Fix: Prevent rapid clicking during mutation
+    if (toggleRepostMutation.isPending) return;
+    
     const isFederated = (post as any).is_federated === true;
     const isReposted = (post as any).is_reposted_by_me === true;
     

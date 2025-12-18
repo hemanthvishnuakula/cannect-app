@@ -748,6 +748,10 @@ export function useToggleRepost() {
     onSettled: (data, error, { post }) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.posts.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.posts.detail(post.id) });
+      // ✅ Fix: Invalidate user profile posts (repost appears in their profile)
+      if (user?.id) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.posts.byUser(user.id) });
+      }
     },
   });
 }

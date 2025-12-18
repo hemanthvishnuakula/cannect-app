@@ -319,6 +319,24 @@ export const SocialPost = memo(function SocialPost({
   return (
     <Pressable onPress={onPress}>
       <PostRoot>
+        {/* ✅ Edge Case: Repost of deleted post - show graceful fallback */}
+        {isSimpleRepost && !displayPost && (
+          <View className="p-4 opacity-60">
+            <View className="flex-row items-center gap-2 mb-2">
+              <Repeat2 size={14} color="#6B7280" />
+              <Text className="text-xs font-medium text-text-muted">
+                {post.author?.display_name || post.author?.username} reposted
+              </Text>
+            </View>
+            <Text className="text-text-muted italic">
+              This post is no longer available
+            </Text>
+          </View>
+        )}
+
+        {/* Normal post rendering - only when displayPost exists */}
+        {displayPost && (
+          <>
         {reposter && (
           <View className="flex-row items-center gap-2 mb-2 ml-[52px]">
             <Repeat2 size={14} color="#6B7280" />
@@ -442,6 +460,8 @@ export const SocialPost = memo(function SocialPost({
             accessibilityLabel="Share post"
           />
         </PostFooter>
+          </>
+        )}
       </PostRoot>
     </Pressable>
   );
