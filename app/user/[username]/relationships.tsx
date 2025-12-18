@@ -63,11 +63,11 @@ export default function UserRelationshipsScreen() {
           </Pressable>
         </View>
       ) : (
-        <View className="flex-1" style={{ flex: 1 }}>
+        <View className="flex-1" style={{ flex: 1, minHeight: 2 }}>
           <FlashList
             data={users}
             estimatedItemSize={70}
-            keyExtractor={(item) => item.id}
+            keyExtractor={(item, index) => `${type}-${item.id}-${index}`}
             contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 8 }}
             refreshing={isRefetching}
             onRefresh={handleRefresh}

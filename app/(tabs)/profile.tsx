@@ -137,11 +137,16 @@ export default function ProfileScreen() {
         </TabsList>
       </Tabs>
       
-      <View style={{ flex: 1, minHeight: 100 }}>
+      <View style={{ flex: 1, minHeight: 2 }}>
         <FlashList
           key={activeTab === 'media' ? 'grid' : 'list'}
           data={posts}
-          keyExtractor={(item, index) => `${activeTab}-${item.id}-${index}`}
+          keyExtractor={(item, index) => {
+            // Create truly unique key for reposts vs originals
+            const isRepost = item.type === 'repost' || item.is_repost;
+            const reposterId = isRepost ? item.user_id : null;
+            return `${activeTab}-${item.id}-${reposterId || 'orig'}-${index}`;
+          }}
           numColumns={activeTab === 'media' ? 3 : 1}
           estimatedItemSize={activeTab === 'media' ? 120 : 200}
           renderItem={renderItem}

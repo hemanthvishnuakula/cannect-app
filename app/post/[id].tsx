@@ -219,7 +219,7 @@ export default function PostDetailsScreen() {
         <View style={{ flex: 1, minHeight: 2 }}>
           <FlashList
             data={replies || []}
-            keyExtractor={(item, index) => `${item.id}-${index}`}
+            keyExtractor={(item, index) => `reply-${item.id}-${item.user_id}-${index}`}
             estimatedItemSize={100}
           
           // The Main Post is the Header

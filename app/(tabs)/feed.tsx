@@ -317,10 +317,15 @@ export default function FeedScreen() {
           <ActivityIndicator size="large" color="#10B981" />
         </View>
       ) : (
-        <View style={{ flex: 1, minHeight: 100 }}>
+        <View style={{ flex: 1, minHeight: 2 }}>
           <FlashList
             data={posts}
-            keyExtractor={(item, index) => `${activeTab}-${item.id}-${index}`}
+            keyExtractor={(item, index) => {
+              // Create truly unique key for reposts vs originals
+              const isRepost = item.type === 'repost' || item.is_repost;
+              const reposterId = isRepost ? item.user_id : null;
+              return `${activeTab}-${item.id}-${reposterId || 'orig'}-${index}`;
+            }}
             renderItem={({ item }) => {
               // Live Global = direct from Bluesky API (read-only except repost)
               const isLiveGlobal = (item as any).is_federated === true;

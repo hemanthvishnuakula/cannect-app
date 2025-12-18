@@ -144,7 +144,7 @@ export default function FederatedUserScreen() {
       <View style={{ flex: 1, minHeight: 2 }}>
         <FlashList
           data={posts}
-          keyExtractor={(item: any) => item.id}
+          keyExtractor={(item: any, index) => `federated-${item.id}-${index}`}
           estimatedItemSize={200}
           ListHeaderComponent={() => (
           <View>

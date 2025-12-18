@@ -65,7 +65,7 @@ export default function SearchScreen() {
     return (
       <FlashList
         data={data}
-        keyExtractor={(item: any, index) => `${item.id}-${index}`}
+        keyExtractor={(item: any, index) => `${activeTab}-${item.id}-${index}`}
         estimatedItemSize={72}
         renderItem={({ item }: { item: any }) => (
           <View className="px-4">
