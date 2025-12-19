@@ -12,17 +12,28 @@ export const ASSET_RATIOS = {
 } as const;
 
 /**
- * BlurHash placeholders for different content contexts.
- * These provide immediate visual feedback before images load.
- * Generated with 4x3 component grid for proper validation.
+ * BlurHash placeholder STRINGS for contexts that need raw values.
+ * Use BLURHASH_PLACEHOLDERS for expo-image placeholder prop.
+ */
+export const BLURHASH_STRINGS = {
+  NEUTRAL: "L00000fQfQfQfQfQfQfQfQfQfQfQ",
+  GLOBAL: "L03+~pfQfQfQfQfQfQfQfQfQfQfQ",
+  CANNECT: "L02rs:fQfQfQfQfQfQfQfQfQfQfQ",
+} as const;
+
+/**
+ * BlurHash placeholders for expo-image's placeholder prop.
+ * These are objects ready to be passed directly - no wrapping needed!
+ * 
+ * Usage: <Image placeholder={BLURHASH_PLACEHOLDERS.NEUTRAL} />
  */
 export const BLURHASH_PLACEHOLDERS = {
   // Neutral dark gray gradient - works with any content (matches #0A0A0A background)
-  NEUTRAL: "L00000fQfQfQfQfQfQfQfQfQfQfQ",
+  NEUTRAL: { blurhash: BLURHASH_STRINGS.NEUTRAL },
   // Slightly blue tint - ideal for Global federated content
-  GLOBAL: "L03+~pfQfQfQfQfQfQfQfQfQfQfQ",
+  GLOBAL: { blurhash: BLURHASH_STRINGS.GLOBAL },
   // Greenish tint - matches Cannect branding (#10B981)
-  CANNECT: "L02rs:fQfQfQfQfQfQfQfQfQfQfQ",
+  CANNECT: { blurhash: BLURHASH_STRINGS.CANNECT },
 } as const;
 
 /**
@@ -36,7 +47,8 @@ export function getOptimalRatio(mediaCount: number = 0): number {
 
 /**
  * Selects appropriate blurhash placeholder based on content origin.
+ * Returns object ready for expo-image placeholder prop.
  */
-export function getPlaceholder(isFederated: boolean = false): string {
+export function getPlaceholder(isFederated: boolean = false) {
   return isFederated ? BLURHASH_PLACEHOLDERS.GLOBAL : BLURHASH_PLACEHOLDERS.NEUTRAL;
 }

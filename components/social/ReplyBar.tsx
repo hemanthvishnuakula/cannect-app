@@ -86,7 +86,7 @@ export function ReplyBar({
             source={{ uri: avatarUrl }}
             style={{ width: 32, height: 32, borderRadius: 16 }}
             contentFit="cover"
-            placeholder={{ blurhash: BLURHASH_PLACEHOLDERS.NEUTRAL }}
+            placeholder={BLURHASH_PLACEHOLDERS.NEUTRAL}
             transition={200}
           />
 

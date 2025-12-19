@@ -38,7 +38,7 @@ export function MediaGridItem({ item }: MediaGridItemProps) {
         source={{ uri: firstMedia }} 
         className="w-full h-full bg-surface"
         contentFit="cover"
-        placeholder={{ blurhash: BLURHASH_PLACEHOLDERS.NEUTRAL }}
+        placeholder={BLURHASH_PLACEHOLDERS.NEUTRAL}
         transition={200}
       />
       

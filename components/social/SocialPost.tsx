@@ -269,7 +269,7 @@ export const SocialPost = memo(function SocialPost({
                   style={{ width: "100%", height: "100%" }}
                   contentFit="cover"
                   transition={300}
-                  placeholder={{ blurhash: BLURHASH_PLACEHOLDERS.GLOBAL }}
+                  placeholder={BLURHASH_PLACEHOLDERS.GLOBAL}
                   cachePolicy="memory-disk"
                 />
               </View>
@@ -325,7 +325,7 @@ export const SocialPost = memo(function SocialPost({
                   style={{ width: "100%", height: "100%" }}
                   contentFit="cover"
                   transition={300}
-                  placeholder={{ blurhash: BLURHASH_PLACEHOLDERS.NEUTRAL }}
+                  placeholder={BLURHASH_PLACEHOLDERS.NEUTRAL}
                   cachePolicy="memory-disk"
                 />
               </View>
