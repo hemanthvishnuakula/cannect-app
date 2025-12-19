@@ -412,7 +412,10 @@ export const SocialPost = memo(function SocialPost({
                 </View>
               )}
               <Text className="text-text-muted text-sm flex-shrink" numberOfLines={1}>
-                @{displayPost?.author?.username || "user"} · {formatDistanceToNow(new Date(displayPost?.created_at || new Date()))}
+                @{displayPost?.author?.username || "user"} ·{" "}
+                <Text suppressHydrationWarning>
+                  {formatDistanceToNow(new Date(displayPost?.created_at || new Date()))}
+                </Text>
               </Text>
             </View>
             <Pressable className="p-1 active:opacity-70" onPress={onMore}>

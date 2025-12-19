@@ -120,7 +120,10 @@ export function ThreadComment({
               </Text>
             ) : (
               <Text className="text-text-muted text-xs">
-                · {formatDistanceToNow(new Date(comment.created_at))}
+                ·{" "}
+                <Text suppressHydrationWarning>
+                  {formatDistanceToNow(new Date(comment.created_at))}
+                </Text>
               </Text>
             )}
           </View>
