@@ -32,6 +32,11 @@ const SkeletonBox = memo(function SkeletonBox({
 }) {
   const opacity = useSharedValue(0.3);
 
+  // All hooks must be called unconditionally before any returns
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+  }));
+
   useEffect(() => {
     if (!isMounted) return;
     opacity.value = withDelay(
@@ -42,7 +47,7 @@ const SkeletonBox = memo(function SkeletonBox({
         true
       )
     );
-  }, [isMounted]);
+  }, [isMounted, delay, opacity]);
 
   // Static fallback for SSR/hydration
   if (!isMounted) {
@@ -60,10 +65,6 @@ const SkeletonBox = memo(function SkeletonBox({
       />
     );
   }
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    opacity: opacity.value,
-  }));
 
   return (
     <Animated.View
