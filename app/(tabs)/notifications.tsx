@@ -7,8 +7,6 @@ import * as Haptics from "expo-haptics";
 import { useNotifications, useMarkNotificationsRead } from "@/lib/hooks";
 import { NotificationItem } from "@/components/notifications/NotificationItem";
 
-import { NotificationItem } from "@/components/notifications/NotificationItem";
-
 export default function NotificationsScreen() {
   const { data: notifications, isLoading, isError, refetch, isRefetching } = useNotifications();
   const markAsRead = useMarkNotificationsRead();
