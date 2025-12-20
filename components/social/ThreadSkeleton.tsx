@@ -7,8 +7,8 @@
  * - Reply placeholders
  */
 
-import React, { memo } from 'react';
-import { View, StyleSheet } from 'react-native';
+import React, { memo, useState, useEffect } from 'react';
+import { View, StyleSheet, Platform } from 'react-native';
 import Animated, { 
   useAnimatedStyle, 
   withRepeat, 
@@ -16,22 +16,24 @@ import Animated, {
   useSharedValue,
   withDelay,
 } from 'react-native-reanimated';
-import { useEffect } from 'react';
 
 const SkeletonBox = memo(function SkeletonBox({ 
   width, 
   height, 
   borderRadius = 4,
   delay = 0,
+  isMounted = true,
 }: { 
   width: number | string; 
   height: number; 
   borderRadius?: number;
   delay?: number;
+  isMounted?: boolean;
 }) {
   const opacity = useSharedValue(0.3);
 
   useEffect(() => {
+    if (!isMounted) return;
     opacity.value = withDelay(
       delay,
       withRepeat(
@@ -40,7 +42,24 @@ const SkeletonBox = memo(function SkeletonBox({
         true
       )
     );
-  }, []);
+  }, [isMounted]);
+
+  // Static fallback for SSR/hydration
+  if (!isMounted) {
+    return (
+      <View
+        style={[
+          styles.skeleton,
+          { 
+            width: width as any, 
+            height, 
+            borderRadius,
+            opacity: 0.3,
+          },
+        ]}
+      />
+    );
+  }
 
   const animatedStyle = useAnimatedStyle(() => ({
     opacity: opacity.value,
@@ -61,80 +80,80 @@ const SkeletonBox = memo(function SkeletonBox({
   );
 });
 
-const AncestorSkeleton = memo(function AncestorSkeleton({ delay }: { delay: number }) {
+const AncestorSkeleton = memo(function AncestorSkeleton({ delay, isMounted }: { delay: number; isMounted: boolean }) {
   return (
     <View style={styles.ancestorContainer}>
       <View style={styles.leftColumn}>
-        <SkeletonBox width={32} height={32} borderRadius={16} delay={delay} />
+        <SkeletonBox width={32} height={32} borderRadius={16} delay={delay} isMounted={isMounted} />
         <View style={styles.skeletonLine} />
       </View>
       <View style={styles.ancestorContent}>
         <View style={styles.headerRow}>
-          <SkeletonBox width={100} height={14} delay={delay + 50} />
-          <SkeletonBox width={60} height={12} delay={delay + 100} />
+          <SkeletonBox width={100} height={14} delay={delay + 50} isMounted={isMounted} />
+          <SkeletonBox width={60} height={12} delay={delay + 100} isMounted={isMounted} />
         </View>
-        <SkeletonBox width="90%" height={14} delay={delay + 150} />
+        <SkeletonBox width="90%" height={14} delay={delay + 150} isMounted={isMounted} />
       </View>
     </View>
   );
 });
 
-const FocusedSkeleton = memo(function FocusedSkeleton() {
+const FocusedSkeleton = memo(function FocusedSkeleton({ isMounted }: { isMounted: boolean }) {
   return (
     <View style={styles.focusedContainer}>
       {/* Author */}
       <View style={styles.focusedAuthor}>
-        <SkeletonBox width={48} height={48} borderRadius={24} delay={200} />
+        <SkeletonBox width={48} height={48} borderRadius={24} delay={200} isMounted={isMounted} />
         <View style={styles.focusedAuthorInfo}>
-          <SkeletonBox width={120} height={17} delay={250} />
-          <SkeletonBox width={80} height={14} delay={300} />
+          <SkeletonBox width={120} height={17} delay={250} isMounted={isMounted} />
+          <SkeletonBox width={80} height={14} delay={300} isMounted={isMounted} />
         </View>
       </View>
 
       {/* Content */}
       <View style={styles.focusedContent}>
-        <SkeletonBox width="100%" height={18} delay={350} />
-        <SkeletonBox width="85%" height={18} delay={400} />
-        <SkeletonBox width="60%" height={18} delay={450} />
+        <SkeletonBox width="100%" height={18} delay={350} isMounted={isMounted} />
+        <SkeletonBox width="85%" height={18} delay={400} isMounted={isMounted} />
+        <SkeletonBox width="60%" height={18} delay={450} isMounted={isMounted} />
       </View>
 
       {/* Timestamp */}
       <View style={styles.focusedTimestamp}>
-        <SkeletonBox width={150} height={14} delay={500} />
+        <SkeletonBox width={150} height={14} delay={500} isMounted={isMounted} />
       </View>
 
       {/* Stats */}
       <View style={styles.statsRow}>
-        <SkeletonBox width={60} height={14} delay={550} />
-        <SkeletonBox width={50} height={14} delay={600} />
+        <SkeletonBox width={60} height={14} delay={550} isMounted={isMounted} />
+        <SkeletonBox width={50} height={14} delay={600} isMounted={isMounted} />
       </View>
 
       {/* Actions */}
       <View style={styles.actionRow}>
-        <SkeletonBox width={24} height={24} borderRadius={12} delay={650} />
-        <SkeletonBox width={24} height={24} borderRadius={12} delay={700} />
-        <SkeletonBox width={24} height={24} borderRadius={12} delay={750} />
-        <SkeletonBox width={24} height={24} borderRadius={12} delay={800} />
+        <SkeletonBox width={24} height={24} borderRadius={12} delay={650} isMounted={isMounted} />
+        <SkeletonBox width={24} height={24} borderRadius={12} delay={700} isMounted={isMounted} />
+        <SkeletonBox width={24} height={24} borderRadius={12} delay={750} isMounted={isMounted} />
+        <SkeletonBox width={24} height={24} borderRadius={12} delay={800} isMounted={isMounted} />
       </View>
     </View>
   );
 });
 
-const ReplySkeleton = memo(function ReplySkeleton({ delay }: { delay: number }) {
+const ReplySkeleton = memo(function ReplySkeleton({ delay, isMounted }: { delay: number; isMounted: boolean }) {
   return (
     <View style={styles.replyContainer}>
-      <SkeletonBox width={36} height={36} borderRadius={18} delay={delay} />
+      <SkeletonBox width={36} height={36} borderRadius={18} delay={delay} isMounted={isMounted} />
       <View style={styles.replyContent}>
         <View style={styles.headerRow}>
-          <SkeletonBox width={80} height={14} delay={delay + 50} />
-          <SkeletonBox width={50} height={12} delay={delay + 100} />
+          <SkeletonBox width={80} height={14} delay={delay + 50} isMounted={isMounted} />
+          <SkeletonBox width={50} height={12} delay={delay + 100} isMounted={isMounted} />
         </View>
-        <SkeletonBox width="95%" height={15} delay={delay + 150} />
-        <SkeletonBox width="70%" height={15} delay={delay + 200} />
+        <SkeletonBox width="95%" height={15} delay={delay + 150} isMounted={isMounted} />
+        <SkeletonBox width="70%" height={15} delay={delay + 200} isMounted={isMounted} />
         <View style={styles.replyActions}>
-          <SkeletonBox width={40} height={12} delay={delay + 250} />
-          <SkeletonBox width={40} height={12} delay={delay + 300} />
-          <SkeletonBox width={40} height={12} delay={delay + 350} />
+          <SkeletonBox width={40} height={12} delay={delay + 250} isMounted={isMounted} />
+          <SkeletonBox width={40} height={12} delay={delay + 300} isMounted={isMounted} />
+          <SkeletonBox width={40} height={12} delay={delay + 350} isMounted={isMounted} />
         </View>
       </View>
     </View>
@@ -142,24 +161,33 @@ const ReplySkeleton = memo(function ReplySkeleton({ delay }: { delay: number }) 
 });
 
 export const ThreadSkeleton = memo(function ThreadSkeleton() {
+  // Hydration safety: don't animate until mounted on client
+  const [isMounted, setIsMounted] = useState(Platform.OS !== 'web');
+  
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      setIsMounted(true);
+    }
+  }, []);
+
   return (
     <View style={styles.container}>
       {/* Ancestors */}
-      <AncestorSkeleton delay={0} />
-      <AncestorSkeleton delay={100} />
+      <AncestorSkeleton delay={0} isMounted={isMounted} />
+      <AncestorSkeleton delay={100} isMounted={isMounted} />
 
       {/* Focused Post */}
-      <FocusedSkeleton />
+      <FocusedSkeleton isMounted={isMounted} />
 
       {/* Reply Divider */}
       <View style={styles.divider}>
-        <SkeletonBox width={80} height={15} delay={850} />
+        <SkeletonBox width={80} height={15} delay={850} isMounted={isMounted} />
       </View>
 
       {/* Replies */}
-      <ReplySkeleton delay={900} />
-      <ReplySkeleton delay={1000} />
-      <ReplySkeleton delay={1100} />
+      <ReplySkeleton delay={900} isMounted={isMounted} />
+      <ReplySkeleton delay={1000} isMounted={isMounted} />
+      <ReplySkeleton delay={1100} isMounted={isMounted} />
     </View>
   );
 });

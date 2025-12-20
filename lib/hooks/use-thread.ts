@@ -173,13 +173,15 @@ async function fetchDescendants(
 /**
  * Create a reply in a thread with optimistic update
  */
-export function useThreadReply(threadPostId: string, replyToId?: string) {
+export function useThreadReply(threadPostId: string) {
   const queryClient = useQueryClient();
   const { user } = useAuthStore();
 
   return useMutation({
-    mutationFn: async (content: string) => {
+    mutationFn: async ({ content, parentId }: { content: string; parentId?: string }) => {
       if (!user) throw new Error('Must be logged in');
+
+      const replyToId = parentId || threadPostId;
 
       const { data, error } = await supabase
         .from('posts')
@@ -187,7 +189,7 @@ export function useThreadReply(threadPostId: string, replyToId?: string) {
           user_id: user.id,
           content,
           is_reply: true,
-          reply_to_id: replyToId || threadPostId,
+          reply_to_id: replyToId,
         })
         .select(POST_SELECT)
         .single();
@@ -195,7 +197,9 @@ export function useThreadReply(threadPostId: string, replyToId?: string) {
       if (error) throw error;
       return data;
     },
-    onMutate: async (content) => {
+    onMutate: async ({ content, parentId }) => {
+      const replyToId = parentId || threadPostId;
+      
       // Cancel outgoing refetches
       await queryClient.cancelQueries({ queryKey: ['thread', threadPostId] });
 
@@ -211,7 +215,7 @@ export function useThreadReply(threadPostId: string, replyToId?: string) {
             content,
             created_at: new Date().toISOString(),
             is_reply: true,
-            reply_to_id: replyToId || threadPostId,
+            reply_to_id: replyToId,
             likes_count: 0,
             comments_count: 0,
             reposts_count: 0,
@@ -238,7 +242,7 @@ export function useThreadReply(threadPostId: string, replyToId?: string) {
 
       return { previousThread };
     },
-    onError: (err, content, context) => {
+    onError: (err, variables, context) => {
       // Rollback on error
       if (context?.previousThread) {
         queryClient.setQueryData(['thread', threadPostId], context.previousThread);

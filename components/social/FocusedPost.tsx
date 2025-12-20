@@ -9,7 +9,7 @@
  */
 
 import React, { memo, useCallback } from 'react';
-import { View, Text, Pressable, StyleSheet, Share, Platform } from 'react-native';
+import { View, Text, Pressable, StyleSheet, Platform } from 'react-native';
 import { Image } from 'expo-image';
 import { formatDateTime } from '@/lib/utils/date';
 import * as Haptics from 'expo-haptics';

@@ -13,6 +13,7 @@ import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { FlashList, ListRenderItem } from '@shopify/flash-list';
 import { useRouter } from 'expo-router';
 import type { ThreadView, ThreadListItem } from '@/lib/types/thread';
+import type { PostWithAuthor } from '@/lib/types/database';
 import { flattenThreadToList } from '@/lib/types/thread';
 import { AncestorPost } from './AncestorPost';
 import { FocusedPost } from './FocusedPost';
@@ -21,11 +22,12 @@ import { ThreadReply } from './ThreadReply';
 interface ThreadRibbonProps {
   thread: ThreadView;
   isLoading?: boolean;
-  onLike: (postId: string) => void;
-  onReply: (postId: string) => void;
-  onRepost: (postId: string) => void;
-  onShare: (postId: string) => void;
-  onShowMoreReplies: (parentId: string) => void;
+  onLike: (post: PostWithAuthor) => void;
+  onReply: (post: PostWithAuthor, username?: string) => void;
+  onRepost: (post: PostWithAuthor) => void;
+  onMore?: (post: PostWithAuthor) => void;
+  onLoadMoreReplies?: (parentId: string) => void;
+  isLoadingMoreReplies?: boolean;
   ListHeaderComponent?: React.ReactElement;
   ListFooterComponent?: React.ReactElement;
 }
@@ -36,8 +38,9 @@ export const ThreadRibbon = memo(function ThreadRibbon({
   onLike,
   onReply,
   onRepost,
-  onShare,
-  onShowMoreReplies,
+  onMore,
+  onLoadMoreReplies,
+  isLoadingMoreReplies,
   ListHeaderComponent,
   ListFooterComponent,
 }: ThreadRibbonProps) {
@@ -72,11 +75,12 @@ export const ThreadRibbon = memo(function ThreadRibbon({
         return (
           <FocusedPost
             post={item.post}
-            onLike={() => onLike(item.post.id)}
-            onReply={() => onReply(item.post.id)}
-            onRepost={() => onRepost(item.post.id)}
-            onShare={() => onShare(item.post.id)}
+            onLike={() => onLike(item.post)}
+            onReply={() => onReply(item.post, item.post.author?.username)}
+            onRepost={() => onRepost(item.post)}
+            onShare={() => {}}
             onProfilePress={() => navigateToProfile(item.post.author?.id || '')}
+            onMorePress={onMore ? () => onMore(item.post) : undefined}
           />
         );
 
@@ -95,10 +99,11 @@ export const ThreadRibbon = memo(function ThreadRibbon({
             node={item.node}
             depth={item.depth}
             onPress={() => navigateToPost(item.node.post.id)}
-            onLike={() => onLike(item.node.post.id)}
-            onReply={() => onReply(item.node.post.id)}
+            onLike={() => onLike(item.node.post)}
+            onReply={() => onReply(item.node.post, item.node.post.author?.username)}
+            onRepost={() => onRepost(item.node.post)}
             onProfilePress={() => navigateToProfile(item.node.post.author?.id || '')}
-            onShowMore={() => onShowMoreReplies(item.node.post.id)}
+            onShowMore={() => onLoadMoreReplies?.(item.node.post.id)}
           />
         );
 
@@ -109,7 +114,7 @@ export const ThreadRibbon = memo(function ThreadRibbon({
       default:
         return null;
     }
-  }, [navigateToPost, navigateToProfile, onLike, onReply, onRepost, onShare, onShowMoreReplies]);
+  }, [navigateToPost, navigateToProfile, onLike, onReply, onRepost, onMore, onLoadMoreReplies]);
 
   // Key extractor
   const keyExtractor = useCallback((item: ThreadListItem, index: number) => {

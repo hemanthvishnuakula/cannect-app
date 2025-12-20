@@ -22,6 +22,7 @@ interface ThreadReplyProps {
   onPress: () => void;
   onLike: () => void;
   onReply: () => void;
+  onRepost: () => void;
   onProfilePress: () => void;
   onShowMore: () => void;
 }
@@ -32,6 +33,7 @@ export const ThreadReply = memo(function ThreadReply({
   onPress,
   onLike,
   onReply,
+  onRepost,
   onProfilePress,
   onShowMore,
 }: ThreadReplyProps) {
@@ -57,6 +59,13 @@ export const ThreadReply = memo(function ThreadReply({
     }
     onReply();
   }, [onReply]);
+
+  const handleRepost = useCallback(() => {
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    onRepost();
+  }, [onRepost]);
 
   const handleShowMore = useCallback(() => {
     if (Platform.OS !== 'web') {
@@ -120,10 +129,18 @@ export const ThreadReply = memo(function ThreadReply({
                 <Text style={styles.actionCount}>{post.comments_count}</Text>
               )}
             </Pressable>
-            <Pressable style={styles.actionButton}>
-              <Repeat2 size={16} color="#6B7280" />
+            <Pressable onPress={handleRepost} style={styles.actionButton}>
+              <Repeat2 
+                size={16} 
+                color={(post as any).is_reposted_by_me ? '#10B981' : '#6B7280'} 
+              />
               {post.reposts_count > 0 && (
-                <Text style={styles.actionCount}>{post.reposts_count}</Text>
+                <Text style={[
+                  styles.actionCount, 
+                  (post as any).is_reposted_by_me && styles.repostedCount
+                ]}>
+                  {post.reposts_count}
+                </Text>
               )}
             </Pressable>
             <Pressable onPress={handleLike} style={styles.actionButton}>
@@ -153,6 +170,7 @@ export const ThreadReply = memo(function ThreadReply({
               onPress={onPress}
               onLike={onLike}
               onReply={onReply}
+              onRepost={onRepost}
               onProfilePress={onProfilePress}
               onShowMore={onShowMore}
             />
@@ -268,6 +286,9 @@ const styles = StyleSheet.create({
   },
   likedCount: {
     color: '#EF4444',
+  },
+  repostedCount: {
+    color: '#10B981',
   },
   nestedReplies: {
     // Nested replies container
