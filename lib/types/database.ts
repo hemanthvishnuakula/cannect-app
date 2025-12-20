@@ -94,15 +94,18 @@ export type FederatedPost = Omit<BasePostWithAuthor, 'external_metadata'> & {
 /** Discriminated union for all post types */
 export type PostWithAuthor = LocalPost | FederatedPost;
 
-/** Type guard for federated posts */
-export function isFederatedPost(post: PostWithAuthor): post is FederatedPost {
-  return 'is_federated' in post && post.is_federated === true;
+/** Type guard for federated posts (uses at_uri for federation) */
+export function isFederatedPost(post: PostWithAuthor): boolean {
+  const atUri = (post as any).at_uri;
+  return !!atUri && !atUri.includes('cannect.space');
 }
 
-/** Type guard for posts with external metadata (shadow reposts) */
-export function hasExternalMetadata(post: PostWithAuthor): post is FederatedPost {
-  return 'external_id' in post && 'external_metadata' in post && 
-    post.external_id != null && post.external_metadata != null;
+/** 
+ * @deprecated Legacy type guard - no longer needed with AT Protocol federation
+ * All posts are now interactive regardless of source
+ */
+export function hasExternalMetadata(post: PostWithAuthor): boolean {
+  return false; // Always return false - legacy pattern removed
 }
 
 /** Notification with actor profile */

@@ -1,6 +1,6 @@
 import { View, Text, Pressable, type ViewProps, Platform, Animated, ActivityIndicator } from "react-native";
 import { Image } from "expo-image";
-import { Heart, MessageCircle, Repeat2, Share, MoreHorizontal, BadgeCheck, Globe2, Loader2, RefreshCw } from "lucide-react-native";
+import { Heart, MessageCircle, Repeat2, Share, MoreHorizontal, BadgeCheck, Globe2 } from "lucide-react-native";
 import React, { useRef, memo, useCallback } from "react";
 import * as Haptics from "expo-haptics";
 import { cn } from "@/lib/utils";
@@ -12,7 +12,6 @@ import { VideoPlayer } from "@/components/ui/VideoPlayer";
 import { HydrationSafeText } from "@/components/ui/HydrationSafeText";
 import { useShareSnapshot } from "@/lib/hooks/use-share-snapshot";
 import type { PostWithAuthor } from "@/lib/types/database";
-import { isFederatedPost, hasExternalMetadata } from "@/lib/types/database";
 
 // ---------------------------------------------------------------------------
 // Primitive Slots (Reusable Building Blocks)
@@ -50,8 +49,7 @@ interface ActionButtonProps {
   activeColor?: string;
   onPress?: () => void;
   hapticStyle?: "light" | "medium" | "success";
-  fill?: boolean; // Fill icon when active (for hearts)
-  /** Accessibility label for screen readers */
+  fill?: boolean;
   accessibilityLabel?: string;
 }
 
@@ -59,7 +57,7 @@ const ActionButton = memo(function ActionButton({
   icon: Icon, 
   count, 
   active, 
-  activeColor = "#EF4444", // red-500
+  activeColor = "#EF4444",
   onPress,
   hapticStyle = "light",
   fill = false,
@@ -68,7 +66,6 @@ const ActionButton = memo(function ActionButton({
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
   const handlePress = useCallback(() => {
-    // ✅ Diamond Standard: Haptic feedback
     if (Platform.OS !== "web") {
       if (hapticStyle === "success") {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -79,7 +76,6 @@ const ActionButton = memo(function ActionButton({
       }
     }
 
-    // ✅ Diamond Standard: Micro bounce animation
     Animated.sequence([
       Animated.spring(scaleAnim, {
         toValue: 1.3,
@@ -123,7 +119,7 @@ const ActionButton = memo(function ActionButton({
 });
 
 // ---------------------------------------------------------------------------
-// Main SocialPost Component
+// Main SocialPost Component (CLEANED UP - No Import Logic)
 // ---------------------------------------------------------------------------
 
 interface SocialPostProps {
@@ -136,9 +132,7 @@ interface SocialPostProps {
   onMore?: () => void;
   onShare?: () => void;
   onQuotedPostPress?: (quotedPostId: string) => void;
-  /** Show "Replying to @username" context (useful for Replies tab in profile) */
   showThreadContext?: boolean;
-  /** Callback when reposted_by username is pressed */
   onRepostedByPress?: (username: string) => void;
 }
 
@@ -155,17 +149,12 @@ export const SocialPost = memo(function SocialPost({
   showThreadContext = true,
   onRepostedByPress,
 }: SocialPostProps) {
-  // =====================================================
-  // SHARE SNAPSHOT HOOK
-  // =====================================================
   const { shareRef, captureAndShare, isCapturing, shouldRenderCard } = useShareSnapshot();
 
-  // Handle share - use snapshot share if no custom handler provided
   const handleShare = useCallback(() => {
     if (onShare) {
       onShare();
     } else {
-      // Pass post info for web share fallback
       captureAndShare(
         post.id,
         post.author?.username,
@@ -174,201 +163,98 @@ export const SocialPost = memo(function SocialPost({
     }
   }, [onShare, captureAndShare, post.id, post.author?.username, post.content]);
 
-  // Check if quoted_post is valid (has actual data, not just an empty object from the join)
-  const hasValidQuotedPost = post.quoted_post && post.quoted_post.id && post.quoted_post.content;
+  // Check if post is from federated source (has at_uri from external network)
+  const isFederated = !!(post as any).at_uri && !(post as any).at_uri?.includes('cannect.space');
   
-  // =====================================================
-  // INTERACTION CAPTURE LOGIC (Type-safe)
-  // =====================================================
-  
-  // 1. Live Global = Data fetched directly from Bluesky API (Read-only except repost)
-  const isLiveGlobal = isFederatedPost(post);
-  
-  // 2. Cannect Repost of Global = Data from Supabase referencing Bluesky (FULLY INTERACTIVE!)
-  //    These have a real post.id in our database, so likes/comments work
-  const isCannectRepostOfGlobal = hasExternalMetadata(post);
-  const externalData = isCannectRepostOfGlobal ? post.external_metadata : null;
-  
-  // Store type for later use (avoids TypeScript narrowing issues)
-  const postType = post.type;
-  
-  // Handle Quote Posts: type='quote' with a quoted_post to display
-  // In the federation-ready schema, simple reposts are in a separate table
-  // so we only need to handle quotes here (which have their own UI)
-  const isQuotePost = post.type === 'quote' && (hasValidQuotedPost || isCannectRepostOfGlobal);
-  
-  // For external reposts, construct a virtual quoted_post from the metadata
-  const virtualQuotedPost = isCannectRepostOfGlobal && externalData ? {
-    id: 'external_id' in post ? post.external_id : undefined,
-    content: externalData?.content,
-    created_at: externalData?.created_at,
-    media_urls: externalData?.media_urls,
-    author: externalData?.author,
-    is_federated: true, // Mark as federated for badge display
-  } : null;
-  
-  // In the federation-ready schema, simple reposts are in a separate table
-  // They don't appear as individual posts in the feed anymore
-  // Quotes show both the user's commentary AND the embedded quoted content
-  // Note: displayPost can be the original post, quoted_post, or a virtual object,
-  // so we use `any` here for flexibility with the complex union types
-  const displayPost: any = post;
-  const reposter = null; // Reposted-by context is no longer needed here
+  // Check for valid quoted post
+  const hasQuotedPost = post.type === 'quote' && post.quoted_post?.id && post.quoted_post?.content;
 
-  // Fix: Standardize fallback to match registration logic (using encoded display_name)
-  const displayName = displayPost?.author?.display_name || displayPost?.author?.username || "User";
-  const avatarUrl = displayPost?.author?.avatar_url || 
+  // Author info with fallbacks
+  const displayName = post.author?.display_name || post.author?.username || "User";
+  const avatarUrl = post.author?.avatar_url || 
     `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=10B981&color=fff`;
-  
-  // Check if the displayed content is from an external source (for badge display)
-  const displayedIsFederated = isLiveGlobal || isFederatedPost(displayPost);
-  
-  // =====================================================
-  // INTERACTION RULES:
-  // - isLiveGlobal: Only Repost enabled (to "capture" into Cannect)
-  // - isCannectRepostOfGlobal: ALL interactions enabled (it's OUR data now!)
-  // - Regular posts: ALL interactions enabled
-  // =====================================================
-  const interactionsDisabled = isLiveGlobal && !isCannectRepostOfGlobal;
-  
-  // =====================================================
-  // RECURSIVE UI GUARD - renderQuotedContent()
-  // Prevents infinite nesting by only rendering ONE level of quotes
-  // =====================================================
+
+  // ---------------------------------------------------------------------------
+  // Render Quoted Post (if this is a quote)
+  // ---------------------------------------------------------------------------
   const renderQuotedContent = () => {
-    // Live Global items don't show nested quotes in the feed
-    if (isLiveGlobal) return null;
-    
-    // Shadow Repost of external content (Bluesky snapshot)
-    if (isCannectRepostOfGlobal && externalData && postType === 'quote') {
-      return (
-        <QuoteContainer onPress={() => {}}>
-          <View className="p-3 gap-2">
-            <View className="flex-row items-center gap-2">
-              <Image 
-                source={{ uri: externalData.author?.avatar_url || `https://ui-avatars.com/api/?name=${externalData.author?.display_name || externalData.author?.handle || "U"}&background=3B82F6&color=fff` }} 
-                style={{ width: 20, height: 20, borderRadius: 10 }} 
-              />
-              <Text className="font-bold text-sm text-text-primary" numberOfLines={1}>
-                {externalData.author?.display_name || externalData.author?.handle || "Unknown"}
-              </Text>
+    if (!hasQuotedPost) return null;
+
+    const quoted = post.quoted_post!;
+    const quotedIsFederated = !!(quoted as any).at_uri && !(quoted as any).at_uri?.includes('cannect.space');
+
+    return (
+      <QuoteContainer onPress={() => onQuotedPostPress?.(quoted.id)}>
+        <View className="p-3 gap-2">
+          <View className="flex-row items-center gap-2">
+            <Image 
+              source={{ uri: quoted.author?.avatar_url || `https://ui-avatars.com/api/?name=${quoted.author?.username || "U"}&background=10B981&color=fff` }} 
+              style={{ width: 20, height: 20, borderRadius: 10 }} 
+            />
+            <Text className="font-bold text-sm text-text-primary" numberOfLines={1}>
+              {quoted.author?.display_name || quoted.author?.username || "Unknown"}
+            </Text>
+            {quotedIsFederated && (
               <View className="flex-row items-center gap-1 bg-blue-500/20 px-1.5 py-0.5 rounded-full">
                 <Globe2 size={10} color="#3B82F6" />
-                <Text className="text-xs text-blue-500 font-medium">Global</Text>
-              </View>
-            </View>
-            <Text className="text-sm text-text-primary">
-              {externalData.content}
-            </Text>
-            {/* ✅ ASSET GUARD: Fixed ratio for quoted Global post media */}
-            {externalData.media_urls && externalData.media_urls.length > 0 && (
-              <View 
-                className="mt-2 overflow-hidden rounded-lg border border-border bg-surface-elevated"
-                style={{ aspectRatio: ASSET_RATIOS.VIDEO }}
-              >
-                <Image
-                  source={{ uri: externalData.media_urls[0] }}
-                  style={{ width: "100%", height: "100%" }}
-                  contentFit="cover"
-                  transition={300}
-                  placeholder={BLURHASH_PLACEHOLDERS.GLOBAL}
-                  cachePolicy="memory-disk"
-                />
+                <Text className="text-xs text-blue-500 font-medium">Bluesky</Text>
               </View>
             )}
+            <Text className="text-text-muted text-xs">
+              @{quoted.author?.username || "user"}
+            </Text>
           </View>
-        </QuoteContainer>
-      );
-    }
-    
-    // Internal Cannect quote post
-    if (hasValidQuotedPost && displayPost === post) {
-      return (
-        <QuoteContainer onPress={() => {
-          onQuotedPostPress?.(displayPost.quoted_post?.id);
-        }}>
-          <View className="p-3 gap-2">
-            <View className="flex-row items-center gap-2">
-              <Image 
-                source={{ uri: displayPost.quoted_post.author?.avatar_url || `https://ui-avatars.com/api/?name=${displayPost.quoted_post.author?.username || "U"}&background=10B981&color=fff` }} 
-                style={{ width: 20, height: 20, borderRadius: 10 }} 
+          
+          <Text className="text-sm text-text-primary" numberOfLines={4}>
+            {quoted.content}
+          </Text>
+          
+          {quoted.media_urls && quoted.media_urls.length > 0 && (
+            <View 
+              className="mt-2 overflow-hidden rounded-lg border border-border bg-surface-elevated"
+              style={{ aspectRatio: ASSET_RATIOS.VIDEO }}
+            >
+              <Image
+                source={{ uri: quoted.media_urls[0] }}
+                style={{ width: "100%", height: "100%" }}
+                contentFit="cover"
+                transition={300}
+                placeholder={BLURHASH_PLACEHOLDERS.NEUTRAL}
+                cachePolicy="memory-disk"
               />
-              <Text className="font-bold text-sm text-text-primary" numberOfLines={1}>
-                {displayPost.quoted_post.author?.display_name || displayPost.quoted_post.author?.username || "Unknown"}
-              </Text>
-              {/* CIRCULAR REFERENCE GUARD: Show badge if quoted post is itself a quote */}
-              {displayPost.quoted_post.quoted_post_id && (
-                <Pressable 
-                  onPress={(e) => {
-                    e.stopPropagation?.();
-                    onQuotedPostPress?.(displayPost.quoted_post.id);
-                  }}
-                  className="bg-primary/20 px-1.5 py-0.5 rounded active:bg-primary/30"
-                >
-                  <Text className="text-xs text-primary font-medium">Quote ↗</Text>
-                </Pressable>
-              )}
-              <Text className="text-text-muted text-xs">
-                @{displayPost.quoted_post.author?.username || "user"}
-              </Text>
             </View>
-            {/* Only show quoted post's own content - NEVER render nested quoted_post */}
-            <Text className="text-sm text-text-primary">
-              {displayPost.quoted_post.content}
-            </Text>
-            {/* ✅ ASSET GUARD: Fixed ratio for quoted Cannect post media */}
-            {displayPost.quoted_post.media_urls && displayPost.quoted_post.media_urls.length > 0 && (
-              <View 
-                className="mt-2 overflow-hidden rounded-lg border border-border bg-surface-elevated"
-                style={{ aspectRatio: ASSET_RATIOS.VIDEO }}
-              >
-                <Image
-                  source={{ uri: displayPost.quoted_post.media_urls[0] }}
-                  style={{ width: "100%", height: "100%" }}
-                  contentFit="cover"
-                  transition={300}
-                  placeholder={BLURHASH_PLACEHOLDERS.NEUTRAL}
-                  cachePolicy="memory-disk"
-                />
-              </View>
-            )}
-          </View>
-        </QuoteContainer>
-      );
-    }
-    
-    return null;
+          )}
+        </View>
+      </QuoteContainer>
+    );
   };
 
   return (
     <Pressable onPress={onPress}>
       <PostRoot>
-        {/* Normal post rendering */}
-        {displayPost && (
-          <>
-        {/* ✅ Bluesky-style: "Reposted by @username" header */}
-        {post.reposted_by && (
+        {/* Reposted by header */}
+        {(post as any).reposted_by && (
           <Pressable 
-            onPress={() => onRepostedByPress?.(post.reposted_by?.username || '')}
+            onPress={() => onRepostedByPress?.((post as any).reposted_by?.username || '')}
             className="flex-row items-center mb-2 ml-[52px] active:opacity-70"
           >
             <Repeat2 size={14} color="#6B7280" />
             <Text className="text-xs text-text-muted ml-1.5">
               Reposted by{" "}
               <Text className="font-medium">
-                {post.reposted_by.display_name || `@${post.reposted_by.username}`}
+                {(post as any).reposted_by.display_name || `@${(post as any).reposted_by.username}`}
               </Text>
             </Text>
           </Pressable>
         )}
 
-        {/* ✅ Gold Standard: Thread Context - "Replying to @username" */}
-        {showThreadContext && displayPost?.is_reply && displayPost?.parent_post?.author?.username && (
+        {/* Thread Context */}
+        {showThreadContext && post.is_reply && post.parent_post?.author?.username && (
           <View className="flex-row items-center mb-1 ml-[52px]">
             <Text className="text-xs text-text-muted">
               Replying to{" "}
               <Text className="text-primary font-medium">
-                @{displayPost.parent_post.author.username}
+                @{post.parent_post.author.username}
               </Text>
             </Text>
           </View>
@@ -380,7 +266,7 @@ export const SocialPost = memo(function SocialPost({
             onPress={onProfilePress} 
             className="active:opacity-80"
             accessibilityRole="button"
-            accessibilityLabel={`View ${displayPost?.author?.display_name || displayPost?.author?.username || 'user'}'s profile`}
+            accessibilityLabel={`View ${displayName}'s profile`}
           >
             <Image
               source={{ uri: avatarUrl }}
@@ -390,25 +276,25 @@ export const SocialPost = memo(function SocialPost({
             />
           </Pressable>
 
-          {/* User Info & Meta */}
+          {/* User Info */}
           <View className="flex-1 flex-row items-center justify-between">
             <View className="flex-1 flex-row items-center gap-1.5 overflow-hidden">
               <Text className="font-bold text-base text-text-primary" numberOfLines={1}>
-                {displayPost?.author?.display_name || displayPost?.author?.username || "Unknown"}
+                {displayName}
               </Text>
-              {displayPost?.author?.is_verified && (
+              {post.author?.is_verified && (
                 <BadgeCheck size={16} color="#10B981" fill="#10B981" />
               )}
-              {displayedIsFederated && (
+              {isFederated && (
                 <View className="flex-row items-center gap-1 bg-blue-500/20 px-1.5 py-0.5 rounded-full">
                   <Globe2 size={12} color="#3B82F6" />
-                  <Text className="text-xs text-blue-500 font-medium">Global</Text>
+                  <Text className="text-xs text-blue-500 font-medium">Bluesky</Text>
                 </View>
               )}
               <Text className="text-text-muted text-sm flex-shrink" numberOfLines={1}>
-                @{displayPost?.author?.username || "user"} ·{" "}
+                @{post.author?.username || "user"} ·{" "}
                 <HydrationSafeText fallback="...">
-                  {formatDistanceToNow(new Date(displayPost?.created_at || new Date()))}
+                  {formatDistanceToNow(new Date(post.created_at))}
                 </HydrationSafeText>
               </Text>
             </View>
@@ -419,72 +305,63 @@ export const SocialPost = memo(function SocialPost({
         </PostHeader>
 
         <PostContent>
-          {/* Text Body */}
-          {displayPost.content && (
+          {/* Text Content */}
+          {post.content && (
             <Text className="text-base text-text-primary leading-6">
-              {displayPost.content}
+              {post.content}
             </Text>
           )}
 
-          {/* ✅ THE GUARDED QUOTE CARD - Uses renderQuotedContent() helper */}
+          {/* Quoted Post */}
           {renderQuotedContent()}
 
-          {/* ✅ DIAMOND STANDARD: Dynamic aspect ratio carousel */}
-          {!displayPost.quoted_post && displayPost.media_urls && displayPost.media_urls.length > 0 && (
+          {/* Media Carousel */}
+          {!hasQuotedPost && post.media_urls && post.media_urls.length > 0 && (
             <PostCarousel 
-              mediaUrls={displayPost.media_urls} 
-              isFederated={displayedIsFederated}
+              mediaUrls={post.media_urls} 
+              isFederated={isFederated}
             />
           )}
 
-          {/* ✅ DIAMOND STANDARD: Video Player (Cloudflare Stream HLS) */}
-          {!displayPost.quoted_post && displayPost.video_url && (
+          {/* Video Player */}
+          {!hasQuotedPost && post.video_url && (
             <View className="mt-3">
               <VideoPlayer
-                url={displayPost.video_url}
-                thumbnailUrl={displayPost.video_thumbnail_url || undefined}
+                url={post.video_url}
+                thumbnailUrl={post.video_thumbnail_url || undefined}
                 aspectRatio={16/9}
               />
             </View>
           )}
         </PostContent>
 
+        {/* Action Bar - ALL INTERACTIONS ALWAYS ENABLED */}
         <PostFooter>
-          {/* 
-            INTERACTION CAPTURE:
-            - Live Global posts: Reply/Like disabled, Repost enabled (to capture)
-            - Cannect Reposts of Global: ALL enabled (we own the data now!)
-            - Regular Cannect posts: ALL enabled
-            
-            For Cannect Reposts, interactions are on the CANNECT post.id, 
-            not the original Bluesky CID. This creates "Shadow Threads".
-          */}
           <ActionButton 
             icon={MessageCircle} 
-            count={isCannectRepostOfGlobal ? post.replies_count : displayPost?.replies_count} 
-            onPress={interactionsDisabled ? undefined : onReply}
-            accessibilityLabel={`Reply. ${isCannectRepostOfGlobal ? post.replies_count : displayPost?.replies_count || 0} replies`}
+            count={post.replies_count} 
+            onPress={onReply}
+            accessibilityLabel={`Reply. ${post.replies_count || 0} replies`}
           />
           <ActionButton 
             icon={Repeat2} 
-            count={isCannectRepostOfGlobal ? post.reposts_count : displayPost?.reposts_count} 
+            count={post.reposts_count} 
             active={post.is_reposted_by_me === true} 
             activeColor="#10B981"
-            onPress={onRepost} // Always enabled - allows shadow reposting
+            onPress={onRepost}
             hapticStyle="medium"
-            accessibilityLabel={`${post.is_reposted_by_me ? 'Undo repost' : 'Repost'}. ${isCannectRepostOfGlobal ? post.reposts_count : displayPost?.reposts_count || 0} reposts`}
+            accessibilityLabel={`${post.is_reposted_by_me ? 'Undo repost' : 'Repost'}. ${post.reposts_count || 0} reposts`}
           />
           <ActionButton 
             icon={Heart} 
-            count={isCannectRepostOfGlobal ? post.likes_count : displayPost?.likes_count} 
-            active={isCannectRepostOfGlobal ? post.is_liked : displayPost?.is_liked} 
+            count={post.likes_count} 
+            active={post.is_liked} 
             activeColor="#EF4444"
-            onPress={interactionsDisabled ? undefined : onLike}
+            onPress={onLike}
             hapticStyle="light"
             fill={true}
-            accessibilityLabel={`${(isCannectRepostOfGlobal ? post.is_liked : displayPost?.is_liked) ? 'Unlike' : 'Like'}. ${isCannectRepostOfGlobal ? post.likes_count : displayPost?.likes_count || 0} likes`}
+            accessibilityLabel={`${post.is_liked ? 'Unlike' : 'Like'}. ${post.likes_count || 0} likes`}
           />
-          {/* Share button with loading state */}
           {isCapturing ? (
             <View className="flex-row items-center gap-1.5 p-1 -ml-2">
               <ActivityIndicator size="small" color="#6B7280" />
@@ -497,18 +374,9 @@ export const SocialPost = memo(function SocialPost({
             />
           )}
         </PostFooter>
-          </>
-        )}
       </PostRoot>
 
-      {/* =====================================================
-          GHOST CONTAINER - Off-screen Share Card (Lazy Rendered)
-          Only mounts when user taps Share to reduce memory pressure.
-          This is captured by react-native-view-shot to create
-          a beautiful Instagram Stories-ready share image.
-          collapsable={false} prevents React Native from 
-          optimizing this view away before capture.
-          ===================================================== */}
+      {/* Share Card (off-screen for capture) */}
       {shouldRenderCard && Platform.OS !== 'web' && (
         <View 
           collapsable={false} 
@@ -523,17 +391,14 @@ export const SocialPost = memo(function SocialPost({
     </Pressable>
   );
 }, (prevProps, nextProps) => {
-  // Custom comparison for memo - only re-render when meaningful data changes
   return (
     prevProps.post.id === nextProps.post.id &&
     prevProps.post.is_liked === nextProps.post.is_liked &&
     prevProps.post.is_reposted_by_me === nextProps.post.is_reposted_by_me &&
     prevProps.post.likes_count === nextProps.post.likes_count &&
     prevProps.post.replies_count === nextProps.post.replies_count &&
-    prevProps.post.reposts_count === nextProps.post.reposts_count &&
-    prevProps.post.reposted_by?.id === nextProps.post.reposted_by?.id
+    prevProps.post.reposts_count === nextProps.post.reposts_count
   );
 });
 
-// Export primitives for custom layouts
 export { PostRoot, PostHeader, PostContent, PostFooter, ActionButton };

@@ -3,10 +3,10 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { FlashList } from "@shopify/flash-list";
 import { useRouter } from "expo-router";
 import { Leaf, Globe2 } from "lucide-react-native";
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
-import { useFeed, useFollowingFeed, useLikePost, useUnlikePost, useDeletePost, useRepost, useToggleRepost, useProfile } from "@/lib/hooks";
+import { useFeed, useFollowingFeed, useLikePost, useUnlikePost, useDeletePost, useToggleRepost, useProfile } from "@/lib/hooks";
 import { useAuthStore } from "@/lib/stores";
 import { SocialPost } from "@/components/social";
 import { EmptyFeedState } from "@/components/social/EmptyFeedState";
@@ -52,7 +52,6 @@ export default function FeedScreen() {
   const likeMutation = useLikePost();
   const unlikeMutation = useUnlikePost();
   const deleteMutation = useDeletePost();
-  const repostMutation = useRepost();
   const toggleRepostMutation = useToggleRepost();
   
   // Select the appropriate query based on active tab
@@ -89,7 +88,7 @@ export default function FeedScreen() {
   const hasNextPage = 'hasNextPage' in currentQuery ? currentQuery.hasNextPage : false;
   const isFetchingNextPage = 'isFetchingNextPage' in currentQuery ? currentQuery.isFetchingNextPage : false;
   
-  // ✅ Haptic feedback on pull-to-refresh
+  // Haptic feedback on pull-to-refresh
   const handleRefresh = () => {
     if (Platform.OS !== 'web') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -108,29 +107,35 @@ export default function FeedScreen() {
     );
   }
 
-  const handleLike = (post: PostWithAuthor) => {
-    // For quote posts of internal posts, like the QUOTED post, not the quote wrapper
-    // Simple reposts are now in separate table, so we only check for quotes here
-    const isQuoteOfInternal = post.type === 'quote' && 
-      post.repost_of_id && 
-      !(post as any).external_id;
-    
-    const targetId = isQuoteOfInternal ? post.repost_of_id! : post.id;
-    
+  // ---------------------------------------------------------------------------
+  // Handlers - Clean, no "import" logic needed anymore!
+  // ---------------------------------------------------------------------------
+
+  const handleLike = useCallback((post: PostWithAuthor) => {
+    if (!user) {
+      router.push("/auth/login" as any);
+      return;
+    }
+
     if (post.is_liked) {
-      unlikeMutation.mutate(targetId);
+      unlikeMutation.mutate(post.id);
     } else {
       // Pass AT Protocol fields for federation
       likeMutation.mutate({
-        postId: targetId,
+        postId: post.id,
         subjectUri: (post as any).at_uri,
         subjectCid: (post as any).at_cid,
       });
     }
-  };
+  }, [user, likeMutation, unlikeMutation, router]);
 
-  const handleProfilePress = (username: string) => {
-    router.push(`/user/${username}` as any);
+  const handleProfilePress = (username: string, handle?: string) => {
+    // For federated profiles, navigate to federated profile page
+    if (handle && !handle.includes('cannect.space')) {
+      router.push(`/federated/${encodeURIComponent(handle)}` as any);
+    } else {
+      router.push(`/user/${username}` as any);
+    }
   };
 
   const handlePostPress = (postId: string) => {
@@ -160,7 +165,6 @@ export default function FeedScreen() {
         }
       );
     } else if (Platform.OS === 'web') {
-      // Web: Use browser confirm dialog
       if (isOwnPost) {
         if (window.confirm("Delete this post? This cannot be undone.")) {
           deleteMutation.mutate(post.id);
@@ -171,7 +175,6 @@ export default function FeedScreen() {
         }
       }
     } else {
-      // Android Alert Fallback
       Alert.alert(
         "Manage Post", 
         undefined, 
@@ -203,12 +206,15 @@ export default function FeedScreen() {
     );
   };
 
-  const handleRepost = (post: PostWithAuthor) => {
-    // ✅ Fix: Prevent rapid clicking during mutation
+  const handleRepost = useCallback((post: PostWithAuthor) => {
+    if (!user) {
+      router.push("/auth/login" as any);
+      return;
+    }
+
     if (toggleRepostMutation.isPending) return;
     
-    const isFederated = (post as any).is_federated === true;
-    const isReposted = (post as any).is_reposted_by_me === true;
+    const isReposted = post.is_reposted_by_me === true;
     
     // AT Protocol fields for federation
     const subjectUri = (post as any).at_uri;
@@ -220,25 +226,7 @@ export default function FeedScreen() {
       return;
     }
     
-    // For federated posts, we need to pass the data via URL params since they don't have a DB id
-    const getQuoteUrl = () => {
-      if (isFederated) {
-        // Encode the essential post data for the quote screen
-        const externalData = encodeURIComponent(JSON.stringify({
-          id: post.id,
-          content: post.content,
-          created_at: post.created_at,
-          media_urls: (post as any).media_urls,
-          author: post.author,
-          is_federated: true,
-          at_uri: subjectUri,
-          at_cid: subjectCid,
-        }));
-        return `/compose/quote?externalData=${externalData}`;
-      }
-      return `/compose/quote?postId=${post.id}`;
-    };
-    
+    // Show repost/quote options
     if (Platform.OS === 'ios') {
       ActionSheetIOS.showActionSheetWithOptions(
         {
@@ -247,28 +235,23 @@ export default function FeedScreen() {
         },
         (buttonIndex) => {
           if (buttonIndex === 1) {
-            // Simple Repost - use toggle mutation with AT fields
             toggleRepostMutation.mutate({ post, subjectUri, subjectCid });
           } else if (buttonIndex === 2) {
-            // Quote Post - navigate to quote screen
-            router.push(getQuoteUrl() as any);
+            router.push(`/compose/quote?postId=${post.id}` as any);
           }
         }
       );
     } else if (Platform.OS === 'web') {
-      // Web: Use confirm dialogs for better UX
       const wantsQuote = window.confirm('Quote Post? (OK = Quote with comment, Cancel = Simple Repost)');
       if (wantsQuote) {
-        router.push(getQuoteUrl() as any);
+        router.push(`/compose/quote?postId=${post.id}` as any);
       } else {
-        // Ask if they want to do a simple repost
         const confirmRepost = window.confirm('Repost this without comment?');
         if (confirmRepost) {
           toggleRepostMutation.mutate({ post, subjectUri, subjectCid });
         }
       }
     } else {
-      // Android Alert Fallback
       Alert.alert("Share Post", "How would you like to share this?", [
         { text: "Cancel", style: "cancel" },
         { 
@@ -277,11 +260,11 @@ export default function FeedScreen() {
         },
         { 
           text: "Quote Post", 
-          onPress: () => router.push(getQuoteUrl() as any)
+          onPress: () => router.push(`/compose/quote?postId=${post.id}` as any)
         },
       ]);
     }
-  };
+  }, [user, toggleRepostMutation, router]);
 
   const handleShare = async (post: PostWithAuthor) => {
     try {
@@ -325,7 +308,7 @@ export default function FeedScreen() {
         ))}
       </View>
 
-      {/* Offline Banner - shows when network is unavailable */}
+      {/* Offline Banner */}
       <OfflineBanner />
 
       {isCurrentLoading ? (
@@ -334,52 +317,24 @@ export default function FeedScreen() {
         <View style={{ flex: 1, minHeight: 2 }}>
           <FlashList
             data={posts}
-            keyExtractor={(item, index) => {
-              // Create truly unique key for reposts vs originals
-              const isRepost = item.type === 'repost' || item.is_repost;
-              const reposterId = isRepost ? item.user_id : null;
-              return `${activeTab}-${item.id}-${reposterId || 'orig'}-${index}`;
-            }}
+            keyExtractor={(item, index) => `${activeTab}-${item.id}-${index}`}
             renderItem={({ item }) => {
-              // Live Global = direct from Bluesky API (now fully interactive via federation!)
-              const isLiveGlobal = (item as any).is_federated === true;
-              // Cannect Repost of Global = stored in our DB (fully interactive!)
-              const isCannectRepostOfGlobal = !!(item as any).external_id;
-              
-              // For Cannect reposts, interactions should target the Cannect post.id
-              const interactionId = item.id;
+              const isFederated = (item as any).is_federated === true;
               
               return (
                 <SocialPost 
                   post={item}
                   onLike={() => handleLike(item)}
-                  onReply={() => handlePostPress(interactionId)}
+                  onReply={() => handlePostPress(item.id)}
                   onRepost={() => handleRepost(item)}
                   onProfilePress={() => {
-                    // For live global posts, navigate to federated profile
-                    if (isLiveGlobal && !isCannectRepostOfGlobal) {
-                      const handle = (item as any).author?.handle || (item as any).author?.username;
-                      if (handle) {
-                        router.push(`/federated/${encodeURIComponent(handle)}` as any);
-                      }
-                    } else {
-                      handleProfilePress(item.author?.username || '');
-                    }
+                    const handle = (item as any).author?.handle || (item as any).author?.username;
+                    handleProfilePress(item.author?.username || '', isFederated ? handle : undefined);
                   }}
-                  onRepostedByPress={(username) => {
-                    // Navigate to the reposter's profile
-                    handleProfilePress(username);
-                  }}
-                  onPress={() => handlePostPress(interactionId)}
-                  onQuotedPostPress={(quotedPostId) => {
-                    // Navigate to quoted post detail to see full context
-                    router.push(`/post/${quotedPostId}` as any);
-                  }}
-                  onMore={() => {
-                    if (!isLiveGlobal || isCannectRepostOfGlobal) {
-                      handleMore(item);
-                    }
-                  }}
+                  onRepostedByPress={(username) => handleProfilePress(username)}
+                  onPress={() => handlePostPress(item.id)}
+                  onQuotedPostPress={(quotedPostId) => router.push(`/post/${quotedPostId}` as any)}
+                  onMore={() => handleMore(item)}
                   onShare={() => handleShare(item)}
                 />
               );
@@ -390,11 +345,10 @@ export default function FeedScreen() {
                 refreshing={isCurrentRefetching} 
                 onRefresh={handleRefresh} 
                 tintColor="#10B981"
-                colors={["#10B981"]} // Android
+                colors={["#10B981"]}
               />
             }
             onEndReached={() => {
-              // Only paginate for internal feeds, not federated
               if (activeTab !== "federated" && hasNextPage && !isFetchingNextPage) {
                 fetchNextPage();
               }

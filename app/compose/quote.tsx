@@ -148,7 +148,7 @@ export default function QuotePostScreen() {
           {/* Info text for federated quotes */}
           {isFederated && (
             <Text className="text-text-muted text-xs mt-3 text-center">
-              This will import the post to Cannect. Your followers can like & comment on your quote.
+              Your quote will be visible on both Cannect and Bluesky.
             </Text>
           )}
         </View>
