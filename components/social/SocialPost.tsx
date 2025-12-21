@@ -11,6 +11,7 @@ import { PostShareCard } from "./PostShareCard";
 import { VideoPlayer } from "@/components/ui/VideoPlayer";
 import { HydrationSafeText } from "@/components/ui/HydrationSafeText";
 import { useShareSnapshot } from "@/lib/hooks/use-share-snapshot";
+import { useAuthStore } from "@/lib/stores";
 import type { PostWithAuthor } from "@/lib/types/database";
 
 // ---------------------------------------------------------------------------
@@ -150,6 +151,10 @@ export const SocialPost = memo(function SocialPost({
   onRepostedByPress,
 }: SocialPostProps) {
   const { shareRef, captureAndShare, isCapturing, shouldRenderCard } = useShareSnapshot();
+  const { user } = useAuthStore();
+
+  // Check if the reposter is the current user
+  const isOwnRepost = (post as any).reposted_by?.id === user?.id;
 
   const handleShare = useCallback(() => {
     if (onShare) {
@@ -235,14 +240,14 @@ export const SocialPost = memo(function SocialPost({
         {/* Reposted by header */}
         {(post as any).reposted_by && (
           <Pressable 
-            onPress={() => onRepostedByPress?.((post as any).reposted_by?.username || '')}
+            onPress={() => !isOwnRepost && onRepostedByPress?.((post as any).reposted_by?.username || '')}
             className="flex-row items-center mb-2 ml-[52px] active:opacity-70"
           >
             <Repeat2 size={14} color="#6B7280" />
             <Text className="text-xs text-text-muted ml-1.5">
               Reposted by{" "}
               <Text className="font-medium">
-                {(post as any).reposted_by.display_name || `@${(post as any).reposted_by.username}`}
+                {isOwnRepost ? 'you' : ((post as any).reposted_by.display_name || `@${(post as any).reposted_by.username}`)}
               </Text>
             </Text>
           </Pressable>
