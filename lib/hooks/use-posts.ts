@@ -866,21 +866,31 @@ export function useCreatePost() {
         ? buildAtUri(profile.did, 'app.bsky.feed.post', rkey)
         : null;
       
-      // For replies, we need to determine thread_root_id
+      // For replies, we need to determine thread_root_id and AT Protocol fields
       let threadRootId: string | undefined;
       let threadDepth = 0;
+      let threadParentUri: string | null = null;
+      let threadParentCid: string | null = null;
+      let threadRootUri: string | null = null;
+      let threadRootCid: string | null = null;
       
       if (replyToId) {
-        // Fetch the parent post to get its thread_root_id
+        // Fetch the parent post to get its thread_root_id and AT Protocol fields
         const { data: parentPost } = await supabase
           .from("posts")
-          .select("thread_root_id, thread_depth")
+          .select("thread_root_id, thread_depth, at_uri, at_cid, thread_root_uri, thread_root_cid")
           .eq("id", replyToId)
           .single();
         
         // If parent has a thread_root_id, use it; otherwise parent IS the root
         threadRootId = parentPost?.thread_root_id || replyToId;
         threadDepth = (parentPost?.thread_depth ?? 0) + 1;
+        
+        // AT Protocol threading fields (for federation)
+        threadParentUri = parentPost?.at_uri || null;
+        threadParentCid = parentPost?.at_cid || null;
+        threadRootUri = parentPost?.thread_root_uri || parentPost?.at_uri || null;
+        threadRootCid = parentPost?.thread_root_cid || parentPost?.at_cid || null;
       }
       
       // Clean facets for storage (remove _unresolvedHandle, keep only resolved)
@@ -907,6 +917,11 @@ export function useCreatePost() {
         thread_parent_id: replyToId || null,
         thread_root_id: threadRootId || null,
         thread_depth: threadDepth,
+        // AT Protocol threading fields (for federation)
+        thread_parent_uri: threadParentUri,
+        thread_parent_cid: threadParentCid,
+        thread_root_uri: threadRootUri,
+        thread_root_cid: threadRootCid,
         type: 'post',
         // AT Protocol fields
         rkey,
@@ -988,15 +1003,21 @@ export function useCreateReply(postId: string) {
     mutationFn: async (content: string) => {
       if (!user) throw new Error("Not authenticated");
       
-      // Get parent post's thread info
+      // Get parent post's thread info AND AT Protocol fields for federation
       const { data: parentPost } = await supabase
         .from("posts")
-        .select("thread_root_id, thread_depth")
+        .select("thread_root_id, thread_depth, at_uri, at_cid, thread_root_uri, thread_root_cid")
         .eq("id", postId)
         .single();
       
       const threadRootId = parentPost?.thread_root_id || postId;
       const threadDepth = (parentPost?.thread_depth ?? 0) + 1;
+      
+      // AT Protocol threading fields (for federation)
+      const threadParentUri = parentPost?.at_uri || null;
+      const threadParentCid = parentPost?.at_cid || null;
+      const threadRootUri = parentPost?.thread_root_uri || parentPost?.at_uri || null;
+      const threadRootCid = parentPost?.thread_root_cid || parentPost?.at_cid || null;
       
       const { data, error } = await supabase
         .from("posts")
@@ -1006,6 +1027,11 @@ export function useCreateReply(postId: string) {
           thread_parent_id: postId,
           thread_root_id: threadRootId,
           thread_depth: threadDepth,
+          // AT Protocol threading fields (for federation)
+          thread_parent_uri: threadParentUri,
+          thread_parent_cid: threadParentCid,
+          thread_root_uri: threadRootUri,
+          thread_root_cid: threadRootCid,
           type: "post",
         })
         .select(`*, author:profiles!user_id(*)`)
