@@ -54,7 +54,6 @@ async function seedPosts() {
         user_id: user.id,
         content,
         type: "post",
-        is_reply: false,
       })
       .select("id, content")
       .single();

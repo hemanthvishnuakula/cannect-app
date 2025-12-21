@@ -706,7 +706,6 @@ export function useCreatePost() {
         media_urls: mediaUrls,
         video_url: videoUrl,
         video_thumbnail_url: videoThumbnailUrl,
-        is_reply: !!replyToId,
         thread_parent_id: replyToId || null,
         thread_root_id: threadRootId || null,
         thread_depth: threadDepth,
@@ -809,7 +808,6 @@ export function useCreateReply(postId: string) {
           thread_parent_id: postId,
           thread_root_id: threadRootId,
           thread_depth: threadDepth,
-          is_reply: true,
           type: "post",
         })
         .select(`*, author:profiles!user_id(*)`)
