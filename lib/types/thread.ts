@@ -122,43 +122,16 @@ export function flattenThreadToList(thread: ThreadView): ThreadListItem[] {
     });
   }
   
-  // 4. Flatten descendants with depth tracking
-  function addDescendants(nodes: ThreadNode[], currentDepth: number) {
-    nodes.forEach(node => {
-      items.push({
-        type: 'reply',
-        node,
-        depth: currentDepth,
-      });
-      
-      // Add inline children up to MAX_INLINE_DEPTH
-      if (currentDepth < THREAD_CONFIG.MAX_INLINE_DEPTH && node.children.length > 0) {
-        const visibleChildren = node.children.slice(0, THREAD_CONFIG.INLINE_REPLIES_PER_LEVEL);
-        addDescendants(visibleChildren, currentDepth + 1);
-        
-        // Show "more replies" if there are hidden children
-        const hiddenCount = node.children.length - visibleChildren.length;
-        if (hiddenCount > 0 || node.hasMoreReplies) {
-          items.push({
-            type: 'show-more',
-            parentId: node.post.id,
-            count: hiddenCount + (node.hasMoreReplies ? node.replyCount - node.children.length : 0),
-            depth: currentDepth + 1,
-          });
-        }
-      } else if (node.hasMoreReplies || node.children.length > 0) {
-        // At max depth, show "show more" for any remaining
-        items.push({
-          type: 'show-more',
-          parentId: node.post.id,
-          count: node.replyCount,
-          depth: currentDepth + 1,
-        });
-      }
+  // 4. Add top-level descendants only
+  // NOTE: Nested children are rendered INLINE by ThreadReply component,
+  // so we don't add them to the flat list (that would cause duplicates)
+  thread.descendants.forEach(node => {
+    items.push({
+      type: 'reply',
+      node,
+      depth: 0, // Always depth 0 in flat list; ThreadReply handles nesting
     });
-  }
-  
-  addDescendants(thread.descendants, 0);
+  });
   
   return items;
 }
