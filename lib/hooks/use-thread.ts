@@ -195,15 +195,22 @@ export function useThreadReply(threadPostId: string) {
 
       const threadParentId = parentId || threadPostId;
       
-      // Get parent post's thread info to set thread_root_id
+      // Get parent post's thread info AND AT Protocol fields for federation
       const { data: parentPost } = await supabase
         .from("posts")
-        .select("thread_root_id, thread_depth")
+        .select("thread_root_id, thread_depth, at_uri, at_cid, thread_root_uri, thread_root_cid")
         .eq("id", threadParentId)
         .single();
       
       const threadRootId = parentPost?.thread_root_id || threadParentId;
       const threadDepth = (parentPost?.thread_depth ?? 0) + 1;
+      
+      // Build AT Protocol threading fields (so trigger doesn't need to look them up)
+      const threadParentUri = parentPost?.at_uri || null;
+      const threadParentCid = parentPost?.at_cid || null;
+      // Root is either the stored root or the parent itself (for direct replies to root posts)
+      const threadRootUri = parentPost?.thread_root_uri || parentPost?.at_uri || null;
+      const threadRootCid = parentPost?.thread_root_cid || parentPost?.at_cid || null;
 
       const { data, error } = await supabase
         .from('posts')
@@ -213,6 +220,11 @@ export function useThreadReply(threadPostId: string) {
           thread_parent_id: threadParentId,
           thread_root_id: threadRootId,
           thread_depth: threadDepth,
+          // AT Protocol fields for federation (stored directly, no lookups needed)
+          thread_parent_uri: threadParentUri,
+          thread_parent_cid: threadParentCid,
+          thread_root_uri: threadRootUri,
+          thread_root_cid: threadRootCid,
           type: 'post',
         })
         .select(INSERT_SELECT)
