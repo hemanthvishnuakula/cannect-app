@@ -210,7 +210,6 @@ export function useThreadReply(threadPostId: string) {
         .insert({
           user_id: user.id,
           content,
-          is_reply: true,
           thread_parent_id: threadParentId,
           thread_root_id: threadRootId,
           thread_depth: threadDepth,
