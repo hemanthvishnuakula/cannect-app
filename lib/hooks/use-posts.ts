@@ -1370,7 +1370,34 @@ export function useDeletePost() {
     mutationFn: async (postId: string) => {
       const { error } = await supabase.from("posts").delete().eq("id", postId);
       if (error) throw error;
+      return postId;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.posts.all })
+    onMutate: async (postId) => {
+      // Optimistically remove from feed
+      await queryClient.cancelQueries({ queryKey: queryKeys.posts.all });
+      
+      const previousFeed = queryClient.getQueryData(queryKeys.posts.all);
+      
+      queryClient.setQueryData(queryKeys.posts.all, (old: any) => {
+        if (!old?.pages) return old;
+        return {
+          ...old,
+          pages: old.pages.map((page: any) => 
+            page.filter((post: any) => post.id !== postId)
+          ),
+        };
+      });
+      
+      return { previousFeed };
+    },
+    onError: (err, postId, context) => {
+      // Rollback on error
+      if (context?.previousFeed) {
+        queryClient.setQueryData(queryKeys.posts.all, context.previousFeed);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.posts.all });
+    },
   });
 }

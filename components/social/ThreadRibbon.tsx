@@ -15,6 +15,7 @@ import { useRouter } from 'expo-router';
 import type { ThreadView, ThreadListItem } from '@/lib/types/thread';
 import type { PostWithAuthor } from '@/lib/types/database';
 import { flattenThreadToList } from '@/lib/types/thread';
+import { useAuthStore } from '@/lib/stores';
 import { AncestorPost } from './AncestorPost';
 import { FocusedPost } from './FocusedPost';
 import { ThreadReply } from './ThreadReply';
@@ -45,6 +46,7 @@ export const ThreadRibbon = memo(function ThreadRibbon({
   ListFooterComponent,
 }: ThreadRibbonProps) {
   const router = useRouter();
+  const { user } = useAuthStore();
 
   // Flatten thread into renderable list
   const items = useMemo(() => flattenThreadToList(thread), [thread]);
@@ -104,6 +106,8 @@ export const ThreadRibbon = memo(function ThreadRibbon({
             onRepost={() => onRepost(item.node.post)}
             onProfilePress={() => navigateToProfile(item.node.post.author?.id || '')}
             onShowMore={() => onLoadMoreReplies?.(item.node.post.id)}
+            onMore={onMore ? () => onMore(item.node.post) : undefined}
+            isOwnPost={item.node.post.user_id === user?.id}
           />
         );
 

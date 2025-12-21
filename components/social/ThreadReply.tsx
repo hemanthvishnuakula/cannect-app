@@ -11,7 +11,7 @@ import React, { memo, useCallback } from 'react';
 import { View, Text, Pressable, StyleSheet, Platform } from 'react-native';
 import { Image } from 'expo-image';
 import * as Haptics from 'expo-haptics';
-import { Heart, MessageCircle, Repeat2, ChevronDown } from 'lucide-react-native';
+import { Heart, MessageCircle, Repeat2, ChevronDown, MoreHorizontal } from 'lucide-react-native';
 import type { ThreadNode } from '@/lib/types/thread';
 import { THREAD_RIBBON, THREAD_CONFIG } from '@/lib/types/thread';
 import { formatDistanceToNow } from '@/lib/utils/date';
@@ -25,6 +25,8 @@ interface ThreadReplyProps {
   onRepost: () => void;
   onProfilePress: () => void;
   onShowMore: () => void;
+  onMore?: () => void;
+  isOwnPost?: boolean;
 }
 
 export const ThreadReply = memo(function ThreadReply({
@@ -36,6 +38,8 @@ export const ThreadReply = memo(function ThreadReply({
   onRepost,
   onProfilePress,
   onShowMore,
+  onMore,
+  isOwnPost,
 }: ThreadReplyProps) {
   const { post, children, hasMoreReplies, replyCount } = node;
   
@@ -74,6 +78,13 @@ export const ThreadReply = memo(function ThreadReply({
     onShowMore();
   }, [onShowMore]);
 
+  const handleMore = useCallback(() => {
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    onMore?.();
+  }, [onMore]);
+
   // Calculate remaining replies count
   const visibleChildren = children.slice(0, THREAD_CONFIG.INLINE_REPLIES_PER_LEVEL);
   const hiddenChildrenCount = children.length - visibleChildren.length;
@@ -106,14 +117,21 @@ export const ThreadReply = memo(function ThreadReply({
         <View style={styles.content}>
           {/* Header */}
           <View style={styles.header}>
-            <Text style={[styles.displayName, depth > 0 && styles.smallerText]} numberOfLines={1}>
-              {post.author?.display_name || post.author?.username}
-            </Text>
-            <Text style={styles.handle}>@{post.author?.username}</Text>
-            <Text style={styles.dot}>·</Text>
-            <Text style={styles.time}>
-              {formatDistanceToNow(new Date(post.created_at))}
-            </Text>
+            <View style={styles.headerLeft}>
+              <Text style={[styles.displayName, depth > 0 && styles.smallerText]} numberOfLines={1}>
+                {post.author?.display_name || post.author?.username}
+              </Text>
+              <Text style={styles.handle}>@{post.author?.username}</Text>
+              <Text style={styles.dot}>·</Text>
+              <Text style={styles.time}>
+                {formatDistanceToNow(new Date(post.created_at))}
+              </Text>
+            </View>
+            {isOwnPost && onMore && (
+              <Pressable onPress={handleMore} hitSlop={8} style={styles.moreButton}>
+                <MoreHorizontal size={16} color="#6B7280" />
+              </Pressable>
+            )}
           </View>
 
           {/* Text */}
@@ -173,6 +191,8 @@ export const ThreadReply = memo(function ThreadReply({
               onRepost={onRepost}
               onProfilePress={onProfilePress}
               onShowMore={onShowMore}
+              onMore={onMore}
+              isOwnPost={isOwnPost}
             />
           ))}
           
@@ -239,8 +259,17 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
     flexWrap: 'wrap',
     gap: 4,
+    flex: 1,
+  },
+  moreButton: {
+    padding: 4,
   },
   displayName: {
     fontSize: 14,

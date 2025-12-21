@@ -350,3 +350,51 @@ export function useLoadMoreReplies(threadPostId: string) {
     },
   });
 }
+
+/**
+ * Delete a reply in the thread with optimistic update
+ */
+export function useThreadDelete(threadPostId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (postId: string) => {
+      const { error } = await supabase.from("posts").delete().eq("id", postId);
+      if (error) throw error;
+      return postId;
+    },
+    onMutate: async (postId) => {
+      await queryClient.cancelQueries({ queryKey: ['thread', threadPostId] });
+      
+      const previousThread = queryClient.getQueryData<ThreadView>(['thread', threadPostId]);
+      
+      if (previousThread) {
+        // Recursively remove the deleted post from descendants
+        const removeFromNodes = (nodes: ThreadNode[]): ThreadNode[] => {
+          return nodes
+            .filter(node => node.post.id !== postId)
+            .map(node => ({
+              ...node,
+              children: removeFromNodes(node.children),
+            }));
+        };
+        
+        queryClient.setQueryData<ThreadView>(['thread', threadPostId], {
+          ...previousThread,
+          descendants: removeFromNodes(previousThread.descendants),
+          totalReplies: Math.max(0, previousThread.totalReplies - 1),
+        });
+      }
+      
+      return { previousThread };
+    },
+    onError: (err, postId, context) => {
+      if (context?.previousThread) {
+        queryClient.setQueryData(['thread', threadPostId], context.previousThread);
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['thread', threadPostId] });
+    },
+  });
+}

@@ -5,7 +5,7 @@ import { ArrowLeft } from "lucide-react-native";
 import { useState, useCallback } from "react";
 import * as Haptics from "expo-haptics";
 
-import { useThread, useThreadReply, useLikePost, useUnlikePost, useDeletePost, useToggleRepost } from "@/lib/hooks";
+import { useThread, useThreadReply, useThreadDelete, useLikePost, useUnlikePost, useToggleRepost } from "@/lib/hooks";
 import { ThreadRibbon, ThreadSkeleton, ReplyBar, RepostMenu } from "@/components/social";
 import { useAuthStore } from "@/lib/stores";
 import type { PostWithAuthor } from "@/lib/types/database";
@@ -35,11 +35,11 @@ export default function PostDetailsScreen() {
     }
   };
   
-  // ✅ Use the thread-aware reply hook
+  // ✅ Use the thread-aware hooks
   const createReply = useThreadReply(id ?? "");
+  const deleteReply = useThreadDelete(id ?? "");
   const likeMutation = useLikePost();
   const unlikeMutation = useUnlikePost();
-  const deleteMutation = useDeletePost();
   const toggleRepostMutation = useToggleRepost();
   
   // Repost menu state
@@ -138,11 +138,22 @@ export default function PostDetailsScreen() {
 
   const handleMore = (post: PostWithAuthor) => {
     if (post.user_id !== user?.id) return;
+    
+    // Check if this is the focused post (delete = go back) or a reply (delete in place)
+    const isFocusedPost = post.id === id;
+    
     Alert.alert("Manage Post", "Delete this post?", [
       { text: "Cancel", style: "cancel" },
       { text: "Delete", style: "destructive", onPress: () => {
-        deleteMutation.mutate(post.id);
-        router.back();
+        if (isFocusedPost) {
+          // Deleting the main focused post - go back after delete
+          deleteReply.mutate(post.id, {
+            onSuccess: () => router.back(),
+          });
+        } else {
+          // Deleting a reply - optimistic update, stay on page
+          deleteReply.mutate(post.id);
+        }
       }}
     ]);
   };
