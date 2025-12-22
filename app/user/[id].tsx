@@ -175,7 +175,23 @@ export default function UserProfileScreen() {
   }
 
   // ✅ Error State with Retry
+  // If user not found and username looks like a Bluesky handle, redirect to federated page
   if (isProfileError || !profile) {
+    // Bluesky handles contain a dot (e.g., bsky.app, user.bsky.social)
+    const looksLikeBlueskyHandle = username?.includes('.');
+    
+    if (looksLikeBlueskyHandle) {
+      // Redirect to federated profile page
+      router.replace(`/federated/${username}` as any);
+      return (
+        <SafeAreaView className="flex-1 bg-background items-center justify-center" edges={["top"]}>
+          <Stack.Screen options={{ title: "Profile", headerBackTitle: "Back" }} />
+          <ActivityIndicator size="large" color="#10B981" />
+          <Text className="text-text-muted mt-4">Loading Bluesky profile...</Text>
+        </SafeAreaView>
+      );
+    }
+    
     return (
       <SafeAreaView className="flex-1 bg-background items-center justify-center px-6" edges={["top"]}>
         <Stack.Screen options={{ title: "Profile", headerBackTitle: "Back" }} />
