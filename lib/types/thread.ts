@@ -1,32 +1,27 @@
 /**
- * Thread Types for Post Ribbon Architecture
+ * Thread Types - Bluesky Flat Style
  * 
  * Based on Bluesky's thread model:
  * - Full ancestor chain (root → parent → focused)
- * - Inline nested replies (1-2 levels deep)
- * - Continuous thread lines
+ * - FLAT replies list with "Replying to @user" labels
+ * - No inline nesting - tap a reply to see its thread
  */
 
 import type { PostWithAuthor } from './database';
 
 /**
- * A node in the thread tree
+ * A reply in the flat thread list
+ * Includes parent info for "Replying to @user" display
  */
-export interface ThreadNode {
-  /** The post at this node */
+export interface ThreadReply {
+  /** The reply post */
   post: PostWithAuthor;
-  /** Direct reply children */
-  children: ThreadNode[];
-  /** Depth in the tree (0 = direct reply to focused) */
-  depth: number;
-  /** Whether there are more replies to load */
-  hasMoreReplies: boolean;
-  /** Total reply count for "show more" UI */
-  replyCount: number;
+  /** Username being replied to (for "Replying to @user" label) */
+  replyingTo?: string;
 }
 
 /**
- * Complete thread view structure
+ * Complete thread view structure - Bluesky Flat Style
  */
 export interface ThreadView {
   /** The post being focused on */
@@ -40,16 +35,16 @@ export interface ThreadView {
   ancestors: PostWithAuthor[];
   
   /** 
-   * Direct descendants with optional inline nesting
-   * Each node can have children for inline display
+   * FLAT list of all replies in the thread
+   * Sorted by created_at, includes "Replying to" info
    */
-  descendants: ThreadNode[];
+  replies: ThreadReply[];
   
-  /** Total number of replies to the focused post */
+  /** Total number of replies in thread */
   totalReplies: number;
   
-  /** Whether there are more ancestors than shown (very deep threads) */
-  hasMoreAncestors: boolean;
+  /** Whether there are more replies to load */
+  hasMoreReplies: boolean;
 }
 
 /**
@@ -58,43 +53,36 @@ export interface ThreadView {
 export type ThreadListItem = 
   | { type: 'ancestor'; post: PostWithAuthor; isLast: boolean }
   | { type: 'focused'; post: PostWithAuthor }
-  | { type: 'reply'; node: ThreadNode; depth: number }
-  | { type: 'show-more'; parentId: string; count: number; depth: number }
-  | { type: 'reply-divider'; count: number };
+  | { type: 'reply'; reply: ThreadReply }
+  | { type: 'reply-divider'; count: number }
+  | { type: 'load-more'; count: number };
 
 /**
  * Thread configuration constants
  */
 export const THREAD_CONFIG = {
-  /** Maximum levels of nested replies to show inline */
-  MAX_INLINE_DEPTH: 2,
   /** Number of ancestors to show before "show more" */
   ANCESTOR_PREVIEW_COUNT: 5,
-  /** Initial number of replies to load */
-  INITIAL_REPLIES_COUNT: 10,
-  /** Number of nested replies to show inline per level */
-  INLINE_REPLIES_PER_LEVEL: 2,
+  /** Number of replies per page */
+  REPLIES_PER_PAGE: 20,
 } as const;
 
 /**
- * Thread ribbon design tokens
+ * Thread design tokens
  */
-export const THREAD_RIBBON = {
+export const THREAD_DESIGN = {
   /** Avatar sizes by context */
   AVATAR_SIZES: {
     ancestor: 32,
     focused: 48,
-    reply: 36,
-    nested: 28,
+    reply: 40,
   },
   /** Thread connector line width */
   LINE_WIDTH: 2,
-  /** Indentation per nesting level */
-  INDENT_PER_LEVEL: 44,
 } as const;
 
 /**
- * Flatten a ThreadView into a list of renderable items
+ * Flatten a ThreadView into a list of renderable items - Bluesky Flat Style
  */
 export function flattenThreadToList(thread: ThreadView): ThreadListItem[] {
   const items: ThreadListItem[] = [];
@@ -115,23 +103,28 @@ export function flattenThreadToList(thread: ThreadView): ThreadListItem[] {
   });
   
   // 3. Add reply divider if there are replies
-  if (thread.descendants.length > 0) {
+  if (thread.replies.length > 0) {
     items.push({
       type: 'reply-divider',
       count: thread.totalReplies,
     });
   }
   
-  // 4. Add top-level descendants only
-  // NOTE: Nested children are rendered INLINE by ThreadReply component,
-  // so we don't add them to the flat list (that would cause duplicates)
-  thread.descendants.forEach(node => {
+  // 4. Add all replies flat (no nesting)
+  thread.replies.forEach(reply => {
     items.push({
       type: 'reply',
-      node,
-      depth: 0, // Always depth 0 in flat list; ThreadReply handles nesting
+      reply,
     });
   });
+  
+  // 5. Add load more if there are more replies
+  if (thread.hasMoreReplies) {
+    items.push({
+      type: 'load-more',
+      count: thread.totalReplies - thread.replies.length,
+    });
+  }
   
   return items;
 }

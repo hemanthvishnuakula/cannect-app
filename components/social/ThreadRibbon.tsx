@@ -1,18 +1,18 @@
 /**
- * ThreadRibbon - The main thread view orchestrator
+ * ThreadRibbon - Bluesky Flat Style Thread View
  * 
- * Renders the complete Post Ribbon pattern:
+ * Renders the complete thread in Bluesky's flat style:
  * - Ancestor chain (root → parent → focused)
  * - Hero focused post
  * - Reply divider
- * - Nested descendants
+ * - FLAT list of replies with "Replying to @user" labels
  */
 
 import React, { memo, useMemo, useCallback } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, Pressable } from 'react-native';
 import { FlashList, ListRenderItem } from '@shopify/flash-list';
 import { useRouter } from 'expo-router';
-import type { ThreadView, ThreadListItem } from '@/lib/types/thread';
+import type { ThreadView, ThreadListItem, ThreadReply as ThreadReplyType } from '@/lib/types/thread';
 import type { PostWithAuthor } from '@/lib/types/database';
 import { flattenThreadToList } from '@/lib/types/thread';
 import { useAuthStore } from '@/lib/stores';
@@ -27,8 +27,8 @@ interface ThreadRibbonProps {
   onReply: (post: PostWithAuthor, username?: string) => void;
   onRepost: (post: PostWithAuthor) => void;
   onMore?: (post: PostWithAuthor) => void;
-  onLoadMoreReplies?: (parentId: string) => void;
-  isLoadingMoreReplies?: boolean;
+  onLoadMore?: () => void;
+  isLoadingMore?: boolean;
   ListHeaderComponent?: React.ReactElement;
   ListFooterComponent?: React.ReactElement;
 }
@@ -40,8 +40,8 @@ export const ThreadRibbon = memo(function ThreadRibbon({
   onReply,
   onRepost,
   onMore,
-  onLoadMoreReplies,
-  isLoadingMoreReplies,
+  onLoadMore,
+  isLoadingMore,
   ListHeaderComponent,
   ListFooterComponent,
 }: ThreadRibbonProps) {
@@ -53,11 +53,11 @@ export const ThreadRibbon = memo(function ThreadRibbon({
 
   // Navigation handlers
   const navigateToPost = useCallback((postId: string) => {
-    router.push(`/post/${postId}`);
+    router.push({ pathname: '/post/[id]', params: { id: postId } });
   }, [router]);
 
   const navigateToProfile = useCallback((userId: string) => {
-    router.push(`/user/${userId}`);
+    router.push({ pathname: '/user/[id]', params: { id: userId } });
   }, [router]);
 
   // Render individual items
@@ -98,27 +98,38 @@ export const ThreadRibbon = memo(function ThreadRibbon({
       case 'reply':
         return (
           <ThreadReply
-            node={item.node}
-            depth={item.depth}
-            onPress={() => navigateToPost(item.node.post.id)}
-            onLike={() => onLike(item.node.post)}
-            onReply={() => onReply(item.node.post, item.node.post.author?.username)}
-            onRepost={() => onRepost(item.node.post)}
-            onProfilePress={() => navigateToProfile(item.node.post.author?.id || '')}
-            onShowMore={() => onLoadMoreReplies?.(item.node.post.id)}
-            onMore={onMore ? () => onMore(item.node.post) : undefined}
-            isOwnPost={item.node.post.user_id === user?.id}
+            reply={item.reply}
+            onPress={() => navigateToPost(item.reply.post.id)}
+            onLike={() => onLike(item.reply.post)}
+            onReply={() => onReply(item.reply.post, item.reply.post.author?.username)}
+            onRepost={() => onRepost(item.reply.post)}
+            onProfilePress={() => navigateToProfile(item.reply.post.author?.id || '')}
+            onMore={onMore ? () => onMore(item.reply.post) : undefined}
+            isOwnPost={item.reply.post.user_id === user?.id}
           />
         );
 
-      case 'show-more':
-        // This is handled inside ThreadReply for now
-        return null;
+      case 'load-more':
+        return (
+          <Pressable
+            onPress={onLoadMore}
+            style={styles.loadMoreButton}
+            disabled={isLoadingMore}
+          >
+            {isLoadingMore ? (
+              <ActivityIndicator size="small" color="#10B981" />
+            ) : (
+              <Text style={styles.loadMoreText}>
+                Load {item.count} more {item.count === 1 ? 'reply' : 'replies'}
+              </Text>
+            )}
+          </Pressable>
+        );
 
       default:
         return null;
     }
-  }, [navigateToPost, navigateToProfile, onLike, onReply, onRepost, onMore, onLoadMoreReplies]);
+  }, [navigateToPost, navigateToProfile, onLike, onReply, onRepost, onMore, onLoadMore, isLoadingMore, user?.id]);
 
   // Key extractor
   const keyExtractor = useCallback((item: ThreadListItem, index: number) => {
@@ -127,17 +138,17 @@ export const ThreadRibbon = memo(function ThreadRibbon({
       case 'focused':
         return `${item.type}-${item.post.id}`;
       case 'reply':
-        return `reply-${item.node.post.id}`;
+        return `reply-${item.reply.post.id}`;
       case 'reply-divider':
         return 'reply-divider';
-      case 'show-more':
-        return `show-more-${item.parentId}`;
+      case 'load-more':
+        return 'load-more';
       default:
         return `item-${index}`;
     }
   }, []);
 
-  // Estimate item sizes for FlashList performance
+  // Get item type for FlashList performance
   const getItemType = useCallback((item: ThreadListItem) => item.type, []);
 
   if (isLoading) {
@@ -189,6 +200,18 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
     color: '#FAFAFA',
+  },
+  loadMoreButton: {
+    paddingVertical: 16,
+    alignItems: 'center',
+    backgroundColor: '#000',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#2A2A2A',
+  },
+  loadMoreText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#10B981',
   },
 });
 

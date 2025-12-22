@@ -1,35 +1,37 @@
 /**
- * useThread - Fetch complete thread with ancestors and nested descendants
+ * useThread - Bluesky Flat Style Thread Fetching
  * 
  * Federation-Ready (Bluesky AT Protocol compatible):
- * - Uses thread_parent_id instead of reply_to_id
- * - Uses thread_root_id for fast thread lookups
- * - Uses replies_count instead of comments_count
- * - Walks up thread_parent_id chain for full ancestor context
- * - Fetches nested replies up to MAX_INLINE_DEPTH levels
- * - Supports optimistic updates for new replies
+ * - Uses thread_parent_id / thread_root_id for thread structure
+ * - FLAT reply list (no inline nesting)
+ * - "Replying to @user" labels instead of indentation
+ * - Tap a reply to see its sub-thread
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/lib/stores';
 import type { PostWithAuthor } from '@/lib/types/database';
-import type { ThreadView, ThreadNode } from '@/lib/types/thread';
+import type { ThreadView, ThreadReply } from '@/lib/types/thread';
+import { THREAD_CONFIG } from '@/lib/types/thread';
 
 const POST_SELECT = `
   *,
   author:profiles!user_id(*),
+  parent_post:thread_parent_id(
+    author:profiles!user_id(username)
+  ),
   original_post:repost_of_id(
     *,
     author:profiles!user_id(*)
   )
 `;
 
-// Simpler select for INSERT operations (avoid nested query issues)
+// Simpler select for INSERT operations
 const INSERT_SELECT = `*, author:profiles!user_id(*)`;
 
 /**
- * Fetch the complete thread view for a post
+ * Fetch the complete thread view for a post - Bluesky Flat Style
  */
 export function useThread(postId: string) {
   const { user } = useAuthStore();
@@ -50,30 +52,52 @@ export function useThread(postId: string) {
         throw new Error('Post not found');
       }
 
-      // 2. Fetch like status if logged in
-      let isLiked = false;
+      // 2. Fetch like/repost status for focused post if logged in
+      let focusedIsLiked = false;
+      let focusedIsReposted = false;
       if (user) {
-        const { data: like } = await supabase
-          .from('likes')
-          .select('id')
-          .eq('post_id', postId)
-          .eq('user_id', user.id)
-          .maybeSingle();
-        isLiked = !!like;
+        const [likeResult, repostResult] = await Promise.all([
+          supabase
+            .from('likes')
+            .select('id')
+            .eq('post_id', postId)
+            .eq('user_id', user.id)
+            .maybeSingle(),
+          supabase
+            .from('reposts')
+            .select('id')
+            .eq('post_id', postId)
+            .eq('user_id', user.id)
+            .maybeSingle(),
+        ]);
+        focusedIsLiked = !!likeResult.data;
+        focusedIsReposted = !!repostResult.data;
       }
 
-      // 3. Recursively fetch ancestors (walk up thread_parent_id chain)
+      // 3. Fetch ancestors (walk up thread_parent_id chain)
       const ancestors = await fetchAncestors(focusedPost.thread_parent_id, user?.id);
 
-      // 4. Fetch descendants with nesting (2 levels deep)
-      const descendants = await fetchDescendants(postId, 0, 2, user?.id);
+      // 4. Fetch ALL replies in the thread FLAT (using thread_root_id for efficiency)
+      // For a root post, thread_root_id is null, so we use the post id
+      const threadRootId = focusedPost.thread_root_id || focusedPost.id;
+      const isRootPost = !focusedPost.thread_root_id;
+      
+      const replies = await fetchRepliesFlat(
+        isRootPost ? focusedPost.id : threadRootId,
+        focusedPost.id,
+        user?.id
+      );
 
       return {
-        focusedPost: { ...focusedPost, is_liked: isLiked } as PostWithAuthor,
+        focusedPost: { 
+          ...focusedPost, 
+          is_liked: focusedIsLiked,
+          is_reposted_by_me: focusedIsReposted,
+        } as PostWithAuthor,
         ancestors: ancestors.reverse(), // Root first
-        descendants,
+        replies,
         totalReplies: focusedPost.replies_count || 0,
-        hasMoreAncestors: false,
+        hasMoreReplies: replies.length >= THREAD_CONFIG.REPLIES_PER_PAGE,
       };
     },
     enabled: !!postId,
@@ -83,8 +107,6 @@ export function useThread(postId: string) {
 
 /**
  * Recursively fetch ancestor posts up the thread chain
- * 
- * Uses thread_parent_id for walking up the thread tree
  */
 async function fetchAncestors(
   threadParentId: string | null,
@@ -121,69 +143,72 @@ async function fetchAncestors(
 }
 
 /**
- * Fetch descendants with nested structure
+ * Fetch all replies in a FLAT list (Bluesky style)
  * 
- * Uses thread_parent_id to find direct children
+ * Gets all replies where thread_root_id matches, ordered by created_at.
+ * Includes "Replying to @user" info for each reply.
  */
-async function fetchDescendants(
-  parentId: string,
-  currentDepth: number,
-  maxDepth: number,
-  userId?: string,
-  limit: number = 10
-): Promise<ThreadNode[]> {
+async function fetchRepliesFlat(
+  threadRootId: string,
+  focusedPostId: string,
+  userId?: string
+): Promise<ThreadReply[]> {
+  // Fetch replies that are part of this thread
+  // If focused is root: get direct replies (thread_parent_id = focusedPostId)
+  // Plus all nested replies (thread_root_id = focusedPostId)
   const { data: replies, error } = await supabase
     .from('posts')
     .select(POST_SELECT)
-    .eq('thread_parent_id', parentId)
+    .or(`thread_parent_id.eq.${focusedPostId},thread_root_id.eq.${focusedPostId}`)
     .eq('is_reply', true)
     .order('created_at', { ascending: true })
-    .limit(limit);
+    .limit(THREAD_CONFIG.REPLIES_PER_PAGE);
 
   if (error || !replies) return [];
 
-  // Batch fetch like statuses
+  // Batch fetch like & repost statuses
   let likeMap: Record<string, boolean> = {};
+  let repostMap: Record<string, boolean> = {};
+  
   if (userId && replies.length > 0) {
-    const { data: likes } = await supabase
-      .from('likes')
-      .select('post_id')
-      .eq('user_id', userId)
-      .in('post_id', replies.map(r => r.id));
-    
-    likeMap = (likes || []).reduce((acc, l) => {
+    const replyIds = replies.map(r => r.id);
+    const [likesResult, repostsResult] = await Promise.all([
+      supabase
+        .from('likes')
+        .select('post_id')
+        .eq('user_id', userId)
+        .in('post_id', replyIds),
+      supabase
+        .from('reposts')
+        .select('post_id')
+        .eq('user_id', userId)
+        .in('post_id', replyIds),
+    ]);
+
+    likeMap = (likesResult.data || []).reduce((acc, l) => {
       acc[l.post_id] = true;
+      return acc;
+    }, {} as Record<string, boolean>);
+
+    repostMap = (repostsResult.data || []).reduce((acc, r) => {
+      acc[r.post_id] = true;
       return acc;
     }, {} as Record<string, boolean>);
   }
 
-  return Promise.all(
-    replies.map(async (reply) => {
-      const replyWithLike = { 
-        ...reply, 
-        is_liked: likeMap[reply.id] || false 
-      } as PostWithAuthor;
-
-      // Fetch nested children if not at max depth
-      const children = currentDepth < maxDepth
-        ? await fetchDescendants(reply.id, currentDepth + 1, maxDepth, userId, 3)
-        : [];
-
-      return {
-        post: replyWithLike,
-        children,
-        depth: currentDepth,
-        hasMoreReplies: (reply.replies_count || 0) > children.length,
-        replyCount: reply.replies_count || 0,
-      };
-    })
-  );
+  return replies.map((reply) => ({
+    post: {
+      ...reply,
+      is_liked: likeMap[reply.id] || false,
+      is_reposted_by_me: repostMap[reply.id] || false,
+    } as PostWithAuthor,
+    // Extract "Replying to @username" from the joined parent_post
+    replyingTo: (reply as any).parent_post?.author?.username || undefined,
+  }));
 }
 
 /**
  * Create a reply in a thread with optimistic update
- * 
- * Federation-ready: Sets thread_parent_id and thread_root_id
  */
 export function useThreadReply(threadPostId: string) {
   const queryClient = useQueryClient();
@@ -198,17 +223,16 @@ export function useThreadReply(threadPostId: string) {
       // Get parent post's thread info AND AT Protocol fields for federation
       const { data: parentPost } = await supabase
         .from("posts")
-        .select("thread_root_id, thread_depth, at_uri, at_cid, thread_root_uri, thread_root_cid")
+        .select("thread_root_id, thread_depth, at_uri, at_cid, thread_root_uri, thread_root_cid, author:profiles!user_id(username)")
         .eq("id", threadParentId)
         .single();
       
       const threadRootId = parentPost?.thread_root_id || threadParentId;
       const threadDepth = (parentPost?.thread_depth ?? 0) + 1;
       
-      // Build AT Protocol threading fields (so trigger doesn't need to look them up)
+      // Build AT Protocol threading fields
       const threadParentUri = parentPost?.at_uri || null;
       const threadParentCid = parentPost?.at_cid || null;
-      // Root is either the stored root or the parent itself (for direct replies to root posts)
       const threadRootUri = parentPost?.thread_root_uri || parentPost?.at_uri || null;
       const threadRootCid = parentPost?.thread_root_cid || parentPost?.at_cid || null;
 
@@ -220,7 +244,6 @@ export function useThreadReply(threadPostId: string) {
           thread_parent_id: threadParentId,
           thread_root_id: threadRootId,
           thread_depth: threadDepth,
-          // AT Protocol fields for federation (stored directly, no lookups needed)
           thread_parent_uri: threadParentUri,
           thread_parent_cid: threadParentCid,
           thread_root_uri: threadRootUri,
@@ -231,20 +254,33 @@ export function useThreadReply(threadPostId: string) {
         .single();
 
       if (error) throw error;
-      return data;
+      
+      // Return with parent username for "Replying to" display
+      return { 
+        ...data, 
+        replyingToUsername: (parentPost as any)?.author?.username 
+      };
     },
     onMutate: async ({ content, parentId }) => {
       const threadParentId = parentId || threadPostId;
       
-      // Cancel outgoing refetches
       await queryClient.cancelQueries({ queryKey: ['thread', threadPostId] });
-
-      // Snapshot previous value
       const previousThread = queryClient.getQueryData<ThreadView>(['thread', threadPostId]);
+
+      // Get parent's username for "Replying to" label
+      let replyingTo: string | undefined;
+      if (previousThread) {
+        if (threadParentId === previousThread.focusedPost.id) {
+          replyingTo = previousThread.focusedPost.author?.username;
+        } else {
+          const parentReply = previousThread.replies.find(r => r.post.id === threadParentId);
+          replyingTo = parentReply?.post.author?.username;
+        }
+      }
 
       // Optimistically add the reply
       if (previousThread && user) {
-        const ghostReply: ThreadNode = {
+        const ghostReply: ThreadReply = {
           post: {
             id: `ghost-${Date.now()}`,
             user_id: user.id,
@@ -263,15 +299,12 @@ export function useThreadReply(threadPostId: string) {
             },
             is_liked: false,
           } as PostWithAuthor,
-          children: [],
-          depth: 0,
-          hasMoreReplies: false,
-          replyCount: 0,
+          replyingTo,
         };
 
         queryClient.setQueryData<ThreadView>(['thread', threadPostId], {
           ...previousThread,
-          descendants: [...previousThread.descendants, ghostReply],
+          replies: [...previousThread.replies, ghostReply],
           totalReplies: previousThread.totalReplies + 1,
         });
       }
@@ -279,72 +312,70 @@ export function useThreadReply(threadPostId: string) {
       return { previousThread };
     },
     onError: (err, variables, context) => {
-      // Rollback on error
       if (context?.previousThread) {
         queryClient.setQueryData(['thread', threadPostId], context.previousThread);
       }
     },
     onSettled: () => {
-      // Refetch to get actual data
       queryClient.invalidateQueries({ queryKey: ['thread', threadPostId] });
     },
   });
 }
 
 /**
- * Load more replies for a specific parent post in the thread
+ * Load more replies in the thread
  */
 export function useLoadMoreReplies(threadPostId: string) {
   const queryClient = useQueryClient();
   const { user } = useAuthStore();
 
   return useMutation({
-    mutationFn: async ({ parentId, offset }: { parentId: string; offset: number }) => {
+    mutationFn: async (offset: number) => {
+      const { data: currentThread } = await supabase
+        .from('posts')
+        .select('thread_root_id')
+        .eq('id', threadPostId)
+        .single();
+
+      const threadRootId = currentThread?.thread_root_id || threadPostId;
+
       const { data: replies, error } = await supabase
         .from('posts')
         .select(POST_SELECT)
-        .eq('thread_parent_id', parentId)
+        .or(`thread_parent_id.eq.${threadPostId},thread_root_id.eq.${threadPostId}`)
         .eq('is_reply', true)
         .order('created_at', { ascending: true })
-        .range(offset, offset + 9);
+        .range(offset, offset + THREAD_CONFIG.REPLIES_PER_PAGE - 1);
 
       if (error) throw error;
-      return { parentId, replies };
+
+      // Fetch like statuses
+      let likeMap: Record<string, boolean> = {};
+      if (user && replies && replies.length > 0) {
+        const { data: likes } = await supabase
+          .from('likes')
+          .select('post_id')
+          .eq('user_id', user.id)
+          .in('post_id', replies.map(r => r.id));
+        
+        likeMap = (likes || []).reduce((acc, l) => {
+          acc[l.post_id] = true;
+          return acc;
+        }, {} as Record<string, boolean>);
+      }
+
+      return (replies || []).map((reply) => ({
+        post: { ...reply, is_liked: likeMap[reply.id] || false } as PostWithAuthor,
+        replyingTo: (reply as any).parent_post?.author?.username || undefined,
+      }));
     },
-    onSuccess: ({ parentId, replies }) => {
-      // Update thread with new replies
+    onSuccess: (newReplies) => {
       queryClient.setQueryData<ThreadView>(['thread', threadPostId], (old) => {
         if (!old) return old;
-        
-        // Find and update the parent node with new children
-        const updateNode = (nodes: ThreadNode[]): ThreadNode[] => {
-          return nodes.map(node => {
-            if (node.post.id === parentId) {
-              return {
-                ...node,
-                children: [
-                  ...node.children,
-                  ...replies.map(r => ({
-                    post: r as PostWithAuthor,
-                    children: [],
-                    depth: node.depth + 1,
-                    hasMoreReplies: false,
-                    replyCount: r.replies_count || 0,
-                  })),
-                ],
-                hasMoreReplies: replies.length === 10, // Has more if we got full page
-              };
-            }
-            return {
-              ...node,
-              children: updateNode(node.children),
-            };
-          });
-        };
-
         return {
           ...old,
-          descendants: updateNode(old.descendants),
+          replies: [...old.replies, ...newReplies],
+          hasMoreReplies: newReplies.length >= THREAD_CONFIG.REPLIES_PER_PAGE,
         };
       });
     },
@@ -369,19 +400,9 @@ export function useThreadDelete(threadPostId: string) {
       const previousThread = queryClient.getQueryData<ThreadView>(['thread', threadPostId]);
       
       if (previousThread) {
-        // Recursively remove the deleted post from descendants
-        const removeFromNodes = (nodes: ThreadNode[]): ThreadNode[] => {
-          return nodes
-            .filter(node => node.post.id !== postId)
-            .map(node => ({
-              ...node,
-              children: removeFromNodes(node.children),
-            }));
-        };
-        
         queryClient.setQueryData<ThreadView>(['thread', threadPostId], {
           ...previousThread,
-          descendants: removeFromNodes(previousThread.descendants),
+          replies: previousThread.replies.filter(r => r.post.id !== postId),
           totalReplies: Math.max(0, previousThread.totalReplies - 1),
         });
       }

@@ -16,7 +16,7 @@ import * as Haptics from 'expo-haptics';
 import { Heart, MessageCircle, Repeat2, Share as ShareIcon, MoreHorizontal } from 'lucide-react-native';
 import type { PostWithAuthor } from '@/lib/types/database';
 import { PostCarousel } from './PostCarousel';
-import { THREAD_RIBBON } from '@/lib/types/thread';
+import { THREAD_DESIGN } from '@/lib/types/thread';
 
 interface FocusedPostProps {
   post: PostWithAuthor;
@@ -173,9 +173,9 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
   },
   avatar: {
-    width: THREAD_RIBBON.AVATAR_SIZES.focused,
-    height: THREAD_RIBBON.AVATAR_SIZES.focused,
-    borderRadius: THREAD_RIBBON.AVATAR_SIZES.focused / 2,
+    width: THREAD_DESIGN.AVATAR_SIZES.focused,
+    height: THREAD_DESIGN.AVATAR_SIZES.focused,
+    borderRadius: THREAD_DESIGN.AVATAR_SIZES.focused / 2,
     backgroundColor: '#1A1A1A',
   },
   authorInfo: {

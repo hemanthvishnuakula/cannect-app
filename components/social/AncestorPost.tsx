@@ -11,7 +11,7 @@ import { Image } from 'expo-image';
 import * as Haptics from 'expo-haptics';
 import type { PostWithAuthor } from '@/lib/types/database';
 import { formatDistanceToNow } from '@/lib/utils/date';
-import { THREAD_RIBBON } from '@/lib/types/thread';
+import { THREAD_DESIGN } from '@/lib/types/thread';
 
 interface AncestorPostProps {
   post: PostWithAuthor;
@@ -87,17 +87,17 @@ const styles = StyleSheet.create({
   leftColumn: {
     alignItems: 'center',
     marginRight: 12,
-    width: THREAD_RIBBON.AVATAR_SIZES.ancestor,
+    width: THREAD_DESIGN.AVATAR_SIZES.ancestor,
   },
   avatar: {
-    width: THREAD_RIBBON.AVATAR_SIZES.ancestor,
-    height: THREAD_RIBBON.AVATAR_SIZES.ancestor,
-    borderRadius: THREAD_RIBBON.AVATAR_SIZES.ancestor / 2,
+    width: THREAD_DESIGN.AVATAR_SIZES.ancestor,
+    height: THREAD_DESIGN.AVATAR_SIZES.ancestor,
+    borderRadius: THREAD_DESIGN.AVATAR_SIZES.ancestor / 2,
     backgroundColor: '#1A1A1A',
   },
   threadLine: {
     flex: 1,
-    width: THREAD_RIBBON.LINE_WIDTH,
+    width: THREAD_DESIGN.LINE_WIDTH,
     backgroundColor: '#2A2A2A',
     marginTop: 8,
     minHeight: 16,

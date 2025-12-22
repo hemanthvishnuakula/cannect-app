@@ -13,15 +13,17 @@ import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from "@tansta
 import { supabase } from "@/lib/supabase";
 import { queryKeys } from "@/lib/query-client";
 import type { PostWithAuthor } from "@/lib/types/database";
-import type { ThreadView, ThreadNode } from "@/lib/types/thread";
+import type { ThreadView, ThreadReply } from "@/lib/types/thread";
 import { useAuthStore } from "@/lib/stores";
 import { generateTID, parseTextToFacets, buildAtUri } from "@/lib/utils/atproto";
 
 const POSTS_PER_PAGE = 20;
 
 /**
- * Helper to update a post within a ThreadView (ancestors, focusedPost, or descendants)
+ * Helper to update a post within a ThreadView (ancestors, focusedPost, or replies)
  * Used for optimistic updates on likes, reposts, etc. in thread context
+ * 
+ * Updated for Bluesky flat style - no nested descendants, just flat replies array
  */
 function updatePostInThread(
   thread: ThreadView,
@@ -38,24 +40,13 @@ function updatePostInThread(
     ancestors: thread.ancestors.map(post => 
       post.id === postId ? updater(post) : post
     ),
-    // Update descendants recursively
-    descendants: updateNodesRecursively(thread.descendants, postId, updater),
+    // Update replies (flat array - Bluesky style)
+    replies: thread.replies.map(reply => 
+      reply.post.id === postId 
+        ? { ...reply, post: updater(reply.post) }
+        : reply
+    ),
   };
-}
-
-/**
- * Recursively update a post within ThreadNode[] structure
- */
-function updateNodesRecursively(
-  nodes: ThreadNode[],
-  postId: string,
-  updater: (post: PostWithAuthor) => PostWithAuthor
-): ThreadNode[] {
-  return nodes.map(node => ({
-    ...node,
-    post: node.post.id === postId ? updater(node.post) : node.post,
-    children: updateNodesRecursively(node.children, postId, updater),
-  }));
 }
 
 /**
