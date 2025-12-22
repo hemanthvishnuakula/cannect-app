@@ -281,7 +281,10 @@ export function useFollowingFeed() {
       
       if (followsError) throw followsError;
       
-      const followingIds = (followingData as any[])?.map(f => f.following_id) || [];
+      // Filter out NULL following_ids (external Bluesky follows don't have local user IDs)
+      const followingIds = (followingData as any[])
+        ?.map(f => f.following_id)
+        .filter((id): id is string => id !== null && id !== undefined) || [];
       
       // Include own user ID for own posts
       const followingIdsWithSelf = [...followingIds, user.id];
