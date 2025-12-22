@@ -53,6 +53,7 @@ serve(async (req) => {
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
   console.log("[federation-worker] Starting processing...");
+  console.log("[federation-worker] Service key starts with:", supabaseServiceKey?.substring(0, 20) + "...");
 
   try {
     // Fetch pending items from queue, ordered by creation time
@@ -62,6 +63,8 @@ serve(async (req) => {
       .eq("status", "pending")
       .order("created_at", { ascending: true })
       .limit(MAX_BATCH_SIZE);
+
+    console.log("[federation-worker] Queue fetch result:", { count: queueItems?.length, error: fetchError?.message });
 
     if (fetchError) {
       console.error("[federation-worker] Fetch error:", fetchError);

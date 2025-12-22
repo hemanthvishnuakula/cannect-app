@@ -1,0 +1,6 @@
+#!/bin/bash
+TOKEN=$(curl -s -X POST http://localhost:3000/xrpc/com.atproto.server.createSession -H "Content-Type: application/json" -d '{"identifier":"fedtest.cannect.space","password":"awx6MAAT"}' | jq -r '.accessJwt')
+echo "Token obtained"
+curl -s -X POST http://localhost:3000/xrpc/com.atproto.repo.deleteRecord -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" -d '{"repo":"did:plc:zccnnuz7vbtqcptq6ituk74k","collection":"app.bsky.feed.post","rkey":"3maj4i4ovlnvj"}'
+echo ""
+curl -s "http://localhost:3000/xrpc/com.atproto.repo.listRecords?repo=did:plc:zccnnuz7vbtqcptq6ituk74k&collection=app.bsky.feed.post&limit=5"
