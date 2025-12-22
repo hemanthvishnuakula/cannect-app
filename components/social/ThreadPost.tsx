@@ -89,7 +89,7 @@ export const ThreadPost = memo(function ThreadPost({
 
   const content = (
     <View style={styles.container}>
-      {/* Parent Reply Line - 12px space above with centered line */}
+      {/* Parent Reply Line - matches Bluesky ThreadItemPostParentReplyLine */}
       <View style={styles.parentLineContainer}>
         <View style={styles.parentLineColumn}>
           {showParentLine && <View style={styles.parentLine} />}
@@ -98,7 +98,7 @@ export const ThreadPost = memo(function ThreadPost({
 
       {/* Main Post Content Row */}
       <View style={styles.mainRow}>
-        {/* Left: Avatar + Child Line */}
+        {/* Left: Avatar + Child Line (matches Bluesky layout) */}
         <View style={styles.avatarColumn}>
           <Pressable onPress={onProfilePress}>
             <Image
@@ -107,7 +107,7 @@ export const ThreadPost = memo(function ThreadPost({
               contentFit="cover"
             />
           </Pressable>
-          {/* Child line extending down from avatar */}
+          {/* Child line extending down - uses flex to fill remaining space */}
           {showChildLine && <View style={styles.childLine} />}
         </View>
 
@@ -242,21 +242,22 @@ const styles = StyleSheet.create({
     backgroundColor: '#0A0A0A',
   },
   
-  // Parent line container (12px height like Bluesky)
+  // Parent line container (matches ThreadItemPostParentReplyLine in Bluesky)
   parentLineContainer: {
-    height: 12,
     flexDirection: 'row',
+    height: 12,
+    paddingHorizontal: THREAD_DESIGN.OUTER_SPACE,
   },
   parentLineColumn: {
     width: THREAD_DESIGN.AVATAR_SIZE,
-    marginLeft: THREAD_DESIGN.OUTER_SPACE,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   parentLine: {
-    flex: 1,
     width: THREAD_DESIGN.LINE_WIDTH,
+    flex: 1,
+    marginBottom: 4, // Bluesky uses a.mb_xs which is 4px
     backgroundColor: '#333',
-    marginBottom: 2,
   },
   
   // Main row
@@ -266,7 +267,7 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
   },
   
-  // Avatar column
+  // Avatar column (matches Bluesky's avatar + child line layout)
   avatarColumn: {
     width: THREAD_DESIGN.AVATAR_SIZE,
     alignItems: 'center',
@@ -279,11 +280,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#1A1A1A',
   },
   childLine: {
-    flex: 1,
     width: THREAD_DESIGN.LINE_WIDTH,
+    flex: 1,
+    marginTop: 4, // Bluesky uses a.mt_xs which is 4px
     backgroundColor: '#333',
-    marginTop: 8,
-    minHeight: 12,
   },
   
   // Content column
