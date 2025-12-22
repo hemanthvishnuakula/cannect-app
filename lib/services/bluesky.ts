@@ -43,7 +43,31 @@ export async function fetchBluesky(
   return response.json();
 }
 
-export async function getFederatedPosts(limit = 25) {
+export interface FederatedPost {
+  id: string;
+  uri: string;
+  cid: string;
+  user_id: string;
+  content: string;
+  created_at: string;
+  media_urls: string[];
+  likes_count: number;
+  reposts_count: number;
+  replies_count: number;
+  is_federated: true;
+  type: 'post';
+  author: {
+    id: string;
+    did: string;
+    handle: string;
+    username: string;
+    display_name: string;
+    avatar_url: string | null;
+    is_verified: boolean;
+  };
+}
+
+export async function getFederatedPosts(limit = 25): Promise<FederatedPost[]> {
   try {
     // Use Supabase Edge Function proxy to avoid CORS
     const proxyUrl = `${SUPABASE_URL}/functions/v1/bluesky-proxy?action=feed&limit=${limit}`;
@@ -62,7 +86,9 @@ export async function getFederatedPosts(limit = 25) {
     return posts.map((item: any) => {
       const bskyPost = item.post;
       return {
-        id: bskyPost.cid,
+        id: bskyPost.cid, // Keep cid as id for backward compat
+        uri: bskyPost.uri, // Add URI for AT Protocol interactions
+        cid: bskyPost.cid,
         user_id: bskyPost.author.did,
         content: bskyPost.record?.text || "",
         created_at: bskyPost.record?.createdAt || bskyPost.indexedAt,
@@ -70,13 +96,15 @@ export async function getFederatedPosts(limit = 25) {
         likes_count: bskyPost.likeCount || 0,
         reposts_count: bskyPost.repostCount || 0,
         replies_count: bskyPost.replyCount || 0,
-        is_federated: true, // Internal flag for UI logic
-        type: 'post',
+        is_federated: true as const,
+        type: 'post' as const,
         author: {
           id: bskyPost.author.did,
+          did: bskyPost.author.did,
+          handle: bskyPost.author.handle,
           username: bskyPost.author.handle,
           display_name: bskyPost.author.displayName || bskyPost.author.handle,
-          avatar_url: bskyPost.author.avatar,
+          avatar_url: bskyPost.author.avatar || null,
           is_verified: false,
         },
       };
@@ -127,5 +155,81 @@ export async function searchFederatedPosts(query: string, limit = 25) {
   } catch (error) {
     console.error("Bluesky search failed:", error);
     return [];
+  }
+}
+
+/**
+ * Fetch a single post with its thread (replies)
+ */
+export interface BlueskyThread {
+  post: FederatedPost;
+  replies: FederatedPost[];
+  parent?: FederatedPost;
+}
+
+function parseBlueskyPost(bskyPost: any): FederatedPost {
+  return {
+    id: bskyPost.cid,
+    uri: bskyPost.uri,
+    cid: bskyPost.cid,
+    user_id: bskyPost.author.did,
+    content: bskyPost.record?.text || "",
+    created_at: bskyPost.record?.createdAt || bskyPost.indexedAt,
+    media_urls: bskyPost.embed?.images?.map((img: any) => img.fullsize) || [],
+    likes_count: bskyPost.likeCount || 0,
+    reposts_count: bskyPost.repostCount || 0,
+    replies_count: bskyPost.replyCount || 0,
+    is_federated: true as const,
+    type: 'post' as const,
+    author: {
+      id: bskyPost.author.did,
+      did: bskyPost.author.did,
+      handle: bskyPost.author.handle,
+      username: bskyPost.author.handle,
+      display_name: bskyPost.author.displayName || bskyPost.author.handle,
+      avatar_url: bskyPost.author.avatar || null,
+      is_verified: false,
+    },
+  };
+}
+
+export async function getBlueskyPostThread(uri: string): Promise<BlueskyThread | null> {
+  try {
+    const data = await fetchBluesky("app.bsky.feed.getPostThread", {
+      uri,
+      depth: 6,
+      parentHeight: 1,
+    });
+
+    if (!data.thread || data.thread.$type !== "app.bsky.feed.defs#threadViewPost") {
+      return null;
+    }
+
+    const thread = data.thread;
+    const mainPost = parseBlueskyPost(thread.post);
+    
+    // Parse replies recursively (flatten for now)
+    const replies: FederatedPost[] = [];
+    function collectReplies(node: any, depth = 0) {
+      if (!node.replies || depth > 10) return;
+      for (const reply of node.replies) {
+        if (reply.$type === "app.bsky.feed.defs#threadViewPost" && reply.post) {
+          replies.push(parseBlueskyPost(reply.post));
+          collectReplies(reply, depth + 1);
+        }
+      }
+    }
+    collectReplies(thread);
+    
+    // Parse parent if exists
+    let parent: FederatedPost | undefined;
+    if (thread.parent && thread.parent.$type === "app.bsky.feed.defs#threadViewPost") {
+      parent = parseBlueskyPost(thread.parent.post);
+    }
+
+    return { post: mainPost, replies, parent };
+  } catch (error) {
+    console.error("Failed to fetch Bluesky thread:", error);
+    return null;
   }
 }

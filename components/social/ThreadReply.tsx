@@ -160,7 +160,7 @@ export const ThreadReply = memo(function ThreadReply({
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    paddingHorizontal: THREAD_DESIGN.HORIZONTAL_PADDING,
+    paddingHorizontal: 16,
     paddingVertical: 12,
     backgroundColor: '#000',
     borderBottomWidth: StyleSheet.hairlineWidth,
@@ -170,14 +170,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#0A0A0A',
   },
   avatarContainer: {
-    width: THREAD_DESIGN.LEFT_COLUMN_WIDTH,
+    width: 48,
     alignItems: 'center',
     marginRight: 12,
   },
   avatar: {
-    width: THREAD_DESIGN.AVATAR_SIZES.reply,
-    height: THREAD_DESIGN.AVATAR_SIZES.reply,
-    borderRadius: THREAD_DESIGN.AVATAR_SIZES.reply / 2,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     backgroundColor: '#1A1A1A',
   },
   content: {

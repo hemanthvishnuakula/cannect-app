@@ -39,6 +39,7 @@ export interface BlueskyPostData {
 
 interface BlueskyPostProps {
   post: BlueskyPostData;
+  onPress?: () => void;
   onReply?: () => void;
   onShare?: () => void;
   showInteractions?: boolean;
@@ -46,6 +47,7 @@ interface BlueskyPostProps {
 
 export function BlueskyPost({ 
   post, 
+  onPress,
   onReply, 
   onShare,
   showInteractions = true,
@@ -96,10 +98,22 @@ export function BlueskyPost({
     } as any);
   };
 
+  const handlePostPress = () => {
+    if (onPress) {
+      onPress();
+    } else {
+      // Default: navigate to federated post detail
+      router.push({
+        pathname: "/federated/post",
+        params: { uri: post.uri }
+      } as any);
+    }
+  };
+
   const timeAgo = formatDistanceToNow(new Date(post.createdAt));
 
   return (
-    <View className="px-4 py-3 border-b border-border">
+    <Pressable onPress={handlePostPress} className="px-4 py-3 border-b border-border">
       {/* Author Row */}
       <Pressable onPress={handleAuthorPress} className="flex-row items-center gap-3 mb-2">
         <Image
@@ -206,6 +220,6 @@ export function BlueskyPost({
           </Pressable>
         </View>
       )}
-    </View>
+    </Pressable>
   );
 }

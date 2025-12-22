@@ -8,10 +8,10 @@ import { useQuery } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
 import { useFeed, useFollowingFeed, useLikePost, useUnlikePost, useDeletePost, useToggleRepost, useProfile } from "@/lib/hooks";
 import { useAuthStore } from "@/lib/stores";
-import { SocialPost, RepostMenu, PostOptionsMenu } from "@/components/social";
+import { SocialPost, RepostMenu, PostOptionsMenu, BlueskyPost } from "@/components/social";
 import { EmptyFeedState } from "@/components/social/EmptyFeedState";
 import { DiscoveryModal, useDiscoveryModal } from "@/components/social/DiscoveryModal";
-import { getFederatedPosts } from "@/lib/services/bluesky";
+import { getFederatedPosts, type FederatedPost } from "@/lib/services/bluesky";
 import { OfflineBanner } from "@/components/OfflineBanner";
 import { FeedSkeleton } from "@/components/Skeleton";
 import type { PostWithAuthor } from "@/lib/types/database";
@@ -255,6 +255,37 @@ export default function FeedScreen() {
             renderItem={({ item }) => {
               const isFederated = (item as any).is_federated === true;
               
+              // Use BlueskyPost for federated posts
+              if (isFederated && activeTab === "federated") {
+                const federatedItem = item as FederatedPost;
+                return (
+                  <BlueskyPost
+                    post={{
+                      uri: federatedItem.uri,
+                      cid: federatedItem.cid,
+                      content: federatedItem.content,
+                      createdAt: federatedItem.created_at,
+                      author: {
+                        did: federatedItem.author.did,
+                        handle: federatedItem.author.handle,
+                        displayName: federatedItem.author.display_name,
+                        avatar: federatedItem.author.avatar_url || undefined,
+                      },
+                      likeCount: federatedItem.likes_count,
+                      repostCount: federatedItem.reposts_count,
+                      replyCount: federatedItem.replies_count,
+                      images: federatedItem.media_urls,
+                    }}
+                    onShare={() => {
+                      Share.share({
+                        message: `Check out this post by @${federatedItem.author.handle}: ${federatedItem.content?.slice(0, 100)}`,
+                      });
+                    }}
+                  />
+                );
+              }
+              
+              // Use SocialPost for Cannect posts
               return (
                 <SocialPost 
                   post={item}
