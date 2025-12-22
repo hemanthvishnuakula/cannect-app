@@ -42,6 +42,60 @@ interface PdsSession {
   user_id: string;
 }
 
+interface BlobRef {
+  $type: 'blob';
+  ref: { $link: string };
+  mimeType: string;
+  size: number;
+}
+
+/**
+ * Upload a blob to the PDS and return a blob reference
+ */
+async function uploadBlob(
+  imageUrl: string,
+  accessJwt: string,
+  userDid: string
+): Promise<BlobRef | null> {
+  try {
+    console.log(`[federation-worker] Uploading blob from: ${imageUrl}`);
+    
+    // Fetch the image
+    const imageResponse = await fetch(imageUrl);
+    if (!imageResponse.ok) {
+      console.error(`[federation-worker] Failed to fetch image: ${imageResponse.status}`);
+      return null;
+    }
+    
+    const imageBlob = await imageResponse.blob();
+    const mimeType = imageResponse.headers.get('content-type') || 'image/jpeg';
+    
+    // Upload to PDS
+    const uploadResponse = await fetch(`${PDS_URL}/xrpc/com.atproto.repo.uploadBlob`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': mimeType,
+        'Authorization': `Bearer ${accessJwt}`,
+      },
+      body: imageBlob,
+    });
+    
+    if (!uploadResponse.ok) {
+      const error = await uploadResponse.json();
+      console.error(`[federation-worker] Blob upload failed:`, error);
+      return null;
+    }
+    
+    const result = await uploadResponse.json();
+    console.log(`[federation-worker] Blob uploaded successfully:`, result.blob);
+    
+    return result.blob as BlobRef;
+  } catch (error) {
+    console.error(`[federation-worker] Blob upload error:`, error);
+    return null;
+  }
+}
+
 serve(async (req) => {
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
@@ -283,6 +337,29 @@ async function createRecord(
         // Parent still not synced - re-queue for later
         console.log(`[federation-worker] Parent not synced yet, re-queuing...`);
         throw new Error('Parent post not synced yet - will retry');
+      }
+    }
+  }
+
+  // Handle profile records - need to convert avatar URL to blob ref
+  if (item.record_type === 'profile') {
+    console.log(`[federation-worker] Processing profile record...`);
+    
+    // Remove our custom avatarUrl field and upload as blob if present
+    const { avatarUrl, ...cleanRecord } = recordData;
+    recordData = cleanRecord;
+    
+    if (avatarUrl) {
+      console.log(`[federation-worker] Uploading avatar blob...`);
+      const avatarBlob = await uploadBlob(avatarUrl, session.access_jwt, item.user_did);
+      if (avatarBlob) {
+        recordData = {
+          ...recordData,
+          avatar: avatarBlob,
+        };
+        console.log(`[federation-worker] Avatar blob attached to profile`);
+      } else {
+        console.log(`[federation-worker] Avatar upload failed, continuing without avatar`);
       }
     }
   }
