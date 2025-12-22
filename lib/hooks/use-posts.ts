@@ -1491,3 +1491,225 @@ export function useDeletePost() {
     },
   });
 }
+
+// =============================================================================
+// External Bluesky Post Interactions
+// =============================================================================
+// These hooks allow interacting with posts that don't exist in our local DB
+// They use AT Protocol URIs and CIDs directly
+
+export interface BlueskyPostRef {
+  uri: string;  // at://did:plc:xxx/app.bsky.feed.post/rkey
+  cid: string;  // CID of the post
+}
+
+/**
+ * Check if current user has liked an external Bluesky post
+ */
+export function useHasLikedBlueskyPost(subjectUri: string) {
+  const { user } = useAuthStore();
+
+  return useQuery({
+    queryKey: ["likes", "external", user?.id, subjectUri],
+    queryFn: async () => {
+      if (!user) return false;
+
+      const { data, error } = await supabase
+        .from("likes")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("subject_uri", subjectUri)
+        .maybeSingle();
+
+      if (error) throw error;
+      return !!data;
+    },
+    enabled: !!subjectUri && !!user,
+  });
+}
+
+/**
+ * Like an external Bluesky post (no local post_id required)
+ */
+export function useLikeBlueskyPost() {
+  const queryClient = useQueryClient();
+  const { user } = useAuthStore();
+
+  return useMutation({
+    mutationFn: async (postRef: BlueskyPostRef) => {
+      if (!user) throw new Error("Not authenticated");
+      
+      const { error } = await supabase.from("likes").insert({
+        user_id: user.id,
+        // post_id is NULL - external post
+        subject_uri: postRef.uri,
+        subject_cid: postRef.cid,
+      } as any);
+      
+      if (error) throw error;
+      return postRef.uri;
+    },
+    onMutate: async (postRef) => {
+      const queryKey = ["likes", "external", user?.id, postRef.uri];
+      await queryClient.cancelQueries({ queryKey });
+      
+      const previousValue = queryClient.getQueryData(queryKey);
+      queryClient.setQueryData(queryKey, true);
+      
+      return { previousValue, queryKey };
+    },
+    onError: (err, postRef, context) => {
+      if (context?.queryKey) {
+        queryClient.setQueryData(context.queryKey, context.previousValue);
+      }
+    },
+    onSettled: (uri) => {
+      queryClient.invalidateQueries({ queryKey: ["likes", "external", user?.id, uri] });
+    },
+  });
+}
+
+/**
+ * Unlike an external Bluesky post
+ */
+export function useUnlikeBlueskyPost() {
+  const queryClient = useQueryClient();
+  const { user } = useAuthStore();
+
+  return useMutation({
+    mutationFn: async (subjectUri: string) => {
+      if (!user) throw new Error("Not authenticated");
+
+      const { error } = await supabase
+        .from("likes")
+        .delete()
+        .eq("user_id", user.id)
+        .eq("subject_uri", subjectUri);
+
+      if (error) throw error;
+      return subjectUri;
+    },
+    onMutate: async (subjectUri) => {
+      const queryKey = ["likes", "external", user?.id, subjectUri];
+      await queryClient.cancelQueries({ queryKey });
+      
+      const previousValue = queryClient.getQueryData(queryKey);
+      queryClient.setQueryData(queryKey, false);
+      
+      return { previousValue, queryKey };
+    },
+    onError: (err, subjectUri, context) => {
+      if (context?.queryKey) {
+        queryClient.setQueryData(context.queryKey, context.previousValue);
+      }
+    },
+    onSettled: (uri) => {
+      queryClient.invalidateQueries({ queryKey: ["likes", "external", user?.id, uri] });
+    },
+  });
+}
+
+/**
+ * Check if current user has reposted an external Bluesky post
+ */
+export function useHasRepostedBlueskyPost(subjectUri: string) {
+  const { user } = useAuthStore();
+
+  return useQuery({
+    queryKey: ["reposts", "external", user?.id, subjectUri],
+    queryFn: async () => {
+      if (!user) return false;
+
+      const { data, error } = await supabase
+        .from("reposts")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("subject_uri", subjectUri)
+        .maybeSingle();
+
+      if (error) throw error;
+      return !!data;
+    },
+    enabled: !!subjectUri && !!user,
+  });
+}
+
+/**
+ * Repost an external Bluesky post
+ */
+export function useRepostBlueskyPost() {
+  const queryClient = useQueryClient();
+  const { user } = useAuthStore();
+
+  return useMutation({
+    mutationFn: async (postRef: BlueskyPostRef) => {
+      if (!user) throw new Error("Not authenticated");
+      
+      const { error } = await supabase.from("reposts").insert({
+        user_id: user.id,
+        subject_uri: postRef.uri,
+        subject_cid: postRef.cid,
+      } as any);
+      
+      if (error) throw error;
+      return postRef.uri;
+    },
+    onMutate: async (postRef) => {
+      const queryKey = ["reposts", "external", user?.id, postRef.uri];
+      await queryClient.cancelQueries({ queryKey });
+      
+      const previousValue = queryClient.getQueryData(queryKey);
+      queryClient.setQueryData(queryKey, true);
+      
+      return { previousValue, queryKey };
+    },
+    onError: (err, postRef, context) => {
+      if (context?.queryKey) {
+        queryClient.setQueryData(context.queryKey, context.previousValue);
+      }
+    },
+    onSettled: (uri) => {
+      queryClient.invalidateQueries({ queryKey: ["reposts", "external", user?.id, uri] });
+    },
+  });
+}
+
+/**
+ * Un-repost an external Bluesky post
+ */
+export function useUnrepostBlueskyPost() {
+  const queryClient = useQueryClient();
+  const { user } = useAuthStore();
+
+  return useMutation({
+    mutationFn: async (subjectUri: string) => {
+      if (!user) throw new Error("Not authenticated");
+
+      const { error } = await supabase
+        .from("reposts")
+        .delete()
+        .eq("user_id", user.id)
+        .eq("subject_uri", subjectUri);
+
+      if (error) throw error;
+      return subjectUri;
+    },
+    onMutate: async (subjectUri) => {
+      const queryKey = ["reposts", "external", user?.id, subjectUri];
+      await queryClient.cancelQueries({ queryKey });
+      
+      const previousValue = queryClient.getQueryData(queryKey);
+      queryClient.setQueryData(queryKey, false);
+      
+      return { previousValue, queryKey };
+    },
+    onError: (err, subjectUri, context) => {
+      if (context?.queryKey) {
+        queryClient.setQueryData(context.queryKey, context.previousValue);
+      }
+    },
+    onSettled: (uri) => {
+      queryClient.invalidateQueries({ queryKey: ["reposts", "external", user?.id, uri] });
+    },
+  });
+}

@@ -9,6 +9,7 @@ export * from "./EmptyFeedState";
 export * from "./DiscoveryModal";
 export * from "./RepostMenu";
 export * from "./PostOptionsMenu";
+export * from "./BlueskyPost";
 
 // Thread components (Bluesky Gold Standard)
 export * from "./ThreadPost";

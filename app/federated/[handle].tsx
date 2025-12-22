@@ -1,13 +1,12 @@
-import { useState } from "react";
-import { View, Text, Pressable, ActivityIndicator, Alert } from "react-native";
+import { View, Text, Pressable, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { FlashList } from "@shopify/flash-list";
 import { Image } from "expo-image";
-import { ArrowLeft, Globe2, Users, UserPlus, UserMinus, Check } from "lucide-react-native";
+import { ArrowLeft, Globe2, Users, UserPlus, Check } from "lucide-react-native";
 import { useQuery } from "@tanstack/react-query";
-import { SocialPost } from "@/components/social";
-import { useToggleRepost, useIsFollowingDid, useFollowBlueskyUser, useUnfollowBlueskyUser } from "@/lib/hooks";
+import { BlueskyPost, type BlueskyPostData } from "@/components/social";
+import { useIsFollowingDid, useFollowBlueskyUser, useUnfollowBlueskyUser } from "@/lib/hooks";
 
 const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL || "";
 const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || "";
@@ -43,26 +42,24 @@ async function fetchActorFeed(handle: string) {
     posts_count: profileRes.postsCount || 0,
   } : null;
 
-  const posts = (postsRes.feed || []).map((item: any) => {
+  // Map to BlueskyPostData format
+  const posts: BlueskyPostData[] = (postsRes.feed || []).map((item: any) => {
     const bskyPost = item.post;
     return {
-      id: bskyPost.cid,
-      user_id: bskyPost.author.did,
+      uri: bskyPost.uri,
+      cid: bskyPost.cid,
       content: bskyPost.record?.text || "",
-      created_at: bskyPost.record?.createdAt || bskyPost.indexedAt,
-      media_urls: bskyPost.embed?.images?.map((img: any) => img.fullsize) || [],
-      likes_count: bskyPost.likeCount || 0,
-      reposts_count: bskyPost.repostCount || 0,
-      replies_count: bskyPost.replyCount || 0,
-      is_federated: true,
-      type: "post",
+      createdAt: bskyPost.record?.createdAt || bskyPost.indexedAt,
       author: {
-        id: bskyPost.author.did,
-        username: bskyPost.author.handle,
-        display_name: bskyPost.author.displayName || bskyPost.author.handle,
-        avatar_url: bskyPost.author.avatar,
-        is_verified: false,
+        did: bskyPost.author.did,
+        handle: bskyPost.author.handle,
+        displayName: bskyPost.author.displayName || bskyPost.author.handle,
+        avatar: bskyPost.author.avatar,
       },
+      likeCount: bskyPost.likeCount || 0,
+      repostCount: bskyPost.repostCount || 0,
+      replyCount: bskyPost.replyCount || 0,
+      images: bskyPost.embed?.images?.map((img: any) => img.fullsize) || [],
     };
   });
 
@@ -72,7 +69,6 @@ async function fetchActorFeed(handle: string) {
 export default function FederatedUserScreen() {
   const { handle } = useLocalSearchParams<{ handle: string }>();
   const router = useRouter();
-  const toggleRepost = useToggleRepost();
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["federated", "actor", handle],
@@ -101,31 +97,6 @@ export default function FederatedUserScreen() {
         avatar: profile.avatar_url,
       });
     }
-  };
-
-  const handleImportPost = (post: any) => {
-    Alert.alert(
-      "Import to Cannect",
-      "Bring this post into Cannect so you and your community can discuss it?",
-      [
-        { text: "Cancel", style: "cancel" },
-        { text: "Repost", onPress: () => toggleRepost.mutate({ post }) },
-        { 
-          text: "Quote", 
-          onPress: () => router.push({
-            pathname: "/compose/quote",
-            params: { 
-              postId: post.id,
-              postContent: post.content,
-              postAuthor: post.author?.display_name || post.author?.username,
-              postAuthorHandle: post.author?.username,
-              postAuthorAvatar: post.author?.avatar_url,
-              isFederated: "true",
-            }
-          } as any)
-        },
-      ]
-    );
   };
 
   if (isLoading) {
@@ -239,26 +210,14 @@ export default function FederatedUserScreen() {
               </View>
             </View>
 
-            {/* Info Banner */}
-            <View className="mx-4 mb-4 p-3 bg-blue-500/10 rounded-xl border border-blue-500/20">
-              <Text className="text-blue-500 text-sm font-medium">
-                💡 Tap any post to import it into Cannect for discussion
-              </Text>
-            </View>
-
             {/* Posts Header */}
             <View className="px-4 py-2 border-b border-border">
               <Text className="text-text-primary font-bold">Recent Posts</Text>
             </View>
           </View>
         )}
-        renderItem={({ item }: { item: any }) => (
-          <Pressable onPress={() => handleImportPost(item)}>
-            <SocialPost
-              post={item}
-              onRepost={() => handleImportPost(item)}
-            />
-          </Pressable>
+        renderItem={({ item }: { item: BlueskyPostData }) => (
+          <BlueskyPost post={item} />
         )}
         ListEmptyComponent={() => (
           <View className="py-12 items-center">
