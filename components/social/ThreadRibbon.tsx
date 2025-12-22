@@ -3,9 +3,10 @@
  * 
  * Uses unified ThreadPost component for all post types.
  * Thread lines connect posts vertically through avatar centers.
+ * Auto-scrolls to focused post when ancestors are present.
  */
 
-import React, { memo, useMemo, useCallback } from 'react';
+import React, { memo, useMemo, useCallback, useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, Pressable } from 'react-native';
 import { FlashList, ListRenderItem } from '@shopify/flash-list';
 import { useRouter } from 'expo-router';
@@ -45,6 +46,30 @@ export const ThreadRibbon = memo(function ThreadRibbon({
 
   // Flatten thread into renderable list
   const items = useMemo(() => flattenThreadToList(thread), [thread]);
+
+  // Ref for FlashList to enable scrolling
+  const listRef = useRef<FlashList<ThreadListItem>>(null);
+
+  // Find the index of the focused post for auto-scroll
+  const focusedIndex = useMemo(() => 
+    items.findIndex(item => item.type === 'focused'), 
+    [items]
+  );
+
+  // Auto-scroll to focused post when ancestors are present
+  useEffect(() => {
+    if (focusedIndex > 0 && listRef.current) {
+      // Small delay to ensure list is rendered
+      const timer = setTimeout(() => {
+        listRef.current?.scrollToIndex({
+          index: focusedIndex,
+          animated: false,
+          viewPosition: 0, // Put focused post at top
+        });
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [focusedIndex]);
 
   // Navigation handlers
   const navigateToPost = useCallback((postId: string) => {
@@ -174,6 +199,7 @@ export const ThreadRibbon = memo(function ThreadRibbon({
   return (
     <View style={styles.listContainer}>
       <FlashList
+        ref={listRef}
         data={items}
         renderItem={renderItem}
         keyExtractor={keyExtractor}
