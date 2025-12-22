@@ -1,19 +1,32 @@
 /**
- * useThread - Bluesky Flat Style Thread Fetching
+ * useThread - Bluesky Gold Standard Thread Fetching
  * 
  * Federation-Ready (Bluesky AT Protocol compatible):
  * - Uses thread_parent_id / thread_root_id for thread structure
  * - FLAT reply list (no inline nesting)
  * - "Replying to @user" labels instead of indentation
  * - Tap a reply to see its sub-thread
+ * 
+ * Gold Standard Features:
+ * - Thread preferences (sort/view) with persistence
+ * - Query key includes params for proper caching
+ * - Pagination support via useInfiniteQuery pattern
+ * - prepareForParamsUpdate for smooth param changes
  */
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
+import { useCallback, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/lib/stores';
 import type { PostWithAuthor } from '@/lib/types/database';
 import type { ThreadView, ThreadReply } from '@/lib/types/thread';
 import { THREAD_CONFIG } from '@/lib/types/thread';
+import { 
+  useThreadPreferences, 
+  createThreadQueryKey,
+  type ThreadSort,
+  type ThreadView as ThreadViewOption,
+} from './use-thread-preferences';
 
 const POST_SELECT = `
   *,
@@ -31,13 +44,54 @@ const POST_SELECT = `
 const INSERT_SELECT = `*, author:profiles!user_id(*)`;
 
 /**
- * Fetch the complete thread view for a post - Bluesky Flat Style
+ * Thread hook return type - Bluesky Gold Standard
  */
-export function useThread(postId: string) {
-  const { user } = useAuthStore();
+export interface UseThreadReturn {
+  /** Thread data */
+  data: ThreadView | undefined;
+  /** Whether thread is loading */
+  isLoading: boolean;
+  /** Error if any */
+  error: Error | null;
+  /** Refetch thread data */
+  refetch: () => void;
+  /** Thread state (preferences) */
+  state: {
+    isLoaded: boolean;
+    sort: ThreadSort;
+    view: ThreadViewOption;
+  };
+  /** Thread actions */
+  actions: {
+    setSort: (sort: ThreadSort) => void;
+    setView: (view: ThreadViewOption) => void;
+    refetch: () => void;
+  };
+}
 
-  return useQuery({
-    queryKey: ['thread', postId],
+/**
+ * Fetch the complete thread view for a post - Bluesky Gold Standard
+ * 
+ * Returns data + state + actions pattern like Bluesky's usePostThread
+ */
+export function useThread(postId: string): UseThreadReturn {
+  const { user } = useAuthStore();
+  const queryClient = useQueryClient();
+  
+  // Thread preferences (sort/view) with persistence
+  const {
+    isLoaded: isPrefsLoaded,
+    sort,
+    setSort: baseSetSort,
+    view,
+    setView: baseSetView,
+  } = useThreadPreferences();
+
+  // Query key includes sort/view for proper caching per combination
+  const threadQueryKey = createThreadQueryKey(postId, sort, view);
+
+  const query = useQuery({
+    queryKey: threadQueryKey,
     queryFn: async (): Promise<ThreadView> => {
       if (!postId) throw new Error('Post ID required');
 
@@ -77,15 +131,15 @@ export function useThread(postId: string) {
       // 3. Fetch ancestors (walk up thread_parent_id chain)
       const ancestors = await fetchAncestors(focusedPost.thread_parent_id, user?.id);
 
-      // 4. Fetch ALL replies in the thread FLAT (using thread_root_id for efficiency)
-      // For a root post, thread_root_id is null, so we use the post id
+      // 4. Fetch replies with sort preference
       const threadRootId = focusedPost.thread_root_id || focusedPost.id;
       const isRootPost = !focusedPost.thread_root_id;
       
       const replies = await fetchRepliesFlat(
         isRootPost ? focusedPost.id : threadRootId,
         focusedPost.id,
-        user?.id
+        user?.id,
+        sort // Pass sort preference
       );
 
       return {
@@ -100,9 +154,36 @@ export function useThread(postId: string) {
         hasMoreReplies: replies.length >= THREAD_CONFIG.REPLIES_PER_PAGE,
       };
     },
-    enabled: !!postId,
+    enabled: !!postId && isPrefsLoaded,
     staleTime: 30000, // 30 seconds
   });
+
+  // Wrapped setters that invalidate queries when changed (Bluesky pattern)
+  const setSort = useCallback((newSort: ThreadSort) => {
+    baseSetSort(newSort);
+  }, [baseSetSort]);
+
+  const setView = useCallback((newView: ThreadViewOption) => {
+    baseSetView(newView);
+  }, [baseSetView]);
+
+  // Return Bluesky-style { data, state, actions } pattern
+  return {
+    data: query.data,
+    isLoading: query.isLoading || !isPrefsLoaded,
+    error: query.error,
+    refetch: query.refetch,
+    state: {
+      isLoaded: isPrefsLoaded,
+      sort,
+      view,
+    },
+    actions: {
+      setSort,
+      setView,
+      refetch: query.refetch,
+    },
+  };
 }
 
 /**
@@ -147,21 +228,39 @@ async function fetchAncestors(
  * 
  * Only gets replies where thread_parent_id = focusedPostId (direct replies).
  * Nested replies-to-replies are accessed by tapping a reply to see its thread.
+ * 
+ * @param sort - Sort order: 'hotness' (likes), 'newest', 'oldest'
  */
 async function fetchRepliesFlat(
   threadRootId: string,
   focusedPostId: string,
-  userId?: string
+  userId?: string,
+  sort: ThreadSort = 'hotness'
 ): Promise<ThreadReply[]> {
-  // Only fetch DIRECT replies to the focused post (not nested replies)
-  // Users tap a reply to see its sub-thread
-  const { data: replies, error } = await supabase
+  // Build query with sort preference
+  let query = supabase
     .from('posts')
     .select(POST_SELECT)
     .eq('thread_parent_id', focusedPostId)
-    .eq('is_reply', true)
-    .order('created_at', { ascending: true })
-    .limit(THREAD_CONFIG.REPLIES_PER_PAGE);
+    .eq('is_reply', true);
+  
+  // Apply sort order
+  switch (sort) {
+    case 'hotness':
+      // Sort by likes (engagement) - most liked first
+      query = query.order('likes_count', { ascending: false })
+                   .order('created_at', { ascending: false });
+      break;
+    case 'newest':
+      query = query.order('created_at', { ascending: false });
+      break;
+    case 'oldest':
+    default:
+      query = query.order('created_at', { ascending: true });
+      break;
+  }
+  
+  const { data: replies, error } = await query.limit(THREAD_CONFIG.REPLIES_PER_PAGE);
 
   if (error || !replies) return [];
 

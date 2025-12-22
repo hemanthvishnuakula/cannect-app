@@ -1,22 +1,25 @@
 /**
- * ThreadRibbon - Bluesky-style Thread View
+ * ThreadRibbon - Bluesky Gold Standard Thread View
  * 
  * Uses unified ThreadPost component for all post types.
  * Thread lines connect posts vertically through avatar centers.
  * 
- * Bluesky-style deferred parents:
- * - Initially renders focused post first (deferParents = true)
- * - After stable render, shows ancestors above (deferParents = false)
- * - Uses maintainVisibleContentPosition to keep focused post in place
+ * Gold Standard Features (matching Bluesky):
+ * - deferParents: Initially renders focused post first
+ * - prepareForParamsUpdate: Resets state when sort/view changes
+ * - onContentSizeChange: Web scroll handling for anchor positioning
+ * - maintainVisibleContentPosition: Native anchor positioning
+ * - onEndReached: Pagination for loading more replies
  */
 
 import React, { memo, useMemo, useCallback, useRef, useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, Pressable, Platform } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, Pressable, Platform, LayoutChangeEvent } from 'react-native';
 import { FlashList, ListRenderItem } from '@shopify/flash-list';
 import { useRouter } from 'expo-router';
 import type { ThreadView, ThreadListItem } from '@/lib/types/thread';
 import type { PostWithAuthor } from '@/lib/types/database';
 import { flattenThreadToList, THREAD_DESIGN } from '@/lib/types/thread';
+import type { ThreadSort, ThreadView as ThreadViewOption } from '@/lib/hooks/use-thread-preferences';
 import { useAuthStore } from '@/lib/stores';
 import { ThreadPost } from './ThreadPost';
 
@@ -28,9 +31,14 @@ interface ThreadRibbonProps {
   onRepost: (post: PostWithAuthor) => void;
   onMore?: (post: PostWithAuthor) => void;
   onLoadMore?: () => void;
+  onEndReached?: () => void;
   isLoadingMore?: boolean;
   ListHeaderComponent?: React.ReactElement;
   ListFooterComponent?: React.ReactElement;
+  /** Current sort preference - used to detect param changes */
+  sort?: ThreadSort;
+  /** Current view preference - used to detect param changes */
+  view?: ThreadViewOption;
 }
 
 export const ThreadRibbon = memo(function ThreadRibbon({
@@ -41,9 +49,12 @@ export const ThreadRibbon = memo(function ThreadRibbon({
   onRepost,
   onMore,
   onLoadMore,
+  onEndReached,
   isLoadingMore,
   ListHeaderComponent,
   ListFooterComponent,
+  sort,
+  view,
 }: ThreadRibbonProps) {
   const router = useRouter();
   const { user } = useAuthStore();
@@ -52,15 +63,48 @@ export const ThreadRibbon = memo(function ThreadRibbon({
   const currentPostIdRef = useRef<string | null>(null);
   const focusedPostId = thread.focusedPost.id;
   
+  // Track previous sort/view for prepareForParamsUpdate
+  const prevSortRef = useRef(sort);
+  const prevViewRef = useRef(view);
+  
   // Bluesky-style: defer rendering parents initially
-  // Reset deferParents when navigating to a new post
   const [deferParents, setDeferParents] = useState(true);
+  
+  // Bluesky-style: flag for scroll handling
+  const shouldHandleScroll = useRef(true);
+  
+  // Refs for web scroll handling
+  const listRef = useRef<FlashList<ThreadListItem>>(null);
+  const anchorRef = useRef<View>(null);
+  const headerRef = useRef<View>(null);
+  
+  /**
+   * Bluesky's prepareForParamsUpdate pattern
+   * Called when sort/view changes to reset scroll state
+   */
+  const prepareForParamsUpdate = useCallback(() => {
+    setDeferParents(true);
+    shouldHandleScroll.current = true;
+    
+    // Reset scroll to top (anchor post)
+    listRef.current?.scrollToOffset({ offset: 0, animated: false });
+  }, []);
+  
+  // Detect sort/view changes and call prepareForParamsUpdate
+  useEffect(() => {
+    if (prevSortRef.current !== sort || prevViewRef.current !== view) {
+      prevSortRef.current = sort;
+      prevViewRef.current = view;
+      prepareForParamsUpdate();
+    }
+  }, [sort, view, prepareForParamsUpdate]);
   
   // Reset deferParents when focused post changes (navigating to new thread)
   useEffect(() => {
     if (currentPostIdRef.current !== focusedPostId) {
       currentPostIdRef.current = focusedPostId;
       setDeferParents(true);
+      shouldHandleScroll.current = true;
     }
   }, [focusedPostId]);
 
@@ -75,9 +119,6 @@ export const ThreadRibbon = memo(function ThreadRibbon({
     }
     return allItems;
   }, [allItems, deferParents]);
-
-  // Ref for FlashList
-  const listRef = useRef<FlashList<ThreadListItem>>(null);
   
   // Check if we have ancestors to show
   const hasAncestors = allItems.some(item => item.type === 'ancestor');
@@ -92,6 +133,31 @@ export const ThreadRibbon = memo(function ThreadRibbon({
       return () => clearTimeout(timer);
     }
   }, [deferParents, hasAncestors]);
+  
+  /**
+   * Bluesky's onContentSizeChange pattern for web
+   * Handles scroll positioning when content changes (parents prepended)
+   */
+  const onContentSizeChange = useCallback((width: number, height: number) => {
+    // Only needed on web where maintainVisibleContentPosition isn't supported
+    if (Platform.OS !== 'web') return;
+    if (!shouldHandleScroll.current) return;
+    
+    // When deferParents becomes false, ancestors are added above
+    // We need to scroll to keep the focused post in view
+    if (!deferParents && hasAncestors) {
+      // Find focused post index and scroll to it
+      const focusedIndex = items.findIndex(item => item.type === 'focused');
+      if (focusedIndex > 0) {
+        listRef.current?.scrollToIndex({
+          index: focusedIndex,
+          animated: false,
+          viewPosition: 0,
+        });
+      }
+      shouldHandleScroll.current = false;
+    }
+  }, [deferParents, hasAncestors, items]);
 
   // Navigation handlers
   const navigateToPost = useCallback((postId: string) => {
@@ -209,6 +275,15 @@ export const ThreadRibbon = memo(function ThreadRibbon({
 
   // Get item type for FlashList performance
   const getItemType = useCallback((item: ThreadListItem) => item.type, []);
+  
+  /**
+   * Bluesky's onEndReached pattern for pagination
+   */
+  const handleEndReached = useCallback(() => {
+    if (onEndReached && !isLoadingMore && thread.hasMoreReplies) {
+      onEndReached();
+    }
+  }, [onEndReached, isLoadingMore, thread.hasMoreReplies]);
 
   if (isLoading) {
     return (
@@ -231,10 +306,15 @@ export const ThreadRibbon = memo(function ThreadRibbon({
         ListFooterComponent={ListFooterComponent}
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}
-        // Keep focused post in place when ancestors are prepended
+        // Keep focused post in place when ancestors are prepended (native only)
         maintainVisibleContentPosition={
           hasAncestors ? { minIndexForVisible: 0 } : undefined
         }
+        // Web scroll handling
+        onContentSizeChange={Platform.OS === 'web' ? onContentSizeChange : undefined}
+        // Pagination
+        onEndReached={handleEndReached}
+        onEndReachedThreshold={0.5}
       />
     </View>
   );

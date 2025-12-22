@@ -10,10 +10,11 @@ export * from "./DiscoveryModal";
 export * from "./RepostMenu";
 export * from "./PostOptionsMenu";
 
-// Thread components (Bluesky-style layout)
+// Thread components (Bluesky Gold Standard)
 export * from "./ThreadPost";
 export * from "./ThreadRibbon";
 export * from "./ThreadSkeleton";
+export * from "./ThreadControls";
 
 // Legacy post components (deprecated - use ThreadPost)
 export * from "./AncestorPost";

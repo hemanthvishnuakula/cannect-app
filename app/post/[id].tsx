@@ -5,8 +5,8 @@ import { ArrowLeft } from "lucide-react-native";
 import { useState, useCallback } from "react";
 import * as Haptics from "expo-haptics";
 
-import { useThread, useThreadReply, useThreadDelete, useLikePost, useUnlikePost, useToggleRepost } from "@/lib/hooks";
-import { ThreadRibbon, ThreadSkeleton, ReplyBar, RepostMenu, PostOptionsMenu } from "@/components/social";
+import { useThread, useThreadReply, useThreadDelete, useLikePost, useUnlikePost, useToggleRepost, useLoadMoreReplies } from "@/lib/hooks";
+import { ThreadRibbon, ThreadSkeleton, ReplyBar, RepostMenu, PostOptionsMenu, ThreadControls } from "@/components/social";
 import { useAuthStore } from "@/lib/stores";
 import type { PostWithAuthor } from "@/lib/types/database";
 
@@ -18,13 +18,11 @@ export default function PostDetailsScreen() {
   const [replyTargetId, setReplyTargetId] = useState<string | null>(null);
   const [replyTargetUsername, setReplyTargetUsername] = useState<string | null>(null);
   
-  // ✅ Post Ribbon: Use the new thread hook for complete ancestor/descendant chains
-  const { 
-    data: thread, 
-    isLoading, 
-    error, 
-    refetch,
-  } = useThread(id ?? "");
+  // ✅ Gold Standard: Use the new thread hook with state/actions pattern
+  const thread = useThread(id ?? "");
+  
+  // Destructure for convenience
+  const { data: threadData, isLoading, error, state, actions } = thread;
   
   // ✅ Diamond Standard: Custom back handler for direct URL access
   const handleBack = () => {
@@ -162,7 +160,7 @@ export default function PostDetailsScreen() {
   }, [optionsMenuPost, id, deleteReply, router]);
 
   // Loading state
-  if (isLoading || !thread) {
+  if (isLoading || !threadData) {
     return (
       <SafeAreaView className="flex-1 bg-background">
         <Stack.Screen 
@@ -184,7 +182,10 @@ export default function PostDetailsScreen() {
   }
 
   // Determine if focused post is a reply for header title
-  const isReply = thread.focusedPost.is_reply || thread.ancestors.length > 0;
+  const isReply = threadData.focusedPost.is_reply || threadData.ancestors.length > 0;
+  
+  // Whether to show sort controls (only if there are replies)
+  const hasReplies = threadData.replies.length > 0 || threadData.totalReplies > 0;
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={["bottom"]}>
@@ -208,13 +209,23 @@ export default function PostDetailsScreen() {
         className="flex-1"
         style={{ flex: 1 }}
       >
-        {/* ✅ Post Ribbon: Complete thread visualization */}
+        {/* ✅ Gold Standard: Thread Controls (sort) */}
+        {hasReplies && (
+          <ThreadControls
+            sort={state.sort}
+            onSortChange={actions.setSort}
+          />
+        )}
+        
+        {/* ✅ Gold Standard: Complete thread visualization */}
         <ThreadRibbon
-          thread={thread}
+          thread={threadData}
           onLike={handleLike}
           onRepost={handleRepost}
           onReply={(post, username) => startReplyToComment(post.id, username)}
           onMore={handleMore}
+          sort={state.sort}
+          view={state.view}
         />
 
         {/* ✅ Diamond Standard: Sticky Reply Bar with haptics */}

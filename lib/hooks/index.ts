@@ -10,6 +10,7 @@ export * from "./use-media-upload";
 export * from "./use-pwa-persistence";
 export * from "./use-network-status";
 export * from "./use-thread";
+export * from "./use-thread-preferences";
 
 // Web push utilities
 export { 
