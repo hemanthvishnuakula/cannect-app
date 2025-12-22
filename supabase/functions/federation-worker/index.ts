@@ -218,6 +218,75 @@ async function createRecord(
     throw new Error("No record data for create operation");
   }
 
+  let recordData = item.record_data;
+
+  // For replies that are missing the reply reference, rebuild it from the database
+  // This happens when the parent wasn't synced yet when the trigger ran
+  if (item.record_type === 'reply' && !recordData.reply) {
+    console.log(`[federation-worker] Reply missing reply reference, rebuilding...`);
+    
+    const { data: post } = await supabase
+      .from('posts')
+      .select('thread_parent_id, thread_root_id')
+      .eq('id', item.record_id)
+      .single();
+
+    if (post?.thread_parent_id) {
+      // Get parent's AT Protocol info
+      const { data: parent } = await supabase
+        .from('posts')
+        .select('at_uri, at_cid')
+        .eq('id', post.thread_parent_id)
+        .single();
+
+      // Get root's AT Protocol info (might be same as parent)
+      const rootId = post.thread_root_id || post.thread_parent_id;
+      const { data: root } = await supabase
+        .from('posts')
+        .select('at_uri, at_cid')
+        .eq('id', rootId)
+        .single();
+
+      if (parent?.at_uri && parent?.at_cid) {
+        recordData = {
+          ...recordData,
+          reply: {
+            root: {
+              uri: root?.at_uri || parent.at_uri,
+              cid: root?.at_cid || parent.at_cid,
+            },
+            parent: {
+              uri: parent.at_uri,
+              cid: parent.at_cid,
+            },
+          },
+        };
+
+        // Also update the queue item and post with the correct data
+        await supabase
+          .from('federation_queue')
+          .update({ record_data: recordData })
+          .eq('id', item.id);
+
+        await supabase
+          .from('posts')
+          .update({
+            thread_parent_uri: parent.at_uri,
+            thread_parent_cid: parent.at_cid,
+            thread_root_uri: root?.at_uri || parent.at_uri,
+            thread_root_cid: root?.at_cid || parent.at_cid,
+          })
+          .eq('id', item.record_id);
+
+        console.log(`[federation-worker] Rebuilt reply reference for ${item.record_id}`);
+      } else {
+        // Parent still not synced - re-queue for later
+        console.log(`[federation-worker] Parent not synced yet, re-queuing...`);
+        throw new Error('Parent post not synced yet - will retry');
+      }
+    }
+  }
+
   const response = await fetch(`${PDS_URL}/xrpc/com.atproto.repo.createRecord`, {
     method: "POST",
     headers: {
@@ -228,7 +297,7 @@ async function createRecord(
       repo: item.user_did,
       collection: item.collection,
       rkey: item.rkey,
-      record: item.record_data,
+      record: recordData,
     }),
   });
 
@@ -265,7 +334,7 @@ async function createRecord(
             repo: item.user_did,
             collection: item.collection,
             rkey: item.rkey,
-            record: item.record_data,
+            record: recordData,
           }),
         });
 
