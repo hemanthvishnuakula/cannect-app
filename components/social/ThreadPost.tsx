@@ -163,32 +163,11 @@ export const ThreadPost = memo(function ThreadPost({
             <Text style={styles.focusedTimestamp}>{timestamp}</Text>
           )}
 
-          {/* Focused: Stats row */}
-          {isFocused && (post.reposts_count > 0 || post.likes_count > 0 || (post.replies_count ?? 0) > 0) && (
-            <View style={styles.statsRow}>
-              {(post.replies_count ?? 0) > 0 && (
-                <Text style={styles.stat}>
-                  <Text style={styles.statCount}>{post.replies_count}</Text> {post.replies_count === 1 ? 'reply' : 'replies'}
-                </Text>
-              )}
-              {post.reposts_count > 0 && (
-                <Text style={styles.stat}>
-                  <Text style={styles.statCount}>{post.reposts_count}</Text> reposts
-                </Text>
-              )}
-              {post.likes_count > 0 && (
-                <Text style={styles.stat}>
-                  <Text style={styles.statCount}>{post.likes_count}</Text> likes
-                </Text>
-              )}
-            </View>
-          )}
-
-          {/* Action Row */}
+          {/* Action Row - counts always shown beside buttons */}
           <View style={[styles.actions, isFocused && styles.actionsFocused]}>
             <Pressable onPress={handleReply} style={styles.actionButton}>
               <MessageCircle size={isFocused ? 22 : 18} color="#6B7280" />
-              {!isFocused && (post.replies_count ?? 0) > 0 && (
+              {(post.replies_count ?? 0) > 0 && (
                 <Text style={styles.actionCount}>{post.replies_count}</Text>
               )}
             </Pressable>
@@ -198,7 +177,7 @@ export const ThreadPost = memo(function ThreadPost({
                 size={isFocused ? 22 : 18} 
                 color={(post as any).is_reposted_by_me ? '#10B981' : '#6B7280'} 
               />
-              {!isFocused && post.reposts_count > 0 && (
+              {post.reposts_count > 0 && (
                 <Text style={[styles.actionCount, (post as any).is_reposted_by_me && styles.repostedCount]}>
                   {post.reposts_count}
                 </Text>
@@ -211,7 +190,7 @@ export const ThreadPost = memo(function ThreadPost({
                 color={post.is_liked ? '#EF4444' : '#6B7280'} 
                 fill={post.is_liked ? '#EF4444' : 'transparent'}
               />
-              {!isFocused && post.likes_count > 0 && (
+              {post.likes_count > 0 && (
                 <Text style={[styles.actionCount, post.is_liked && styles.likedCount]}>
                   {post.likes_count}
                 </Text>
@@ -377,19 +356,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#6B7280',
     marginTop: 12,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    gap: 16,
-    paddingVertical: 8,
-  },
-  stat: {
-    fontSize: 14,
-    color: '#6B7280',
-  },
-  statCount: {
-    fontWeight: '700',
-    color: '#FAFAFA',
   },
   
   // Actions
