@@ -1,6 +1,6 @@
 import { View, Text, Pressable, ActivityIndicator } from "react-native";
 import { Image } from "expo-image";
-import { Share, Link as LinkIcon, Calendar, Globe2 } from "lucide-react-native";
+import { Share, Link as LinkIcon, Calendar, Globe2, ExternalLink } from "lucide-react-native";
 import { Button } from "@/components/ui/Button";
 import { Avatar } from "@/components/ui/Avatar";
 import { cn } from "@/lib/utils";
@@ -154,6 +154,7 @@ export function ProfileHeader({
           >
             <Text className="font-bold text-text-primary">{profile.following_count || 0}</Text>
             <Text className="text-text-muted">Following</Text>
+            {isExternal && <ExternalLink size={12} color="#6B7280" />}
           </Pressable>
           <Pressable 
             onPress={onFollowersPress} 
@@ -161,6 +162,7 @@ export function ProfileHeader({
           >
             <Text className="font-bold text-text-primary">{profile.followers_count || 0}</Text>
             <Text className="text-text-muted">Followers</Text>
+            {isExternal && <ExternalLink size={12} color="#6B7280" />}
           </Pressable>
         </View>
       </View>

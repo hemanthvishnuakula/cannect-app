@@ -76,7 +76,9 @@ serve(async (req) => {
       case "getAuthorFeed":
         // Support both "actor" and "handle" params for compatibility
         const author = url.searchParams.get("actor") || url.searchParams.get("handle") || "";
-        bskyUrl = `${BSKY_PUBLIC_API}/app.bsky.feed.getAuthorFeed?actor=${encodeURIComponent(author)}&limit=${limit}`;
+        // Filter options: posts_no_replies, posts_with_replies, posts_with_media, posts_and_author_threads
+        const filter = url.searchParams.get("filter") || "posts_no_replies";
+        bskyUrl = `${BSKY_PUBLIC_API}/app.bsky.feed.getAuthorFeed?actor=${encodeURIComponent(author)}&limit=${limit}&filter=${filter}`;
         if (cursor) bskyUrl += `&cursor=${encodeURIComponent(cursor)}`;
         break;
 

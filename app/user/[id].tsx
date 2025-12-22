@@ -1,4 +1,4 @@
-import { View, Text, Platform, ActivityIndicator, Pressable } from "react-native";
+import { View, Text, Platform, ActivityIndicator, Pressable, Linking } from "react-native";
 import { useState, useCallback } from "react";
 import { useLocalSearchParams, Stack, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -17,11 +17,18 @@ import { useAuthStore } from "@/lib/stores";
 const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL || "";
 const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || "";
 
-// Fetch external user's posts from Bluesky API
-async function fetchExternalPosts(handle: string): Promise<BlueskyPostData[]> {
+// External profile tab type - posts_with_replies includes replies
+type ExternalProfileTab = 'posts' | 'replies' | 'media';
+
+// Fetch external user's posts from Bluesky API with filter support
+async function fetchExternalPosts(handle: string, filter: 'posts_no_replies' | 'posts_with_replies' | 'posts_with_media' = 'posts_no_replies'): Promise<BlueskyPostData[]> {
   if (!handle) return [];
   
-  const url = `${SUPABASE_URL}/functions/v1/bluesky-proxy?action=getAuthorFeed&handle=${encodeURIComponent(handle)}&limit=30`;
+  // Bluesky API filter values:
+  // - posts_no_replies: Only posts, no replies
+  // - posts_with_replies: Posts and replies  
+  // - posts_with_media: Only posts with images/video
+  const url = `${SUPABASE_URL}/functions/v1/bluesky-proxy?action=getAuthorFeed&handle=${encodeURIComponent(handle)}&limit=30&filter=${filter}`;
   const res = await fetch(url, {
     headers: {
       "Content-Type": "application/json",
@@ -49,6 +56,11 @@ async function fetchExternalPosts(handle: string): Promise<BlueskyPostData[]> {
       repostCount: bskyPost.repostCount || 0,
       replyCount: bskyPost.replyCount || 0,
       images: bskyPost.embed?.images?.map((img: any) => img.fullsize) || [],
+      // Include reply info for showing thread context
+      replyParent: bskyPost.record?.reply?.parent ? {
+        uri: bskyPost.record.reply.parent.uri,
+        cid: bskyPost.record.reply.parent.cid,
+      } : undefined,
     };
   });
 }
@@ -84,14 +96,19 @@ export default function UserProfileScreen() {
     activeTab
   );
   
-  // For external users: fetch posts from Bluesky API
+  // For external users: fetch posts from Bluesky API with tab-based filtering
+  const externalFilter = activeTab === 'posts' ? 'posts_no_replies' 
+    : activeTab === 'replies' ? 'posts_with_replies' 
+    : 'posts_with_media';
+  
   const {
     data: externalPosts,
     refetch: refetchExternalPosts,
     isRefetching: isExternalPostsRefetching,
+    isLoading: isExternalPostsLoading,
   } = useQuery({
-    queryKey: ["external-posts", profile?.handle],
-    queryFn: () => fetchExternalPosts(profile?.handle || ""),
+    queryKey: ["external-posts", profile?.handle, activeTab],
+    queryFn: () => fetchExternalPosts(profile?.handle || "", externalFilter),
     enabled: !!isExternalUser && !!profile?.handle,
     staleTime: 1000 * 60 * 5,
   });
@@ -231,8 +248,12 @@ export default function UserProfileScreen() {
 
   // Render item based on active tab and user type
   const renderItem = ({ item }: { item: any }) => {
-    // External users: render BlueskyPost component
+    // External users: render BlueskyPost component (works for all tabs)
     if (isExternalUser) {
+      // For media tab with external users, only show posts with images
+      if (activeTab === 'media' && (!item.images || item.images.length === 0)) {
+        return null; // Will be filtered out
+      }
       return <BlueskyPost post={item as BlueskyPostData} />;
     }
     
@@ -307,6 +328,14 @@ export default function UserProfileScreen() {
     );
   }
 
+  // Helper to open external profile on Bluesky web
+  const openBlueskyProfile = (tab?: 'followers' | 'following') => {
+    const handle = profile?.handle || '';
+    const baseUrl = `https://bsky.app/profile/${handle}`;
+    const url = tab ? `${baseUrl}/${tab}` : baseUrl;
+    Linking.openURL(url);
+  };
+
   return (
     <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
       <Stack.Screen options={{ title: `@${profile.handle || profile.username}`, headerBackTitle: "Back" }} />
@@ -318,27 +347,37 @@ export default function UserProfileScreen() {
         isFollowing={isFollowing ?? false}
         isFollowPending={isFollowPending}
         onFollowPress={handleFollowToggle}
-        onFollowersPress={() => !isExternalUser && router.push({ 
-          pathname: `/user/${handleOrUsername}/relationships` as any,
-          params: { type: 'followers' }
-        })}
-        onFollowingPress={() => !isExternalUser && router.push({ 
-          pathname: `/user/${handleOrUsername}/relationships` as any,
-          params: { type: 'following' }
-        })}
+        onFollowersPress={() => {
+          if (isExternalUser) {
+            openBlueskyProfile('followers');
+          } else {
+            router.push({ 
+              pathname: `/user/${handleOrUsername}/relationships` as any,
+              params: { type: 'followers' }
+            });
+          }
+        }}
+        onFollowingPress={() => {
+          if (isExternalUser) {
+            openBlueskyProfile('following');
+          } else {
+            router.push({ 
+              pathname: `/user/${handleOrUsername}/relationships` as any,
+              params: { type: 'following' }
+            });
+          }
+        }}
         isExternal={isExternalUser}
       />
       
-      {/* ✅ Tabs - only show for local users (external users just show posts) */}
-      {!isExternalUser && (
-        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as ProfileTab)}>
-          <TabsList>
-            <TabsTrigger value="posts">Posts</TabsTrigger>
-            <TabsTrigger value="replies">Replies</TabsTrigger>
-            <TabsTrigger value="media">Media</TabsTrigger>
-          </TabsList>
-        </Tabs>
-      )}
+      {/* ✅ Tabs - now shown for both local and external users */}
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as ProfileTab)}>
+        <TabsList>
+          <TabsTrigger value="posts">Posts</TabsTrigger>
+          <TabsTrigger value="replies">Replies</TabsTrigger>
+          <TabsTrigger value="media">Media</TabsTrigger>
+        </TabsList>
+      </Tabs>
       
       {/* External user badge/header */}
       {isExternalUser && (
