@@ -81,6 +81,18 @@ export const THREAD_DESIGN = {
   OUTER_SPACE: 16,
   /** Gap between avatar and content */
   AVATAR_GAP: 12,
+  
+  // Legacy compatibility - kept for backward compat with old components
+  /** @deprecated Use OUTER_SPACE instead */
+  HORIZONTAL_PADDING: 16,
+  /** @deprecated Use AVATAR_SIZE + AVATAR_GAP instead */
+  LEFT_COLUMN_WIDTH: 48,
+  /** @deprecated Use AVATAR_SIZE for all post types */
+  AVATAR_SIZES: {
+    ancestor: 42,
+    focused: 48,
+    reply: 42,
+  },
 } as const;
 
 /**
