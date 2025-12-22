@@ -49,6 +49,10 @@ export const ThreadRibbon = memo(function ThreadRibbon({
 
   // Ref for FlashList to enable scrolling
   const listRef = useRef<FlashList<ThreadListItem>>(null);
+  
+  // Track if we've scrolled for this thread (to avoid re-scrolling on re-renders)
+  const hasScrolledRef = useRef<string | null>(null);
+  const focusedPostId = thread.focusedPost.id;
 
   // Find the index of the focused post for auto-scroll
   const focusedIndex = useMemo(() => 
@@ -58,18 +62,31 @@ export const ThreadRibbon = memo(function ThreadRibbon({
 
   // Auto-scroll to focused post when ancestors are present
   useEffect(() => {
-    if (focusedIndex > 0 && listRef.current) {
-      // Small delay to ensure list is rendered
-      const timer = setTimeout(() => {
-        listRef.current?.scrollToIndex({
-          index: focusedIndex,
-          animated: false,
-          viewPosition: 0, // Put focused post at top
-        });
-      }, 100);
-      return () => clearTimeout(timer);
+    // Only scroll if we have ancestors and haven't scrolled for this post yet
+    if (focusedIndex > 0 && listRef.current && hasScrolledRef.current !== focusedPostId) {
+      hasScrolledRef.current = focusedPostId;
+      
+      // Use multiple attempts to ensure scroll happens after render
+      const attemptScroll = (attempt: number) => {
+        if (attempt > 3) return; // Give up after 3 attempts
+        
+        setTimeout(() => {
+          try {
+            listRef.current?.scrollToIndex({
+              index: focusedIndex,
+              animated: false,
+              viewPosition: 0, // Put focused post at top
+            });
+          } catch (e) {
+            // If scroll fails, try again
+            attemptScroll(attempt + 1);
+          }
+        }, attempt * 150); // 150ms, 300ms, 450ms
+      };
+      
+      attemptScroll(1);
     }
-  }, [focusedIndex]);
+  }, [focusedIndex, focusedPostId]);
 
   // Navigation handlers
   const navigateToPost = useCallback((postId: string) => {
