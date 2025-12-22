@@ -92,7 +92,9 @@ serve(async (req) => {
             xrpcParams.set(key, value);
           }
         });
-        bskyUrl = `${BSKY_PUBLIC_API}${path}?${xrpcParams.toString()}`;
+        // Ensure path starts with / for proper URL construction
+        const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+        bskyUrl = `${BSKY_PUBLIC_API}${normalizedPath}?${xrpcParams.toString()}`;
         break;
 
       default:
