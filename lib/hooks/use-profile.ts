@@ -3,6 +3,7 @@ import { supabase } from "@/lib/supabase";
 import { queryKeys } from "@/lib/query-client";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import type { Profile } from "@/lib/types/database";
+import * as atprotoAgent from "@/lib/services/atproto-agent";
 
 // Fetch profile by ID
 export function useProfile(userId: string) {
@@ -455,8 +456,8 @@ export function useIsFollowingDid(targetDid: string) {
 }
 
 /**
- * Follow an external Bluesky user (who doesn't have a Cannect account)
- * Now uses the unified profiles system - creates/updates a profile for the external user
+ * Follow an external Bluesky user (PDS-first approach)
+ * Creates the follow on PDS first, then mirrors to database
  */
 export function useFollowBlueskyUser() {
   const queryClient = useQueryClient();
@@ -466,37 +467,17 @@ export function useFollowBlueskyUser() {
     mutationFn: async (blueskyUser: BlueskyUserInfo) => {
       if (!user) throw new Error("Not authenticated");
       
-      // Step 1: Upsert the external profile (creates if not exists)
-      const { data: profileId, error: upsertError } = await supabase.rpc(
-        'upsert_external_profile',
-        {
-          p_did: blueskyUser.did,
-          p_handle: blueskyUser.handle,
-          p_display_name: blueskyUser.displayName || blueskyUser.handle,
-          p_avatar_url: blueskyUser.avatar || null,
-        }
-      );
+      // PDS-first: Call atproto-agent edge function
+      // The edge function handles both PDS creation and DB mirroring
+      await atprotoAgent.followUser({
+        userId: user.id,
+        targetDid: blueskyUser.did,
+        targetHandle: blueskyUser.handle,
+        targetDisplayName: blueskyUser.displayName,
+        targetAvatar: blueskyUser.avatar,
+      });
       
-      if (upsertError) {
-        console.error("[useFollowBlueskyUser] Upsert profile error:", upsertError);
-        throw upsertError;
-      }
-      
-      console.log("[useFollowBlueskyUser] Profile upserted:", profileId);
-      
-      // Step 2: Create the follow with proper following_id (never NULL now!)
-      const { error: followError, data } = await supabase.from("follows").insert({
-        follower_id: user.id,
-        following_id: profileId,
-        subject_did: blueskyUser.did, // Keep for federation queue
-      } as any).select();
-      
-      if (followError) {
-        console.error("[useFollowBlueskyUser] Insert follow error:", followError);
-        throw followError;
-      }
-      
-      console.log("[useFollowBlueskyUser] Follow created:", data);
+      console.log("[useFollowBlueskyUser] Follow created via PDS-first");
       return blueskyUser.did;
     },
     onMutate: async (blueskyUser) => {
@@ -555,7 +536,8 @@ export function useFollowBlueskyUser() {
 }
 
 /**
- * Unfollow an external Bluesky user by DID
+ * Unfollow an external Bluesky user (PDS-first approach)
+ * Deletes the follow from PDS first, then removes from database
  */
 export function useUnfollowBlueskyUser() {
   const queryClient = useQueryClient();
@@ -565,13 +547,13 @@ export function useUnfollowBlueskyUser() {
     mutationFn: async (targetDid: string) => {
       if (!user) throw new Error("Not authenticated");
 
-      const { error } = await supabase
-        .from("follows")
-        .delete()
-        .eq("follower_id", user.id)
-        .eq("subject_did", targetDid);
+      // PDS-first: Call atproto-agent edge function
+      await atprotoAgent.unfollowUser({
+        userId: user.id,
+        targetDid,
+      });
 
-      if (error) throw error;
+      console.log("[useUnfollowBlueskyUser] Unfollow completed via PDS-first");
       return targetDid;
     },
     onMutate: async (targetDid) => {

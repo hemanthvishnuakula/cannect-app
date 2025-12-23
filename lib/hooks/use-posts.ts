@@ -16,6 +16,7 @@ import type { PostWithAuthor } from "@/lib/types/database";
 import type { ThreadView, ThreadReply } from "@/lib/types/thread";
 import { useAuthStore } from "@/lib/stores";
 import { generateTID, parseTextToFacets, buildAtUri } from "@/lib/utils/atproto";
+import * as atprotoAgent from "@/lib/services/atproto-agent";
 
 const POSTS_PER_PAGE = 20;
 
@@ -1532,7 +1533,8 @@ export function useHasLikedBlueskyPost(subjectUri: string) {
 }
 
 /**
- * Like an external Bluesky post (no local post_id required)
+ * Like an external Bluesky post (PDS-first approach)
+ * Creates the like on PDS first, then mirrors to database
  */
 export function useLikeBlueskyPost() {
   const queryClient = useQueryClient();
@@ -1542,14 +1544,13 @@ export function useLikeBlueskyPost() {
     mutationFn: async (postRef: BlueskyPostRef) => {
       if (!user) throw new Error("Not authenticated");
       
-      const { error } = await supabase.from("likes").insert({
-        user_id: user.id,
-        // post_id is NULL - external post
-        subject_uri: postRef.uri,
-        subject_cid: postRef.cid,
-      } as any);
+      // PDS-first: Call atproto-agent edge function
+      await atprotoAgent.likePost({
+        userId: user.id,
+        subjectUri: postRef.uri,
+        subjectCid: postRef.cid,
+      });
       
-      if (error) throw error;
       return postRef.uri;
     },
     onMutate: async (postRef) => {
@@ -1573,7 +1574,8 @@ export function useLikeBlueskyPost() {
 }
 
 /**
- * Unlike an external Bluesky post
+ * Unlike an external Bluesky post (PDS-first approach)
+ * Deletes the like from PDS first, then removes from database
  */
 export function useUnlikeBlueskyPost() {
   const queryClient = useQueryClient();
@@ -1583,13 +1585,12 @@ export function useUnlikeBlueskyPost() {
     mutationFn: async (subjectUri: string) => {
       if (!user) throw new Error("Not authenticated");
 
-      const { error } = await supabase
-        .from("likes")
-        .delete()
-        .eq("user_id", user.id)
-        .eq("subject_uri", subjectUri);
+      // PDS-first: Call atproto-agent edge function
+      await atprotoAgent.unlikePost({
+        userId: user.id,
+        subjectUri,
+      });
 
-      if (error) throw error;
       return subjectUri;
     },
     onMutate: async (subjectUri) => {
@@ -1638,7 +1639,8 @@ export function useHasRepostedBlueskyPost(subjectUri: string) {
 }
 
 /**
- * Repost an external Bluesky post
+ * Repost an external Bluesky post (PDS-first approach)
+ * Creates the repost on PDS first, then mirrors to database
  */
 export function useRepostBlueskyPost() {
   const queryClient = useQueryClient();
@@ -1648,13 +1650,13 @@ export function useRepostBlueskyPost() {
     mutationFn: async (postRef: BlueskyPostRef) => {
       if (!user) throw new Error("Not authenticated");
       
-      const { error } = await supabase.from("reposts").insert({
-        user_id: user.id,
-        subject_uri: postRef.uri,
-        subject_cid: postRef.cid,
-      } as any);
+      // PDS-first: Call atproto-agent edge function
+      await atprotoAgent.repostPost({
+        userId: user.id,
+        subjectUri: postRef.uri,
+        subjectCid: postRef.cid,
+      });
       
-      if (error) throw error;
       return postRef.uri;
     },
     onMutate: async (postRef) => {
@@ -1678,7 +1680,8 @@ export function useRepostBlueskyPost() {
 }
 
 /**
- * Un-repost an external Bluesky post
+ * Un-repost an external Bluesky post (PDS-first approach)
+ * Deletes the repost from PDS first, then removes from database
  */
 export function useUnrepostBlueskyPost() {
   const queryClient = useQueryClient();
@@ -1688,13 +1691,12 @@ export function useUnrepostBlueskyPost() {
     mutationFn: async (subjectUri: string) => {
       if (!user) throw new Error("Not authenticated");
 
-      const { error } = await supabase
-        .from("reposts")
-        .delete()
-        .eq("user_id", user.id)
-        .eq("subject_uri", subjectUri);
+      // PDS-first: Call atproto-agent edge function
+      await atprotoAgent.unrepostPost({
+        userId: user.id,
+        subjectUri,
+      });
 
-      if (error) throw error;
       return subjectUri;
     },
     onMutate: async (subjectUri) => {
@@ -1713,6 +1715,49 @@ export function useUnrepostBlueskyPost() {
     },
     onSettled: (uri) => {
       queryClient.invalidateQueries({ queryKey: ["reposts", "external", user?.id, uri] });
+    },
+  });
+}
+
+/**
+ * Reply to an external Bluesky post (PDS-first approach)
+ * Creates the reply on PDS first, then mirrors to database
+ */
+export interface BlueskyReplyRef {
+  parentUri: string;
+  parentCid: string;
+  rootUri?: string;
+  rootCid?: string;
+}
+
+export function useReplyToBlueskyPost() {
+  const queryClient = useQueryClient();
+  const { user } = useAuthStore();
+
+  return useMutation({
+    mutationFn: async ({ content, parent }: { content: string; parent: BlueskyReplyRef }) => {
+      if (!user) throw new Error("Not authenticated");
+      
+      // PDS-first: Call atproto-agent edge function
+      const result = await atprotoAgent.replyToPost({
+        userId: user.id,
+        content,
+        parentUri: parent.parentUri,
+        parentCid: parent.parentCid,
+        rootUri: parent.rootUri,
+        rootCid: parent.rootCid,
+      });
+      
+      console.log("[useReplyToBlueskyPost] Reply created via PDS-first:", result);
+      return result;
+    },
+    onSuccess: () => {
+      // Invalidate relevant queries
+      queryClient.invalidateQueries({ queryKey: queryKeys.posts.all });
+      if (user?.id) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.posts.byUser(user.id) });
+        queryClient.invalidateQueries({ queryKey: queryKeys.profiles.detail(user.id) });
+      }
     },
   });
 }
