@@ -45,9 +45,9 @@ export default function RegisterScreen() {
       
       // Store federation result for display
       setFederationResult({
-        did: result.did,
-        handle: result.handle,
-        federationError: result.federationError,
+        did: (result as any).did,
+        handle: (result as any).handle,
+        federationError: (result as any).federationError,
       });
       
       // Check if email confirmation is required

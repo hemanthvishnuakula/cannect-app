@@ -162,8 +162,8 @@ export const SocialPost = memo(function SocialPost({
     } else {
       captureAndShare(
         post.id,
-        post.author?.username,
-        post.content || undefined
+        post.author?.username ?? undefined,
+        post.content ?? undefined
       );
     }
   }, [onShare, captureAndShare, post.id, post.author?.username, post.content]);

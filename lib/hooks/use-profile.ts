@@ -246,6 +246,10 @@ export function useResolveProfile(identifier: string) {
               p_posts_count: blueskyProfile.postsCount || 0,
             });
             
+            if (!profileId) {
+              throw new Error('Failed to upsert external profile');
+            }
+            
             // Fetch the newly created/updated profile
             const { data: newProfile } = await supabase
               .from("profiles")
@@ -319,9 +323,9 @@ export function useFollowUser() {
         await atprotoAgent.followUser({
           userId: user.id,
           targetDid,
-          targetHandle: targetProfile?.username,
-          targetDisplayName: targetProfile?.display_name,
-          targetAvatar: targetProfile?.avatar_url,
+          targetHandle: targetProfile?.username ?? undefined,
+          targetDisplayName: targetProfile?.display_name ?? undefined,
+          targetAvatar: targetProfile?.avatar_url ?? undefined,
         });
         return targetUserId;
       }

@@ -276,7 +276,7 @@ export async function testReplyToBlueskyPost() {
     if (replyRecord) {
       console.log('  ✅ Database Mirror:');
       console.log('    - at_uri:', replyRecord.at_uri);
-      console.log('    - federated_at:', replyRecord.federated_at);
+      console.log('    - federated_at:', (replyRecord as any).federated_at);
       return true;
     }
     return false;

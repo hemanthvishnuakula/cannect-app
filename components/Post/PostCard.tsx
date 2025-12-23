@@ -25,9 +25,9 @@ export function PostCard({ post, showBorder = false }: PostCardProps) {
 
   const handleLike = () => {
     if (post.is_liked) {
-      unlikePost.mutate(post.id);
+      unlikePost.mutate({ postId: post.id, subjectUri: (post as any).at_uri });
     } else {
-      likePost.mutate(post.id);
+      likePost.mutate({ postId: post.id, subjectUri: (post as any).at_uri, subjectCid: (post as any).at_cid });
     }
   };
 
@@ -51,8 +51,8 @@ export function PostCard({ post, showBorder = false }: PostCardProps) {
           }}
         >
           <Avatar
-            url={post.author.avatar_url}
-            name={post.author.display_name || post.author.username}
+            url={post.author.avatar_url ?? undefined}
+            name={post.author.display_name || post.author.username || ''}
             size={44}
           />
         </Pressable>

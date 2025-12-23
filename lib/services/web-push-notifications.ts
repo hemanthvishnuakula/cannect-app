@@ -120,7 +120,7 @@ export async function registerWebPushNotifications(userId: string): Promise<Push
     const { error } = await supabase
       .from('profiles')
       .update({ 
-        web_push_subscription: subscription.toJSON() 
+        web_push_subscription: subscription.toJSON() as any
       })
       .eq('id', userId);
 

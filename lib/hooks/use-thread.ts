@@ -286,12 +286,12 @@ async function fetchRepliesFlat(
     ]);
 
     likeMap = (likesResult.data || []).reduce((acc, l) => {
-      acc[l.post_id] = true;
+      if (l.post_id) acc[l.post_id] = true;
       return acc;
     }, {} as Record<string, boolean>);
 
     repostMap = (repostsResult.data || []).reduce((acc, r) => {
-      acc[r.post_id] = true;
+      if (r.post_id) acc[r.post_id] = true;
       return acc;
     }, {} as Record<string, boolean>);
   }
@@ -352,7 +352,7 @@ export function useThreadReply(threadPostId: string) {
         
         // The atproto-agent mirrors to DB, so we return the result
         return { 
-          ...result.data,
+          ...(result as any).data,
           replyingToUsername: (parentPost as any)?.author?.username 
         };
       }
@@ -393,10 +393,10 @@ export function useThreadReply(threadPostId: string) {
       let replyingTo: string | undefined;
       if (previousThread) {
         if (threadParentId === previousThread.focusedPost.id) {
-          replyingTo = previousThread.focusedPost.author?.username;
+          replyingTo = previousThread.focusedPost.author?.username ?? undefined;
         } else {
           const parentReply = previousThread.replies.find(r => r.post.id === threadParentId);
-          replyingTo = parentReply?.post.author?.username;
+          replyingTo = parentReply?.post.author?.username ?? undefined;
         }
       }
 
@@ -485,14 +485,14 @@ export function useLoadMoreReplies(threadPostId: string) {
           .in('post_id', replies.map(r => r.id));
         
         likeMap = (likes || []).reduce((acc, l) => {
-          acc[l.post_id] = true;
+          if (l.post_id) acc[l.post_id] = true;
           return acc;
         }, {} as Record<string, boolean>);
       }
 
       return (replies || []).map((reply) => ({
         post: { ...reply, is_liked: likeMap[reply.id] || false } as PostWithAuthor,
-        replyingTo: (reply as any).parent_post?.author?.username || undefined,
+        replyingTo: (reply as any).parent_post?.author?.username ?? undefined,
       }));
     },
     onSuccess: (newReplies) => {

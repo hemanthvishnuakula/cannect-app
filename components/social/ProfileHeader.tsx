@@ -68,8 +68,8 @@ export function ProfileHeader({
           {/* ✅ Platinum: Stable Avatar with caching - prevents flicker */}
           <View className="rounded-full border-4 border-background bg-background overflow-hidden">
             <Avatar 
-              url={profile.avatar_url} 
-              name={profile.display_name || profile.username} 
+              url={profile.avatar_url ?? undefined} 
+              name={profile.display_name || profile.username || ''} 
               size={80} 
             />
           </View>

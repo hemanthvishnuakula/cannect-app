@@ -182,9 +182,9 @@ export const ThreadRibbon = memo(function ThreadRibbon({
             viewMode={view === 'tree' ? 'tree' : 'linear'}
             onPress={() => navigateToPost(item.post.id)}
             onLike={() => onLike(item.post)}
-            onReply={() => onReply(item.post, item.post.author?.username)}
+            onReply={() => onReply(item.post, item.post.author?.username ?? undefined)}
             onRepost={() => onRepost(item.post)}
-            onProfilePress={() => navigateToProfile(item.post.author?.id || '')}
+            onProfilePress={() => navigateToProfile(item.post.author?.id ?? '')}
             onMore={onMore ? () => onMore(item.post) : undefined}
           />
         );
@@ -196,10 +196,10 @@ export const ThreadRibbon = memo(function ThreadRibbon({
             ui={item.ui}
             viewMode={view === 'tree' ? 'tree' : 'linear'}
             onLike={() => onLike(item.post)}
-            onReply={() => onReply(item.post, item.post.author?.username)}
+            onReply={() => onReply(item.post, item.post.author?.username ?? undefined)}
             onRepost={() => onRepost(item.post)}
             onShare={() => {}}
-            onProfilePress={() => navigateToProfile(item.post.author?.id || '')}
+            onProfilePress={() => navigateToProfile(item.post.author?.id ?? '')}
             onMore={onMore ? () => onMore(item.post) : undefined}
           />
         );
@@ -222,9 +222,9 @@ export const ThreadRibbon = memo(function ThreadRibbon({
             viewMode={view === 'tree' ? 'tree' : 'linear'}
             onPress={() => navigateToPost(item.reply.post.id)}
             onLike={() => onLike(item.reply.post)}
-            onReply={() => onReply(item.reply.post, item.reply.post.author?.username)}
+            onReply={() => onReply(item.reply.post, item.reply.post.author?.username ?? undefined)}
             onRepost={() => onRepost(item.reply.post)}
-            onProfilePress={() => navigateToProfile(item.reply.post.author?.id || '')}
+            onProfilePress={() => navigateToProfile(item.reply.post.author?.id ?? '')}
             onMore={onMore ? () => onMore(item.reply.post) : undefined}
           />
         );

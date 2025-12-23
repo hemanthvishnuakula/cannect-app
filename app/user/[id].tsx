@@ -179,15 +179,15 @@ export default function UserProfileScreen() {
       } else {
         followExternalMutation.mutate({
           did: (profile as any).did,
-          handle: profile.handle || profile.username,
-          displayName: profile.display_name,
-          avatar: profile.avatar_url,
+          handle: profile.handle || profile.username || '',
+          displayName: profile.display_name ?? undefined,
+          avatar: profile.avatar_url ?? undefined,
         });
       }
     } else {
       // Local user - use regular follow mutations
       if (isFollowing) {
-        unfollowLocalMutation.mutate(profile.id);
+        unfollowLocalMutation.mutate({ targetUserId: profile.id });
       } else {
         followLocalMutation.mutate({ 
           targetUserId: profile.id, 

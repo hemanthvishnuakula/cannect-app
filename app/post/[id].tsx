@@ -94,7 +94,7 @@ export default function PostDetailsScreen() {
       : targetPost.id;
     
     if (targetPost.is_liked) {
-      unlikeMutation.mutate(likeTargetId);
+      unlikeMutation.mutate({ postId: likeTargetId, subjectUri: (targetPost as any).at_uri });
     } else {
       // Pass AT fields for federation
       likeMutation.mutate({
