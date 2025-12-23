@@ -8,9 +8,9 @@ import * as Haptics from "expo-haptics";
 
 import { useAuthStore } from "@/lib/stores";
 import { useProfile, useUserPosts, useSignOut, ProfileTab } from "@/lib/hooks";
-import { ProfileHeader } from "@/components/social";
-import { SocialPost } from "@/components/social";
+import { ProfileHeader, UnifiedFeedItem, RepostMenu, PostOptionsMenu } from "@/components/social";
 import { MediaGridItem } from "@/components/Profile";
+import { fromLocalPost, type UnifiedPost } from "@/lib/types/unified-post";
 import { Button } from "@/components/ui/Button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/Tabs";
 import { SkeletonProfile, SkeletonCard } from "@/components/ui/Skeleton";
@@ -38,7 +38,16 @@ export default function ProfileScreen() {
     isRefetching,
   } = useUserPosts(user?.id ?? "", activeTab);
 
-  const posts = postsData?.pages?.flat() || [];
+  const rawPosts = postsData?.pages?.flat() || [];
+  
+  // Convert posts to UnifiedPost format
+  const posts = rawPosts.map((post: any) => fromLocalPost(post, user?.id));
+
+  // Menu state
+  const [repostMenuVisible, setRepostMenuVisible] = useState(false);
+  const [repostMenuPost, setRepostMenuPost] = useState<UnifiedPost | null>(null);
+  const [optionsMenuVisible, setOptionsMenuVisible] = useState(false);
+  const [optionsMenuPost, setOptionsMenuPost] = useState<UnifiedPost | null>(null);
 
   const handleSignOut = async () => {
     await signOut.mutateAsync();
@@ -61,15 +70,25 @@ export default function ProfileScreen() {
   // Render item based on active tab
   const renderItem = ({ item }: { item: any }) => {
     if (activeTab === 'media') {
-      return <MediaGridItem item={item} />;
+      // For media tab, item is raw post, not UnifiedPost
+      const rawPost = rawPosts.find((p: any) => p.id === item.localId) || item;
+      return <MediaGridItem item={rawPost} />;
     }
     
     return (
-      <SocialPost 
+      <UnifiedFeedItem 
         post={item}
-        onPress={() => router.push(`/post/${item.id}` as any)}
-        onProfilePress={() => {}} // Already on profile
-        showThreadContext={activeTab === 'replies'}
+        onRepostMenu={(post) => {
+          setRepostMenuPost(post);
+          setRepostMenuVisible(true);
+        }}
+        onMoreMenu={(post) => {
+          if (Platform.OS !== 'web') {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          }
+          setOptionsMenuPost(post);
+          setOptionsMenuVisible(true);
+        }}
       />
     );
   };
@@ -140,12 +159,13 @@ export default function ProfileScreen() {
       <View style={{ flex: 1, minHeight: 2 }}>
         <FlashList
           key={activeTab === 'media' ? 'grid' : 'list'}
-          data={posts}
-          keyExtractor={(item, index) => {
-            // Create truly unique key for reposts vs originals
-            const isRepost = item.type === 'repost' || item.is_repost;
-            const reposterId = isRepost ? item.user_id : null;
-            return `${activeTab}-${item.id}-${reposterId || 'orig'}-${index}`;
+          data={activeTab === 'media' ? rawPosts : posts}
+          keyExtractor={(item: any, index) => {
+            // For media tab, use raw post ID; for others use unified post uri
+            if (activeTab === 'media') {
+              return `media-${item.id}-${index}`;
+            }
+            return `${activeTab}-${item.uri}-${index}`;
           }}
           numColumns={activeTab === 'media' ? 3 : 1}
           estimatedItemSize={activeTab === 'media' ? 120 : 200}
@@ -193,6 +213,29 @@ export default function ProfileScreen() {
           contentContainerStyle={{ paddingBottom: 20 }}
         />
       </View>
+      
+      {/* Repost Menu */}
+      <RepostMenu
+        isVisible={repostMenuVisible}
+        onClose={() => setRepostMenuVisible(false)}
+        onRepost={() => {}}
+        onQuotePost={() => {
+          if (repostMenuPost?.localId) {
+            router.push(`/compose/quote?postId=${repostMenuPost.localId}` as any);
+          }
+        }}
+        isReposted={repostMenuPost?.viewer?.isReposted === true}
+      />
+      
+      {/* Post Options Menu */}
+      <PostOptionsMenu
+        isVisible={optionsMenuVisible}
+        onClose={() => setOptionsMenuVisible(false)}
+        onDelete={() => {}}
+        isOwnPost={true}
+        postUrl={optionsMenuPost?.localId ? `https://cannect.app/post/${optionsMenuPost.localId}` : undefined}
+        isReply={optionsMenuPost?.type === "reply"}
+      />
     </SafeAreaView>
   );
 }

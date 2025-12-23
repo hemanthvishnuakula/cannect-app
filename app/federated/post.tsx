@@ -12,9 +12,11 @@ import { ArrowLeft, ExternalLink } from "lucide-react-native";
 import { useQuery } from "@tanstack/react-query";
 
 import { getBlueskyPostThread, type FederatedPost } from "@/lib/services/bluesky";
-import { BlueskyPost, type BlueskyPostData } from "@/components/social";
+import { UnifiedPostCard } from "@/components/social/UnifiedPostCard";
+import { fromBlueskyPost, type UnifiedPost } from "@/lib/types/unified-post";
+import type { BlueskyPostData } from "@/components/social/BlueskyPost";
 
-// Convert FederatedPost to BlueskyPostData format
+// Convert FederatedPost to BlueskyPostData format for the adapter
 function toBlueskyPostData(post: FederatedPost): BlueskyPostData {
   return {
     uri: post.uri,
@@ -142,8 +144,8 @@ export default function FederatedPostScreen() {
           {/* Parent post (if replying to something) */}
           {thread.parent && (
             <View className="opacity-70">
-              <BlueskyPost
-                post={toBlueskyPostData(thread.parent)}
+              <UnifiedPostCard
+                post={fromBlueskyPost(toBlueskyPostData(thread.parent))}
                 onShare={handleShare}
               />
               <View className="h-4 ml-8 w-0.5 bg-border" />
@@ -151,8 +153,8 @@ export default function FederatedPostScreen() {
           )}
 
           {/* Main post */}
-          <BlueskyPost
-            post={toBlueskyPostData(thread.post)}
+          <UnifiedPostCard
+            post={fromBlueskyPost(toBlueskyPostData(thread.post))}
             onShare={handleShare}
           />
 
@@ -169,8 +171,8 @@ export default function FederatedPostScreen() {
 
               {thread.replies.map((reply) => (
                 <View key={reply.uri} className="border-t border-border/50">
-                  <BlueskyPost
-                    post={toBlueskyPostData(reply)}
+                  <UnifiedPostCard
+                    post={fromBlueskyPost(toBlueskyPostData(reply))}
                     onShare={handleShare}
                   />
                 </View>

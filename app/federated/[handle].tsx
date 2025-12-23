@@ -5,8 +5,10 @@ import { FlashList } from "@shopify/flash-list";
 import { Image } from "expo-image";
 import { ArrowLeft, Globe2, Users, UserPlus, Check } from "lucide-react-native";
 import { useQuery } from "@tanstack/react-query";
-import { BlueskyPost, type BlueskyPostData } from "@/components/social";
+import { UnifiedFeedItem } from "@/components/social";
+import type { BlueskyPostData } from "@/components/social/BlueskyPost";
 import { useIsFollowingDid, useFollowBlueskyUser, useUnfollowBlueskyUser } from "@/lib/hooks";
+import { fromBlueskyPost, type UnifiedPost } from "@/lib/types/unified-post";
 
 const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL || "";
 const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || "";
@@ -129,7 +131,10 @@ export default function FederatedUserScreen() {
     );
   }
 
-  const { profile, posts } = data;
+  const { profile, posts: rawPosts } = data;
+  
+  // Convert to UnifiedPost format
+  const posts: UnifiedPost[] = rawPosts.map((post: BlueskyPostData) => fromBlueskyPost(post));
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
@@ -217,8 +222,8 @@ export default function FederatedUserScreen() {
             </View>
           </View>
         )}
-        renderItem={({ item }: { item: BlueskyPostData }) => (
-          <BlueskyPost post={item} />
+        renderItem={({ item }: { item: UnifiedPost }) => (
+          <UnifiedFeedItem post={item} />
         )}
         ListEmptyComponent={() => (
           <View className="py-12 items-center">
