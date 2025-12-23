@@ -116,21 +116,46 @@ function AppContent() {
 }
 
 export default function RootLayout() {
-  const { setSession, setLoading } = useAuthStore();
+  const { setSession, setProfile, setLoading } = useAuthStore();
 
   useEffect(() => {
+    // Helper to fetch profile when user is authenticated
+    const fetchProfile = async (userId: string) => {
+      try {
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", userId)
+          .single();
+        
+        if (!error && data) {
+          setProfile(data);
+        }
+      } catch (err) {
+        console.error("[RootLayout] Failed to fetch profile:", err);
+      }
+    };
+
     // Single listener to sync Supabase Auth with Zustand Store
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
+      if (session?.user?.id) {
+        fetchProfile(session.user.id);
+      }
       SplashScreen.hideAsync();
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
+      if (session?.user?.id) {
+        fetchProfile(session.user.id);
+      } else {
+        setProfile(null);
+      }
     });
 
     return () => subscription.unsubscribe();
-  }, [setSession]);
+  }, [setSession, setProfile]);
 
   return (
     <ErrorBoundary>
