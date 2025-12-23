@@ -141,7 +141,7 @@ const ActionButton = memo(function ActionButton({
           fill={fill && active ? activeColor : "transparent"}
         />
       </Animated.View>
-      {count !== undefined && count > 0 && (
+      {count !== undefined && (
         <Text 
           className="text-sm font-medium" 
           style={{ color: active ? activeColor : "#6B7280" }}
