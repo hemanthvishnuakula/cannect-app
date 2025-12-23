@@ -145,5 +145,3 @@ export function ReplyBar({
     </View>
   );
 }
-  );
-}
