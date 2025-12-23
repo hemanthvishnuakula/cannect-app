@@ -149,7 +149,7 @@ async function syncFollowsList(
     for (const user of users) {
       try {
         // Upsert the external profile
-        const { data: profileId } = await supabase.rpc('upsert_external_profile', {
+        const { data: newProfileId } = await supabase.rpc('upsert_external_profile', {
           p_did: user.did,
           p_handle: user.handle,
           p_display_name: user.displayName || user.handle,
@@ -160,26 +160,27 @@ async function syncFollowsList(
           p_posts_count: user.postsCount || 0,
         });
         
-        if (profileId) {
-          // Create the follow relationship
-          if (type === 'followers') {
-            // This user follows the profile we're viewing
+        if (newProfileId) {
+          // Check if follow relationship already exists
+          const followerId = type === 'followers' ? newProfileId : profile.id;
+          const followingId = type === 'followers' ? profile.id : newProfileId;
+          
+          const { data: existingFollow } = await supabase
+            .from('follows')
+            .select('id')
+            .eq('follower_id', followerId)
+            .eq('following_id', followingId)
+            .maybeSingle();
+          
+          // Only insert if doesn't exist
+          if (!existingFollow) {
             await supabase
               .from('follows')
-              .upsert({
-                follower_id: profileId,
-                following_id: profile.id,
-                subject_did: profile.did,
-              }, { onConflict: 'follower_id,following_id', ignoreDuplicates: true });
-          } else {
-            // The profile we're viewing follows this user
-            await supabase
-              .from('follows')
-              .upsert({
-                follower_id: profile.id,
-                following_id: profileId,
-                subject_did: user.did,
-              }, { onConflict: 'follower_id,following_id', ignoreDuplicates: true });
+              .insert({
+                follower_id: followerId,
+                following_id: followingId,
+                subject_did: type === 'followers' ? profile.did : user.did,
+              });
           }
         }
       } catch (err) {
