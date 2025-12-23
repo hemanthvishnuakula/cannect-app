@@ -13,7 +13,7 @@ import { ArrowLeft, ExternalLink } from "lucide-react-native";
 import { useQuery } from "@tanstack/react-query";
 
 import { getBlueskyPostThread, type FederatedPost } from "@/lib/services/bluesky";
-import { UnifiedPostCard, type UnifiedPostCardProps } from "@/components/social/UnifiedPostCard";
+import { UnifiedFeedItem } from "@/components/social/UnifiedFeedItem";
 import { ReplyBar } from "@/components/social/ReplyBar";
 import { fromBlueskyPost, type UnifiedPost } from "@/lib/types/unified-post";
 import { useReplyToBlueskyPost, useEnrichedPost } from "@/lib/hooks";
@@ -40,22 +40,19 @@ function toBlueskyPostData(post: FederatedPost): BlueskyPostData {
 }
 
 /**
- * Wrapper component that enriches a Bluesky post with local viewer state.
- * This ensures the like/repost buttons show the correct state from our database.
+ * Wrapper component that converts FederatedPost to UnifiedPost for UnifiedFeedItem.
+ * UnifiedFeedItem provides both state enrichment AND action handlers (like, repost, etc.)
  */
-interface EnrichedPostCardProps extends Omit<UnifiedPostCardProps, 'post'> {
+interface FederatedPostItemProps {
   federatedPost: FederatedPost;
 }
 
-const EnrichedPostCard = memo(function EnrichedPostCard({ federatedPost, ...props }: EnrichedPostCardProps) {
-  // Convert to unified format
-  const basePost = fromBlueskyPost(toBlueskyPostData(federatedPost));
-  // Enrich with local viewer state (checks our likes/reposts tables)
-  const enrichedPost = useEnrichedPost(basePost);
+const FederatedPostItem = memo(function FederatedPostItem({ federatedPost }: FederatedPostItemProps) {
+  // Convert to unified format - UnifiedFeedItem will handle state enrichment and actions
+  const post = fromBlueskyPost(toBlueskyPostData(federatedPost));
   
-  if (!enrichedPost) return null;
-  
-  return <UnifiedPostCard post={enrichedPost} {...props} />;
+  // UnifiedFeedItem provides: toggleLike, toggleRepost, reply, share, etc.
+  return <UnifiedFeedItem post={post} />;
 });
 
 export default function FederatedPostScreen() {
@@ -195,19 +192,13 @@ export default function FederatedPostScreen() {
           {/* Parent post (if replying to something) */}
           {thread.parent && (
             <View className="opacity-70">
-              <EnrichedPostCard
-                federatedPost={thread.parent}
-                onShare={handleShare}
-              />
+              <FederatedPostItem federatedPost={thread.parent} />
               <View className="h-4 ml-8 w-0.5 bg-border" />
             </View>
           )}
 
           {/* Main post */}
-          <EnrichedPostCard
-            federatedPost={thread.post}
-            onShare={handleShare}
-          />
+          <FederatedPostItem federatedPost={thread.post} />
 
           {/* Replies section */}
           {thread.replies.length > 0 && (
@@ -222,10 +213,7 @@ export default function FederatedPostScreen() {
 
               {thread.replies.map((reply) => (
                 <View key={reply.uri} className="border-t border-border/50">
-                  <EnrichedPostCard
-                    federatedPost={reply}
-                    onShare={handleShare}
-                  />
+                  <FederatedPostItem federatedPost={reply} />
                 </View>
               ))}
             </>
