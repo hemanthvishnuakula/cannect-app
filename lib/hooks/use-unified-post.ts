@@ -52,11 +52,16 @@ export interface UnifiedPostActions {
 /**
  * Hook that provides unified interactions for any post type
  * 
- * Automatically routes to correct mutation based on whether post is local or external.
+ * Automatically routes to correct mutation based on whether post is cached or local.
+ * - Cannect posts (isCached=false): Use local mutations
+ * - Cached posts (isCached=true): Use Bluesky mutations
  */
 export function useUnifiedPostActions(post: UnifiedPost): UnifiedPostActions {
   const router = useRouter();
   const { user } = useAuthStore();
+  
+  // Determine if post is cached (external) - check both isCached and legacy isExternal
+  const isCached = post.isCached || post.isExternal || false;
   
   // Local post mutations
   const localLike = useLikePost();
@@ -71,15 +76,15 @@ export function useUnifiedPostActions(post: UnifiedPost): UnifiedPostActions {
   
   // For external posts, we might need to check state from queries
   // (since viewer state might not be in the post data)
-  const { data: externalLikeState } = useHasLikedBlueskyPost(post.isExternal ? post.uri : "");
-  const { data: externalRepostState } = useHasRepostedBlueskyPost(post.isExternal ? post.uri : "");
+  const { data: externalLikeState } = useHasLikedBlueskyPost(isCached ? post.uri : "");
+  const { data: externalRepostState } = useHasRepostedBlueskyPost(isCached ? post.uri : "");
   
   // Determine current like/repost state
-  const isLiked = post.isExternal 
+  const isLiked = isCached 
     ? (externalLikeState ?? post.viewer.isLiked)
     : post.viewer.isLiked;
     
-  const isReposted = post.isExternal
+  const isReposted = isCached
     ? (externalRepostState ?? post.viewer.isReposted)
     : post.viewer.isReposted;
 
@@ -87,7 +92,7 @@ export function useUnifiedPostActions(post: UnifiedPost): UnifiedPostActions {
   const like = useCallback(() => {
     if (!user) return;
     
-    if (post.isExternal) {
+    if (isCached) {
       externalLike.mutate({ uri: post.uri, cid: post.cid || "" });
     } else if (post.localId) {
       localLike.mutate({
@@ -96,13 +101,13 @@ export function useUnifiedPostActions(post: UnifiedPost): UnifiedPostActions {
         subjectCid: post.cid || null,
       });
     }
-  }, [user, post, externalLike, localLike]);
+  }, [user, post, isCached, externalLike, localLike]);
 
   // Unlike action
   const unlike = useCallback(() => {
     if (!user) return;
     
-    if (post.isExternal) {
+    if (isCached) {
       externalUnlike.mutate(post.uri);
     } else if (post.localId) {
       localUnlike.mutate({
@@ -110,7 +115,7 @@ export function useUnifiedPostActions(post: UnifiedPost): UnifiedPostActions {
         subjectUri: post.uri.startsWith("at://") ? post.uri : null,
       });
     }
-  }, [user, post, externalUnlike, localUnlike]);
+  }, [user, post, isCached, externalUnlike, localUnlike]);
 
   // Toggle like
   const toggleLike = useCallback(() => {
@@ -125,7 +130,7 @@ export function useUnifiedPostActions(post: UnifiedPost): UnifiedPostActions {
   const repost = useCallback(() => {
     if (!user) return;
     
-    if (post.isExternal) {
+    if (isCached) {
       externalRepost.mutate({ uri: post.uri, cid: post.cid || "" });
     } else if (post.localId) {
       // Use toggleRepost with undo=false
@@ -136,13 +141,13 @@ export function useUnifiedPostActions(post: UnifiedPost): UnifiedPostActions {
         subjectCid: post.cid || null,
       });
     }
-  }, [user, post, externalRepost, localToggleRepost]);
+  }, [user, post, isCached, externalRepost, localToggleRepost]);
 
   // Un-repost action
   const unrepost = useCallback(() => {
     if (!user) return;
     
-    if (post.isExternal) {
+    if (isCached) {
       externalUnrepost.mutate(post.uri);
     } else if (post.localId) {
       // Use toggleRepost with undo=true
@@ -152,7 +157,7 @@ export function useUnifiedPostActions(post: UnifiedPost): UnifiedPostActions {
         subjectUri: post.uri.startsWith("at://") ? post.uri : null,
       });
     }
-  }, [user, post, externalUnrepost, localToggleRepost]);
+  }, [user, post, isCached, externalUnrepost, localToggleRepost]);
 
   // Toggle repost
   const toggleRepost = useCallback(() => {
@@ -165,7 +170,7 @@ export function useUnifiedPostActions(post: UnifiedPost): UnifiedPostActions {
 
   // Reply navigation
   const reply = useCallback(() => {
-    if (post.isExternal) {
+    if (isCached) {
       router.push({
         pathname: "/compose",
         params: {
@@ -186,7 +191,7 @@ export function useUnifiedPostActions(post: UnifiedPost): UnifiedPostActions {
         }
       } as any);
     }
-  }, [router, post]);
+  }, [router, post, isCached]);
 
   // View post navigation
   // Use federated view for ANY post with an AT URI to ensure lazy sync with Bluesky
@@ -211,11 +216,11 @@ export function useUnifiedPostActions(post: UnifiedPost): UnifiedPostActions {
   }, [router, post.author.handle]);
 
   // Loading states
-  const isLikeLoading = post.isExternal
+  const isLikeLoading = isCached
     ? externalLike.isPending || externalUnlike.isPending
     : localLike.isPending || localUnlike.isPending;
     
-  const isRepostLoading = post.isExternal
+  const isRepostLoading = isCached
     ? externalRepost.isPending || externalUnrepost.isPending
     : localToggleRepost.isPending;
 

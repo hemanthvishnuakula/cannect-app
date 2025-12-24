@@ -246,6 +246,7 @@ function parseBlueskyPost(bskyPost: any): FederatedPost {
  */
 async function syncPostCounts(post: FederatedPost): Promise<void> {
   try {
+    // First try to update posts table (for Cannect posts)
     const { error } = await supabase
       .from('posts')
       .update({
@@ -259,14 +260,104 @@ async function syncPostCounts(post: FederatedPost): Promise<void> {
       // Silently fail - this is just an optimization
       console.debug('[syncPostCounts] Update failed (post may not exist locally):', error.message);
     }
+    
+    // Also update cached_posts if it exists there
+    await supabase
+      .from('cached_posts')
+      .update({
+        like_count: post.likes_count,
+        repost_count: post.reposts_count,
+        reply_count: post.replies_count,
+        last_accessed_at: new Date().toISOString(),
+      })
+      .eq('at_uri', post.uri);
   } catch (err) {
     // Silently fail
     console.debug('[syncPostCounts] Error:', err);
   }
 }
 
+/**
+ * Check if a post exists in cached_posts table
+ * Returns the cached post or null if not found
+ */
+async function getCachedPost(uri: string): Promise<FederatedPost | null> {
+  try {
+    const { data, error } = await supabase
+      .from('cached_posts')
+      .select(`
+        at_uri,
+        cid,
+        author_did,
+        content,
+        embed_type,
+        embed_data,
+        like_count,
+        repost_count,
+        reply_count,
+        quote_count,
+        indexed_at,
+        cached_profiles!cached_posts_author_did_fkey (
+          did,
+          handle,
+          display_name,
+          avatar_url
+        )
+      `)
+      .eq('at_uri', uri)
+      .maybeSingle();
+    
+    if (error || !data) return null;
+    
+    // Update last_accessed_at (fire and forget)
+    supabase
+      .from('cached_posts')
+      .update({ last_accessed_at: new Date().toISOString() })
+      .eq('at_uri', uri)
+      .then(() => {});
+    
+    const profile = data.cached_profiles as any;
+    
+    return {
+      id: data.cid,
+      uri: data.at_uri,
+      cid: data.cid,
+      user_id: data.author_did,
+      content: data.content,
+      created_at: data.indexed_at,
+      media_urls: [], // TODO: Parse from embed_data
+      likes_count: data.like_count || 0,
+      reposts_count: data.repost_count || 0,
+      replies_count: data.reply_count || 0,
+      is_federated: true as const,
+      type: 'post' as const,
+      author: {
+        id: data.author_did,
+        did: data.author_did,
+        handle: profile?.handle || 'user',
+        username: profile?.handle || 'user',
+        display_name: profile?.display_name || profile?.handle || 'User',
+        avatar_url: profile?.avatar_url || null,
+        is_verified: false,
+      },
+    };
+  } catch (err) {
+    console.debug('[getCachedPost] Error:', err);
+    return null;
+  }
+}
+
 export async function getBlueskyPostThread(uri: string): Promise<BlueskyThread | null> {
   try {
+    // First check if the post is a Cannect post (in posts table)
+    const { data: cannectPost } = await supabase
+      .from('posts')
+      .select('id, at_uri')
+      .eq('at_uri', uri)
+      .maybeSingle();
+    
+    // Always fetch fresh from Bluesky to get latest counts and replies
+    // (even for Cannect posts, we want fresh interaction counts from the network)
     const data = await fetchBluesky("app.bsky.feed.getPostThread", {
       uri,
       depth: 6,
@@ -274,6 +365,11 @@ export async function getBlueskyPostThread(uri: string): Promise<BlueskyThread |
     });
 
     if (!data.thread || data.thread.$type !== "app.bsky.feed.defs#threadViewPost") {
+      // If Bluesky doesn't have it, try to get from cached_posts
+      const cachedPost = await getCachedPost(uri);
+      if (cachedPost) {
+        return { post: cachedPost, replies: [] };
+      }
       return null;
     }
 
@@ -303,6 +399,13 @@ export async function getBlueskyPostThread(uri: string): Promise<BlueskyThread |
     return { post: mainPost, replies, parent };
   } catch (error) {
     console.error("Failed to fetch Bluesky thread:", error);
+    
+    // On error, try to get from cached_posts as fallback
+    const cachedPost = await getCachedPost(uri);
+    if (cachedPost) {
+      return { post: cachedPost, replies: [] };
+    }
+    
     return null;
   }
 }

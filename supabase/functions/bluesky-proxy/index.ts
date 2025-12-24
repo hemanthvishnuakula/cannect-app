@@ -31,6 +31,109 @@ async function fetchWithTimeout(url: string, options = {}, timeout = 5000) {
   }
 }
 
+/**
+ * Cache an external profile in cached_profiles table
+ */
+async function cacheProfile(profile: any) {
+  if (!profile?.did) return;
+  
+  try {
+    // Check if this is a Cannect user (don't cache local users)
+    const { data: localProfile } = await supabaseAdmin
+      .from("profiles")
+      .select("id")
+      .eq("did", profile.did)
+      .maybeSingle();
+    
+    if (localProfile) return; // Don't cache Cannect users
+    
+    await supabaseAdmin
+      .from("cached_profiles")
+      .upsert({
+        did: profile.did,
+        handle: profile.handle,
+        display_name: profile.displayName || null,
+        avatar_url: profile.avatar || null,
+        banner_url: profile.banner || null,
+        description: profile.description || null,
+        followers_count: profile.followersCount || 0,
+        following_count: profile.followsCount || 0,
+        posts_count: profile.postsCount || 0,
+        last_accessed_at: new Date().toISOString(),
+        expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days TTL
+      }, { onConflict: 'did' });
+  } catch (e) {
+    console.error("Error caching profile:", e);
+  }
+}
+
+/**
+ * Cache an external post in cached_posts table
+ */
+async function cachePost(post: any, author: any) {
+  if (!post?.uri) return;
+  
+  try {
+    // Check if this is a Cannect post (don't cache local posts)
+    const { data: localPost } = await supabaseAdmin
+      .from("posts")
+      .select("id")
+      .eq("at_uri", post.uri)
+      .maybeSingle();
+    
+    if (localPost) return; // Don't cache Cannect posts
+    
+    await supabaseAdmin
+      .from("cached_posts")
+      .upsert({
+        at_uri: post.uri,
+        cid: post.cid,
+        author_did: author?.did || post.author?.did,
+        content: post.record?.text || "",
+        reply_parent_uri: post.record?.reply?.parent?.uri || null,
+        reply_root_uri: post.record?.reply?.root?.uri || null,
+        embed_type: post.embed?.$type || null,
+        embed_data: post.embed ? JSON.stringify(post.embed) : null,
+        facets: post.record?.facets ? JSON.stringify(post.record.facets) : null,
+        langs: post.record?.langs || null,
+        like_count: post.likeCount || 0,
+        repost_count: post.repostCount || 0,
+        reply_count: post.replyCount || 0,
+        quote_count: post.quoteCount || 0,
+        indexed_at: post.indexedAt || new Date().toISOString(),
+        access_count: 1,
+        last_accessed_at: new Date().toISOString(),
+        expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24 hours default TTL
+      }, { 
+        onConflict: 'at_uri',
+        // Update access count on conflict
+      });
+    
+    // Also cache the author profile
+    if (author || post.author) {
+      await cacheProfile(author || post.author);
+    }
+  } catch (e) {
+    console.error("Error caching post:", e);
+  }
+}
+
+/**
+ * Cache multiple posts from a feed response (fire and forget)
+ */
+async function cacheFeedPosts(feedItems: any[]) {
+  if (!feedItems || !Array.isArray(feedItems)) return;
+  
+  // Process in background - don't block the response
+  for (const item of feedItems.slice(0, 20)) { // Only cache first 20 posts
+    const post = item.post || item;
+    const author = post.author;
+    if (post.uri && author) {
+      cachePost(post, author).catch(() => {}); // Fire and forget
+    }
+  }
+}
+
 serve(async (req) => {
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
@@ -299,6 +402,19 @@ serve(async (req) => {
       }
 
       const data = await response.json();
+      
+      // ✅ Cache responses based on action type (fire and forget)
+      if (action === "getProfile" && data) {
+        cacheProfile(data).catch(() => {});
+      } else if ((action === "feed" || action === "search" || action === "getAuthorFeed") && data.feed) {
+        cacheFeedPosts(data.feed).catch(() => {});
+      } else if (action === "searchActors" && data.actors) {
+        // Cache search actor results
+        for (const actor of data.actors.slice(0, 10)) {
+          cacheProfile(actor).catch(() => {});
+        }
+      }
+      
       return new Response(JSON.stringify(data), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });

@@ -35,7 +35,10 @@ export interface UnifiedQuote {
   content: string;
   author: UnifiedAuthor;
   images?: string[];
-  isExternal: boolean;
+  /** Whether quoted post is from cached_posts table (external network) */
+  isCached: boolean;
+  /** @deprecated Use isCached instead */
+  isExternal?: boolean;
 }
 
 /** Embed types */
@@ -126,8 +129,14 @@ export interface UnifiedPost {
   parent?: ParentInfo;
   
   // === Source ===
-  /** Whether this post is from external network */
-  isExternal: boolean;
+  /** 
+   * Whether this post is from cached_posts table (external network)
+   * - Cannect posts: in `posts` table, isCached = false
+   * - External posts: in `cached_posts` table, isCached = true
+   */
+  isCached: boolean;
+  /** @deprecated Use isCached instead - backwards compatibility */
+  isExternal?: boolean;
   /** Source network name */
   source: "cannect" | "bluesky";
   
@@ -179,7 +188,7 @@ export function fromLocalPost(
   if (post.type === "quote" && post.quoted_post?.id) {
     const quoted = post.quoted_post;
     // Check if quoted post's author is local using is_local flag
-    const quotedIsExternalFederated = (quoted.author as any)?.is_local !== true && !!(quoted as any).external_source;
+    const quotedIsCached = (quoted.author as any)?.is_local !== true && !!(quoted as any).external_source;
     
     embed = {
       type: "quote",
@@ -190,10 +199,11 @@ export function fromLocalPost(
           id: quoted.author?.id || "",
           handle: quoted.author?.handle || quoted.author?.username || "user",
           displayName: quoted.author?.display_name || quoted.author?.username || "User",
-          avatarUrl: quoted.author?.avatar_url || getFallbackAvatar(quoted.author?.username || "U", quotedIsExternalFederated ? "bluesky" : "cannect"),
+          avatarUrl: quoted.author?.avatar_url || getFallbackAvatar(quoted.author?.username || "U", quotedIsCached ? "bluesky" : "cannect"),
         },
         images: quoted.media_urls || undefined,
-        isExternal: quotedIsExternalFederated,
+        isCached: quotedIsCached,
+        isExternal: quotedIsCached, // backwards compatibility
       },
     };
   } else if (post.media_urls && post.media_urls.length > 0) {
@@ -275,8 +285,10 @@ export function fromLocalPost(
     repostedBy,
     parent,
     
-    // Source - isExternal means the content is from an external source (not Cannect)
-    isExternal: isExternalFederated,
+    // Source - isCached means the content is from cached_posts (not in posts table)
+    // Local Cannect posts (in posts table) are NOT cached
+    isCached: false, // fromLocalPost = always from posts table
+    isExternal: isExternalFederated, // backwards compatibility - still set based on author
     source: isExternalFederated ? "bluesky" : "cannect",
     type,
   };
@@ -315,7 +327,8 @@ export function fromBlueskyPost(
           displayName: post.quotedPost.author.displayName || post.quotedPost.author.handle,
           avatarUrl: post.quotedPost.author.avatar || getFallbackAvatar(post.quotedPost.author.handle, "bluesky"),
         },
-        isExternal: true,
+        isCached: true, // Quoted posts from Bluesky are cached
+        isExternal: true, // backwards compatibility
       },
     };
   } else if (post.images && post.images.length > 0) {
@@ -358,8 +371,9 @@ export function fromBlueskyPost(
     repostedBy: undefined,
     parent: undefined,
     
-    // Source
-    isExternal: true,
+    // Source - Bluesky posts are cached (from cached_posts table)
+    isCached: true,
+    isExternal: true, // backwards compatibility
     source: "bluesky",
     type: postType,
   };
@@ -410,7 +424,8 @@ export function fromBlueskyFeedPost(feedPost: any): UnifiedPost {
               avatarUrl: quotedRecord.author?.avatar || getFallbackAvatar(quotedRecord.author?.handle || "U", "bluesky"),
               did: quotedRecord.author?.did,
             },
-            isExternal: true,
+            isCached: true,
+            isExternal: true, // backwards compatibility
           },
         };
       }
@@ -481,8 +496,9 @@ export function fromBlueskyFeedPost(feedPost: any): UnifiedPost {
     repostedBy,
     parent,
     
-    // Source
-    isExternal: true,
+    // Source - Bluesky feed posts are cached
+    isCached: true,
+    isExternal: true, // backwards compatibility
     source: "bluesky",
     type: record.reply ? "reply" : "post",
   };
@@ -571,8 +587,9 @@ export function fromServiceFederatedPost(
     repostedBy: undefined,
     parent: undefined,
     
-    // Source
-    isExternal: true,
+    // Source - ServiceFederatedPost is cached (from Bluesky)
+    isCached: true,
+    isExternal: true, // backwards compatibility
     source: "bluesky",
     type: post.type === "post" ? "post" : "post",
   };
@@ -582,8 +599,14 @@ export function fromServiceFederatedPost(
 // Type Guards
 // =====================================================
 
+/** @deprecated Use isCachedPost instead */
 export function isExternalPost(post: UnifiedPost): boolean {
-  return post.isExternal;
+  return post.isCached || post.isExternal || false;
+}
+
+/** Check if post is from cached_posts table (external network) */
+export function isCachedPost(post: UnifiedPost): boolean {
+  return post.isCached;
 }
 
 export function hasImages(post: UnifiedPost): post is UnifiedPost & { embed: { type: "images"; images: string[] } } {
