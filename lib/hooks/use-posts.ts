@@ -2106,12 +2106,31 @@ export function useRepost() {
   });
 }
 
+/**
+ * Delete Post (Version 2.1 Unified Architecture)
+ * 
+ * PDS-first: Deletes from AT Protocol network first, then removes from database.
+ * Works for all post types: regular posts, replies, and quote posts.
+ */
 export function useDeletePost() {
   const queryClient = useQueryClient();
+  const { user } = useAuthStore();
+  
   return useMutation({
     mutationFn: async (postId: string) => {
-      const { error } = await supabase.from("posts").delete().eq("id", postId);
-      if (error) throw error;
+      if (!user) throw new Error("Not authenticated");
+      
+      // PDS-first: Call atproto-agent edge function
+      const result = await atprotoAgent.deletePost({
+        userId: user.id,
+        postId,
+      });
+      
+      if (!result.success) {
+        throw new Error(result.error || "Failed to delete post");
+      }
+      
+      console.log("[useDeletePost] Post deleted via PDS-first:", result);
       return postId;
     },
     onMutate: async (postId) => {

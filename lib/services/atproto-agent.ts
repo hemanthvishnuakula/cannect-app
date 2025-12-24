@@ -174,3 +174,24 @@ export async function quotePost(params: QuoteParams): Promise<AtprotoAgentRespon
     quoteCid: params.quoteCid,
   });
 }
+
+// ============================================================================
+// DELETE POST (PDS-first delete for posts, replies, and quotes)
+// ============================================================================
+
+export interface DeletePostParams {
+  userId: string;
+  postId: string;
+  rkey?: string;    // Optional - will be looked up if not provided
+  atUri?: string;   // Optional - for logging/reference
+}
+
+export async function deletePost(params: DeletePostParams): Promise<AtprotoAgentResponse> {
+  return callAgent({
+    action: 'deletePost',
+    userId: params.userId,
+    postId: params.postId,
+    rkey: params.rkey,
+    atUri: params.atUri,
+  });
+}

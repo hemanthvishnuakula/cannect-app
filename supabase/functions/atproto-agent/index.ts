@@ -37,7 +37,7 @@ interface PdsSession {
 }
 
 interface ActionRequest {
-  action: 'like' | 'unlike' | 'repost' | 'unrepost' | 'follow' | 'unfollow' | 'reply' | 'post' | 'quote';
+  action: 'like' | 'unlike' | 'repost' | 'unrepost' | 'follow' | 'unfollow' | 'reply' | 'post' | 'quote' | 'deletePost';
   userId: string;
   // For like/repost:
   subjectUri?: string;
@@ -58,6 +58,9 @@ interface ActionRequest {
   // For quote (embed record):
   quoteUri?: string;
   quoteCid?: string;
+  // For deletePost:
+  atUri?: string;
+  rkey?: string;
 }
 
 /**
@@ -727,6 +730,89 @@ async function handleQuote(
   return { ok: true, data: { uri: atUri, cid: result.data?.cid, post } };
 }
 
+/**
+ * Handle Delete Post (Version 2.1 Unified Architecture)
+ * 
+ * Deletes a post from PDS first, then removes from database.
+ * Works for all post types: regular posts, replies, and quote posts.
+ */
+async function handleDeletePost(
+  supabase: any,
+  session: PdsSession,
+  req: ActionRequest
+): Promise<{ ok: boolean; data?: any; error?: string }> {
+  // We need either postId (to look up rkey) or rkey directly
+  if (!req.postId && !req.rkey) {
+    return { ok: false, error: 'Missing postId or rkey' };
+  }
+
+  let rkey = req.rkey;
+  let atUri = req.atUri;
+
+  // If no rkey provided, look it up from the post
+  if (!rkey && req.postId) {
+    const { data: post } = await supabase
+      .from('posts')
+      .select('rkey, at_uri')
+      .eq('id', req.postId)
+      .eq('user_id', req.userId)  // Ensure user owns the post
+      .single();
+
+    if (!post) {
+      return { ok: false, error: 'Post not found or not owned by user' };
+    }
+
+    rkey = post.rkey;
+    atUri = post.at_uri;
+  }
+
+  if (!rkey) {
+    // Post exists locally but wasn't federated - just delete from DB
+    const { error: dbError } = await supabase
+      .from('posts')
+      .delete()
+      .eq('id', req.postId)
+      .eq('user_id', req.userId);
+
+    if (dbError) {
+      return { ok: false, error: `Failed to delete post: ${dbError.message}` };
+    }
+
+    return { ok: true, data: { deleted: true, wasLocal: true } };
+  }
+
+  // Delete from PDS first
+  const result = await pdsCall(supabase, session, 'com.atproto.repo.deleteRecord', 'POST', {
+    repo: session.did,
+    collection: 'app.bsky.feed.post',
+    rkey,
+  });
+
+  if (!result.ok) {
+    // If PDS says record doesn't exist, still delete from DB
+    if (result.error?.includes('not found') || result.error?.includes('RecordNotFound')) {
+      console.log(`[atproto-agent] Post not on PDS, deleting from DB only`);
+    } else {
+      return result;
+    }
+  }
+
+  // Delete from database
+  const { error: dbError } = await supabase
+    .from('posts')
+    .delete()
+    .eq('id', req.postId)
+    .eq('user_id', req.userId);
+
+  if (dbError) {
+    console.error(`[atproto-agent] DB delete failed:`, dbError);
+    // Don't fail - PDS succeeded
+  }
+
+  console.log(`[atproto-agent] Deleted post ${req.postId} (rkey: ${rkey})`);
+  return { ok: true, data: { deleted: true, atUri } };
+}
+
 // ============================================================================
 // MAIN HANDLER
 // ============================================================================
@@ -795,6 +881,9 @@ serve(async (req) => {
         break;
       case 'quote':
         result = await handleQuote(supabase, session, body);
+        break;
+      case 'deletePost':
+        result = await handleDeletePost(supabase, session, body);
         break;
       default:
         result = { ok: false, error: `Unknown action: ${body.action}` };
