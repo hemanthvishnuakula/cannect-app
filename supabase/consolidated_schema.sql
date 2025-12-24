@@ -1,9 +1,9 @@
 -- ============================================================================
 -- CANNECT CONSOLIDATED SCHEMA
 -- ============================================================================
--- Version: 2.0.0 (December 24, 2025)
+-- Version: 2.1.0 (December 24, 2025)
 -- 
--- This schema consolidates 62 migration files into a single authoritative
+-- This schema consolidates 64 migration files into a single authoritative
 -- schema definition. It represents the complete current state of the
 -- Cannect database with full AT Protocol / Bluesky federation support.
 --
@@ -14,6 +14,9 @@
 -- - External actor support for Bluesky notifications
 -- - Real-time push notifications (Expo + Web Push)
 -- - PDS-first architecture for interactions
+-- - Unified architecture: DB = Source of truth for OUR UI
+-- - Cached tables for external Bluesky content
+-- - Universal identifiers: actor_did + subject_uri
 --
 -- WARNING: This is for DOCUMENTATION and NEW DEPLOYMENTS only.
 -- DO NOT run this on an existing database with data!
@@ -939,6 +942,132 @@ $$;
 CREATE TRIGGER trigger_queue_post_federation
   AFTER INSERT ON posts
   FOR EACH ROW EXECUTE FUNCTION queue_post_for_federation();
+
+-- ============================================================================
+-- VERSION 2.1: UNIFIED ARCHITECTURE TABLES
+-- ============================================================================
+-- "DB = Source of truth for OUR UI, PDS = Source of truth for THE NETWORK"
+-- 
+-- These tables cache external Bluesky content for unified rendering.
+-- Cannect posts live in 'posts' table, external posts in 'cached_posts'.
+-- The UI hooks unify both sources for seamless federation display.
+-- ============================================================================
+
+-- Cached posts from Bluesky (external content)
+CREATE TABLE IF NOT EXISTS cached_posts (
+  at_uri TEXT PRIMARY KEY,
+  cid TEXT,
+  author_did TEXT NOT NULL,
+  content TEXT,
+  embed JSONB,
+  reply_parent TEXT,
+  reply_root TEXT,
+  created_at TIMESTAMPTZ NOT NULL,
+  indexed_at TIMESTAMPTZ DEFAULT NOW(),
+  like_count INTEGER DEFAULT 0,
+  repost_count INTEGER DEFAULT 0,
+  reply_count INTEGER DEFAULT 0,
+  liked_by_user BOOLEAN DEFAULT FALSE,
+  reposted_by_user BOOLEAN DEFAULT FALSE,
+  cache_priority TEXT DEFAULT 'standard' CHECK (cache_priority IN ('ephemeral', 'standard', 'extended')),
+  expires_at TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS idx_cached_posts_author ON cached_posts(author_did);
+CREATE INDEX IF NOT EXISTS idx_cached_posts_expires ON cached_posts(expires_at) WHERE expires_at IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_cached_posts_priority ON cached_posts(cache_priority);
+
+-- Cached profiles from Bluesky (external actors)
+CREATE TABLE IF NOT EXISTS cached_profiles (
+  did TEXT PRIMARY KEY,
+  handle TEXT,
+  display_name TEXT,
+  avatar TEXT,
+  description TEXT,
+  followers_count INTEGER DEFAULT 0,
+  follows_count INTEGER DEFAULT 0,
+  posts_count INTEGER DEFAULT 0,
+  indexed_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  is_stale BOOLEAN DEFAULT FALSE
+);
+
+CREATE INDEX IF NOT EXISTS idx_cached_profiles_handle ON cached_profiles(handle);
+CREATE INDEX IF NOT EXISTS idx_cached_profiles_stale ON cached_profiles(is_stale) WHERE is_stale = TRUE;
+
+-- Cached follows (external follow relationships)
+CREATE TABLE IF NOT EXISTS cached_follows (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  follower_did TEXT NOT NULL,
+  followee_did TEXT NOT NULL,
+  at_uri TEXT,
+  cid TEXT,
+  indexed_at TIMESTAMPTZ DEFAULT NOW(),
+  is_stale BOOLEAN DEFAULT FALSE,
+  UNIQUE(follower_did, followee_did)
+);
+
+CREATE INDEX IF NOT EXISTS idx_cached_follows_follower ON cached_follows(follower_did);
+CREATE INDEX IF NOT EXISTS idx_cached_follows_followee ON cached_follows(followee_did);
+
+-- ============================================================================
+-- VERSION 2.1: TRIGGERS FOR CACHED POST INTERACTIONS
+-- ============================================================================
+
+-- Mark cached_posts as liked when a like is created
+CREATE OR REPLACE FUNCTION mark_cached_post_liked()
+RETURNS TRIGGER AS $$
+BEGIN
+  -- Update cached_posts if the subject_uri exists there
+  UPDATE cached_posts 
+  SET liked_by_user = TRUE, like_count = like_count + 1
+  WHERE at_uri = NEW.subject_uri;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trigger_mark_cached_post_liked
+  AFTER INSERT ON likes
+  FOR EACH ROW
+  WHEN (NEW.subject_uri LIKE 'at://%')
+  EXECUTE FUNCTION mark_cached_post_liked();
+
+-- Mark cached_posts as reposted when a repost is created
+CREATE OR REPLACE FUNCTION mark_cached_post_reposted()
+RETURNS TRIGGER AS $$
+BEGIN
+  -- Update cached_posts if the subject_uri exists there
+  UPDATE cached_posts 
+  SET reposted_by_user = TRUE, repost_count = repost_count + 1
+  WHERE at_uri = NEW.subject_uri;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trigger_mark_cached_post_reposted
+  AFTER INSERT ON reposts
+  FOR EACH ROW
+  WHEN (NEW.subject_uri LIKE 'at://%')
+  EXECUTE FUNCTION mark_cached_post_reposted();
+
+-- ============================================================================
+-- VERSION 2.1: pg_cron CLEANUP JOBS
+-- ============================================================================
+-- These jobs maintain the cached tables and prevent unbounded growth.
+-- Requires pg_cron extension to be enabled.
+-- ============================================================================
+
+-- Note: pg_cron jobs are created via:
+-- SELECT cron.schedule('cleanup-ephemeral-cached-posts', '*/15 * * * *', 
+--   $$DELETE FROM cached_posts WHERE cache_priority = 'ephemeral' AND expires_at < NOW()$$);
+-- SELECT cron.schedule('cleanup-standard-cached-posts', '0 * * * *', 
+--   $$DELETE FROM cached_posts WHERE cache_priority = 'standard' AND expires_at < NOW()$$);
+-- SELECT cron.schedule('cleanup-extended-cached-posts', '0 0 * * *', 
+--   $$DELETE FROM cached_posts WHERE cache_priority = 'extended' AND expires_at < NOW()$$);
+-- SELECT cron.schedule('mark-stale-cached-follows', '0 */6 * * *', 
+--   $$UPDATE cached_follows SET is_stale = TRUE WHERE indexed_at < NOW() - INTERVAL '7 days' AND is_stale = FALSE$$);
+-- SELECT cron.schedule('cleanup-stale-cached-follows', '0 0 * * 0', 
+--   $$DELETE FROM cached_follows WHERE is_stale = TRUE AND indexed_at < NOW() - INTERVAL '30 days'$$);
 
 -- ============================================================================
 -- END OF CONSOLIDATED SCHEMA
