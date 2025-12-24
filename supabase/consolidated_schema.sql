@@ -178,7 +178,8 @@ CREATE UNIQUE INDEX idx_unique_repost ON posts(user_id, repost_of_id) WHERE type
 
 CREATE TABLE likes (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,  -- NULL for external actors
+  actor_did TEXT NOT NULL,   -- Universal identifier (DID of who liked)
   
   -- Target (one of these must be set)
   post_id UUID REFERENCES posts(id) ON DELETE CASCADE,  -- Local post
@@ -200,10 +201,12 @@ CREATE TABLE likes (
 
 -- Indexes
 CREATE INDEX idx_likes_post_id ON likes(post_id);
-CREATE INDEX idx_likes_user_id ON likes(user_id);
+CREATE INDEX idx_likes_user_id ON likes(user_id) WHERE user_id IS NOT NULL;
+CREATE INDEX idx_likes_actor_did ON likes(actor_did);
 CREATE INDEX idx_likes_at_uri ON likes(at_uri) WHERE at_uri IS NOT NULL;
-CREATE UNIQUE INDEX idx_likes_local_unique ON likes(user_id, post_id) WHERE post_id IS NOT NULL;
-CREATE UNIQUE INDEX idx_likes_external_unique ON likes(user_id, subject_uri) WHERE post_id IS NULL AND subject_uri IS NOT NULL;
+CREATE UNIQUE INDEX idx_likes_local_unique ON likes(user_id, post_id) WHERE post_id IS NOT NULL AND user_id IS NOT NULL;
+CREATE UNIQUE INDEX idx_likes_external_unique ON likes(user_id, subject_uri) WHERE post_id IS NULL AND subject_uri IS NOT NULL AND user_id IS NOT NULL;
+CREATE UNIQUE INDEX idx_likes_actor_subject_unique ON likes(actor_did, subject_uri) WHERE subject_uri IS NOT NULL;
 
 -- ============================================================================
 -- TABLE: reposts
@@ -213,7 +216,8 @@ CREATE UNIQUE INDEX idx_likes_external_unique ON likes(user_id, subject_uri) WHE
 
 CREATE TABLE reposts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,  -- NULL for external actors
+  actor_did TEXT NOT NULL,   -- Universal identifier (DID of who reposted)
   
   -- Target (one of these must be set)
   post_id UUID REFERENCES posts(id) ON DELETE CASCADE,
@@ -235,11 +239,13 @@ CREATE TABLE reposts (
 
 -- Indexes
 CREATE INDEX idx_reposts_post_id ON reposts(post_id);
-CREATE INDEX idx_reposts_user_id ON reposts(user_id);
+CREATE INDEX idx_reposts_user_id ON reposts(user_id) WHERE user_id IS NOT NULL;
+CREATE INDEX idx_reposts_actor_did ON reposts(actor_did);
 CREATE INDEX idx_reposts_at_uri ON reposts(at_uri) WHERE at_uri IS NOT NULL;
 CREATE INDEX idx_reposts_created_at ON reposts(created_at DESC);
-CREATE UNIQUE INDEX idx_reposts_local_unique ON reposts(user_id, post_id) WHERE post_id IS NOT NULL;
-CREATE UNIQUE INDEX idx_reposts_external_unique ON reposts(user_id, subject_uri) WHERE post_id IS NULL AND subject_uri IS NOT NULL;
+CREATE UNIQUE INDEX idx_reposts_local_unique ON reposts(user_id, post_id) WHERE post_id IS NOT NULL AND user_id IS NOT NULL;
+CREATE UNIQUE INDEX idx_reposts_external_unique ON reposts(user_id, subject_uri) WHERE post_id IS NULL AND subject_uri IS NOT NULL AND user_id IS NOT NULL;
+CREATE UNIQUE INDEX idx_reposts_actor_subject_unique ON reposts(actor_did, subject_uri) WHERE subject_uri IS NOT NULL;
 
 -- ============================================================================
 -- TABLE: follows

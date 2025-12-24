@@ -337,49 +337,24 @@ export function useThreadReply(threadPostId: string) {
       const threadRootUri = parentPost?.thread_root_uri || parentPost?.at_uri || null;
       const threadRootCid = parentPost?.thread_root_cid || parentPost?.at_cid || null;
 
-      // PDS-first: If user is federated AND parent has AT URI, use atproto-agent
-      if (profile?.did && threadParentUri && threadParentCid) {
-        console.log('[useThreadReply] PDS-first reply to:', threadParentUri);
-        
-        const result = await atprotoAgent.replyToPost({
-          userId: user.id,
-          content,
-          parentUri: threadParentUri,
-          parentCid: threadParentCid,
-          rootUri: threadRootUri || undefined,
-          rootCid: threadRootCid || undefined,
-        });
-        
-        // The atproto-agent mirrors to DB, so we return the result
-        return { 
-          ...(result as any).data,
-          replyingToUsername: (parentPost as any)?.author?.username 
-        };
-      }
-
-      // Fallback: Direct DB insert for non-federated users or non-federated parent
-      const { data, error } = await supabase
-        .from('posts')
-        .insert({
-          user_id: user.id,
-          content,
-          thread_parent_id: threadParentId,
-          thread_root_id: threadRootId,
-          thread_depth: threadDepth,
-          thread_parent_uri: threadParentUri,
-          thread_parent_cid: threadParentCid,
-          thread_root_uri: threadRootUri,
-          thread_root_cid: threadRootCid,
-          type: 'post',
-        })
-        .select(INSERT_SELECT)
-        .single();
-
-      if (error) throw error;
+      // Version 2.1: All users are federated - PDS-first is mandatory
+      if (!profile?.did) throw new Error("User not federated");
+      if (!threadParentUri || !threadParentCid) throw new Error("Parent post not federated - missing AT URI or CID");
       
-      // Return with parent username for "Replying to" display
+      console.log('[useThreadReply] PDS-first reply to:', threadParentUri);
+      
+      const result = await atprotoAgent.replyToPost({
+        userId: user.id,
+        content,
+        parentUri: threadParentUri,
+        parentCid: threadParentCid,
+        rootUri: threadRootUri || undefined,
+        rootCid: threadRootCid || undefined,
+      });
+      
+      // The atproto-agent mirrors to DB, so we return the result
       return { 
-        ...data, 
+        ...(result as any).data,
         replyingToUsername: (parentPost as any)?.author?.username 
       };
     },

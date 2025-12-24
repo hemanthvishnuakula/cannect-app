@@ -311,32 +311,24 @@ export function useFollowUser() {
     mutationFn: async ({ targetUserId, targetDid }: { targetUserId: string; targetDid?: string | null }) => {
       if (!user) throw new Error("Not authenticated");
       
-      // If current user is federated AND target has a DID, use PDS-first
-      if (profile?.did && targetDid) {
-        // Need to get target's profile info for PDS
-        const { data: targetProfile } = await supabase
-          .from('profiles')
-          .select('username, display_name, avatar_url')
-          .eq('id', targetUserId)
-          .single();
-        
-        await atprotoAgent.followUser({
-          userId: user.id,
-          targetDid,
-          targetHandle: targetProfile?.username ?? undefined,
-          targetDisplayName: targetProfile?.display_name ?? undefined,
-          targetAvatar: targetProfile?.avatar_url ?? undefined,
-        });
-        return targetUserId;
-      }
+      // Version 2.1: All users are federated - PDS-first is mandatory
+      if (!profile?.did) throw new Error("User not federated");
+      if (!targetDid) throw new Error("Target user not federated - missing DID");
       
-      // Fallback: Direct DB insert for non-federated users
-      const { error } = await supabase.from("follows").insert({
-        follower_id: user.id,
-        following_id: targetUserId,
-        subject_did: targetDid,
-      } as any);
-      if (error) throw error;
+      // Get target's profile info for PDS
+      const { data: targetProfile } = await supabase
+        .from('profiles')
+        .select('username, display_name, avatar_url')
+        .eq('id', targetUserId)
+        .single();
+      
+      await atprotoAgent.followUser({
+        userId: user.id,
+        targetDid,
+        targetHandle: targetProfile?.username ?? undefined,
+        targetDisplayName: targetProfile?.display_name ?? undefined,
+        targetAvatar: targetProfile?.avatar_url ?? undefined,
+      });
       return targetUserId;
     },
     // ✅ Optimistic update for instant UI feedback
@@ -434,23 +426,14 @@ export function useUnfollowUser() {
     mutationFn: async ({ targetUserId, targetDid }: { targetUserId: string; targetDid?: string | null }) => {
       if (!user) throw new Error("Not authenticated");
 
-      // If current user is federated AND target has a DID, use PDS-first
-      if (profile?.did && targetDid) {
-        await atprotoAgent.unfollowUser({
-          userId: user.id,
-          targetDid,
-        });
-        return targetUserId;
-      }
+      // Version 2.1: All users are federated - PDS-first is mandatory
+      if (!profile?.did) throw new Error("User not federated");
+      if (!targetDid) throw new Error("Target user not federated - missing DID");
       
-      // Fallback: Direct DB delete for non-federated users
-      const { error } = await supabase
-        .from("follows")
-        .delete()
-        .eq("follower_id", user.id)
-        .eq("following_id", targetUserId);
-
-      if (error) throw error;
+      await atprotoAgent.unfollowUser({
+        userId: user.id,
+        targetDid,
+      });
       return targetUserId;
     },
     // ✅ Optimistic update for instant UI feedback

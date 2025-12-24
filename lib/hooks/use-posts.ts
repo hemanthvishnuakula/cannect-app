@@ -1296,26 +1296,16 @@ export function useLikePost() {
         }
       }
       
-      // If user is federated and post has AT URI, use PDS-first
-      if (profile?.did && subjectUri && finalSubjectCid) {
-        await atprotoAgent.likePost({
-          userId: user.id,
-          subjectUri,
-          subjectCid: finalSubjectCid,
-          postId,
-        });
-        return postId;
-      }
+      // Version 2.1: All users are federated - PDS-first is mandatory
+      if (!profile?.did) throw new Error("User not federated");
+      if (!subjectUri || !finalSubjectCid) throw new Error("Post not federated - missing AT URI or CID");
       
-      // Fallback: Direct DB insert for non-federated users (Version 2.1: include actor_did)
-      const { error } = await supabase.from("likes").insert({
-        user_id: user.id,
-        actor_did: profile?.did || null,  // Include for unified queries even in fallback
-        post_id: postId,
-        subject_uri: subjectUri,
-        subject_cid: finalSubjectCid,
+      await atprotoAgent.likePost({
+        userId: user.id,
+        subjectUri,
+        subjectCid: finalSubjectCid,
+        postId,
       });
-      if (error) throw error;
       return postId;
     },
     onMutate: async ({ postId }) => {
@@ -1398,23 +1388,15 @@ export function useUnlikePost() {
     mutationFn: async ({ postId, subjectUri }: { postId: string; subjectUri?: string | null }) => {
       if (!user) throw new Error("Not authenticated");
       
-      // If user is federated, use PDS-first
-      if (profile?.did && subjectUri) {
-        await atprotoAgent.unlikePost({
-          userId: user.id,
-          subjectUri,
-          postId,
-        });
-        return postId;
-      }
+      // Version 2.1: All users are federated - PDS-first is mandatory
+      if (!profile?.did) throw new Error("User not federated");
+      if (!subjectUri) throw new Error("Post not federated - missing AT URI");
       
-      // Fallback: Direct DB delete for non-federated users
-      const { error } = await supabase
-        .from("likes")
-        .delete()
-        .eq("user_id", user.id)
-        .eq("post_id", postId);
-      if (error) throw error;
+      await atprotoAgent.unlikePost({
+        userId: user.id,
+        subjectUri,
+        postId,
+      });
       return postId;
     },
     onMutate: async ({ postId }) => {
@@ -1843,45 +1825,26 @@ export function useToggleRepost() {
       const effectiveUri = subjectUri || post.at_uri;
       const effectiveCid = subjectCid || post.at_cid;
 
+      // Version 2.1: All users are federated - PDS-first is mandatory
+      if (!profile?.did) throw new Error("User not federated");
+      if (!effectiveUri) throw new Error("Post not federated - missing AT URI");
+      
       if (undo || post.is_reposted_by_me) {
         // UNDO REPOST
-        if (profile?.did && effectiveUri) {
-          // PDS-first for federated users
-          await atprotoAgent.unrepostPost({
-            userId: user.id,
-            subjectUri: effectiveUri,
-            postId: targetId,
-          });
-        } else {
-          // Direct DB delete for non-federated users
-          const { error } = await supabase
-            .from("reposts")
-            .delete()
-            .eq("user_id", user.id)
-            .eq("post_id", targetId);
-          if (error) throw error;
-        }
+        await atprotoAgent.unrepostPost({
+          userId: user.id,
+          subjectUri: effectiveUri,
+          postId: targetId,
+        });
       } else {
         // CREATE REPOST
-        if (profile?.did && effectiveUri && effectiveCid) {
-          // PDS-first for federated users
-          await atprotoAgent.repostPost({
-            userId: user.id,
-            subjectUri: effectiveUri,
-            subjectCid: effectiveCid,
-            postId: targetId,
-          });
-        } else {
-          // Direct DB insert for non-federated users (Version 2.1: include actor_did)
-          const { error } = await supabase.from("reposts").insert({
-            user_id: user.id,
-            actor_did: profile?.did || null,  // Include for unified queries even in fallback
-            post_id: targetId,
-            subject_uri: effectiveUri,
-            subject_cid: effectiveCid,
-          });
-          if (error) throw error;
-        }
+        if (!effectiveCid) throw new Error("Post not federated - missing CID");
+        await atprotoAgent.repostPost({
+          userId: user.id,
+          subjectUri: effectiveUri,
+          subjectCid: effectiveCid,
+          postId: targetId,
+        });
       }
     },
     // Optimistic update for instant feedback
