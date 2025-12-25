@@ -360,58 +360,38 @@ export async function getUnreadCount() {
 }
 
 /**
- * Cannabis-related search terms for the Cannect feed
+ * Cannect Feed Generator URI
+ * This is the official Cannect cannabis feed hosted at feed.cannect.space
+ * Only accessible to *.cannect.space users
  */
-const CANNABIS_TERMS = [
-  'cannabis',
-  'marijuana',
-  'weed',
-  '420',
-  'thc',
-  'cbd',
-  'dispensary',
-  'strain',
-  'indica',
-  'sativa',
-  'edibles',
-  'dabs',
-  'concentrates',
-];
+const CANNECT_FEED_URI = 'at://did:plc:ubkp6dfvxif7rmexyat5np6e/app.bsky.feed.generator/cannect';
 
 /**
- * Get the Cannect feed - cannabis content from the network + cannect.space users
+ * Get the Cannect feed from our feed generator
  * 
- * This combines:
- * 1. Posts matching cannabis-related keywords from the entire network
- * 2. Posts from users on the cannect.space PDS (our community)
+ * Uses the Cannect Feed Generator at feed.cannect.space which:
+ * - Indexes cannabis-related posts from the entire AT Protocol network
+ * - Only accessible to cannect.space users
  */
 export async function getCannectFeed(cursor?: string, limit = 30) {
   const bskyAgent = getAgent();
   
-  // Build a compound search query for cannabis terms
-  // Using OR logic: "cannabis OR marijuana OR weed OR 420..."
-  const searchQuery = CANNABIS_TERMS.slice(0, 5).join(' OR '); // API may have limits, use top 5 terms
-  
   try {
-    // Search for cannabis-related posts
-    const result = await bskyAgent.app.bsky.feed.searchPosts({
-      q: searchQuery,
+    // Use the official AT Protocol getFeed endpoint with our feed generator
+    const result = await bskyAgent.app.bsky.feed.getFeed({
+      feed: CANNECT_FEED_URI,
       cursor,
       limit,
-      sort: 'latest', // Get most recent posts
     });
     
     return {
       data: {
-        feed: result.data.posts.map(post => ({
-          post,
-          // No reason needed for search results
-        })),
+        feed: result.data.feed,
         cursor: result.data.cursor,
       }
     };
-  } catch (error) {
-    console.error('[Cannect Feed] Search failed:', error);
+  } catch (error: any) {
+    console.error('[Cannect Feed] Failed to load feed:', error?.message || error);
     // Return empty feed on error
     return {
       data: {
