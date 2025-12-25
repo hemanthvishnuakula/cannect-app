@@ -66,13 +66,13 @@ function NotificationItem({ notification }: { notification: Notification }) {
 
   const handlePress = () => {
     if (notification.reason === 'follow') {
-      router.push(`/user/${author.handle}` as any);
+      router.push(`/user/${author.handle}`);
     } else if (notification.reasonSubject) {
       // Navigate to the post
       const uriParts = notification.reasonSubject.split('/');
       const rkey = uriParts[uriParts.length - 1];
       const authorDid = uriParts[2];
-      router.push(`/post/${authorDid}/${rkey}` as any);
+      router.push(`/post/${authorDid}/${rkey}`);
     }
   };
 

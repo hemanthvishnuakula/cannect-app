@@ -67,7 +67,8 @@ export function usePostThread(uri: string | undefined) {
     queryFn: async () => {
       if (!uri) throw new Error('URI required');
       const result = await atproto.getPostThread(uri);
-      return result.data;
+      // Return the thread object directly, which contains post, parent, replies
+      return result.data.thread as ThreadViewPost;
     },
     enabled: !!uri,
     staleTime: 1000 * 30,

@@ -244,10 +244,10 @@ export default function FeedScreen() {
   }, [repostMutation, unrepostMutation]);
 
   const handlePostPress = useCallback((post: PostView) => {
-    // Navigate to thread view
+    // Navigate to thread view using DID and rkey
     const uriParts = post.uri.split('/');
     const rkey = uriParts[uriParts.length - 1];
-    router.push(`/post/${post.author.handle}/${rkey}` as any);
+    router.push(`/post/${post.author.did}/${rkey}`);
   }, [router]);
 
   if (timelineQuery.isError) {

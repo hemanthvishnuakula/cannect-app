@@ -91,13 +91,13 @@ export default function SearchScreen() {
   const data = activeTab === "users" ? users : posts;
 
   const handleUserPress = (user: ProfileView) => {
-    router.push(`/user/${user.handle}` as any);
+    router.push(`/user/${user.handle}`);
   };
 
   const handlePostPress = (post: PostView) => {
     const uriParts = post.uri.split('/');
     const rkey = uriParts[uriParts.length - 1];
-    router.push(`/post/${post.author.handle}/${rkey}` as any);
+    router.push(`/post/${post.author.did}/${rkey}`);
   };
 
   return (

@@ -307,10 +307,8 @@ const styles = StyleSheet.create({
     padding: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
+    // @ts-ignore - boxShadow for web, elevation for native
+    boxShadow: '0 4px 8px rgba(0, 0, 0, 0.3)',
     elevation: 8,
   },
   toastCritical: {

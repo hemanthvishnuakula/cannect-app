@@ -130,16 +130,11 @@ export default function ProfileScreen() {
               {/* Actions */}
               <View className="absolute right-4 top-14 flex-row gap-2">
                 <Pressable 
-                  onPress={() => router.push("/settings/edit-profile" as any)}
-                  className="bg-surface-elevated border border-border px-4 py-2 rounded-full"
-                >
-                  <Text className="text-text-primary font-semibold">Edit Profile</Text>
-                </Pressable>
-                <Pressable 
                   onPress={handleLogout}
-                  className="bg-surface-elevated border border-border p-2 rounded-full"
+                  className="bg-surface-elevated border border-border px-4 py-2 rounded-full flex-row items-center"
                 >
-                  <LogOut size={18} color="#EF4444" />
+                  <LogOut size={16} color="#EF4444" />
+                  <Text className="text-red-500 font-semibold ml-2">Logout</Text>
                 </Pressable>
               </View>
 
