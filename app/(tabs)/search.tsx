@@ -188,12 +188,13 @@ export default function SearchScreen() {
     );
   }, [usersQuery.data, currentUserDid]);
 
-  // Filter suggested users - exclude already following and self
+  // Filter suggested users - exclude self only (show all users including followed)
   const suggestedUsers = useMemo(() => {
     const allUsers = suggestedUsersQuery.data || [];
-    return allUsers.filter(user => 
-      !user.viewer?.following && user.did !== currentUserDid
-    );
+    console.log('[Search] Raw users:', allUsers.length);
+    const filtered = allUsers.filter(user => user.did !== currentUserDid);
+    console.log('[Search] After filter:', filtered.length);
+    return filtered;
   }, [suggestedUsersQuery.data, currentUserDid]);
 
   const isLoading = usersQuery.isLoading;
