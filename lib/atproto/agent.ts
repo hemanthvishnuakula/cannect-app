@@ -295,6 +295,14 @@ export async function updateProfile(update: {
 }
 
 /**
+ * Get suggested users to follow
+ */
+export async function getSuggestions(cursor?: string, limit = 10) {
+  const bskyAgent = getAgent();
+  return bskyAgent.app.bsky.actor.getSuggestions({ cursor, limit });
+}
+
+/**
  * Search actors
  */
 export async function searchActors(query: string, cursor?: string, limit = 25) {

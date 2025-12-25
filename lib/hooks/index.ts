@@ -49,6 +49,7 @@ export {
   useUnfollow,
   useToggleFollow,
   useSearchUsers,
+  useSuggestedUsers,
   type ProfileView,
   type ProfileViewDetailed,
 } from './use-atp-profile';

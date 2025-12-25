@@ -3,12 +3,12 @@
  */
 
 import { useState, useMemo } from "react";
-import { View, Text, TextInput, Pressable, ActivityIndicator, Image } from "react-native";
+import { View, Text, TextInput, Pressable, ActivityIndicator, Image, ScrollView } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { FlashList } from "@shopify/flash-list";
-import { Search as SearchIcon, X, Users } from "lucide-react-native";
+import { Search as SearchIcon, X, Users, Sparkles } from "lucide-react-native";
 import { useRouter } from "expo-router";
-import { useSearchUsers, useSearchPosts } from "@/lib/hooks";
+import { useSearchUsers, useSearchPosts, useSuggestedUsers } from "@/lib/hooks";
 import { useDebounce } from "@/lib/hooks";
 import type { AppBskyActorDefs, AppBskyFeedDefs } from '@atproto/api';
 
@@ -78,6 +78,7 @@ export default function SearchScreen() {
 
   const usersQuery = useSearchUsers(hasQuery && activeTab === "users" ? debouncedQuery : "");
   const postsQuery = useSearchPosts(hasQuery && activeTab === "posts" ? debouncedQuery : "");
+  const suggestedUsersQuery = useSuggestedUsers();
 
   const users = useMemo(() => {
     return usersQuery.data?.pages?.flatMap(page => page.actors) || [];
@@ -145,13 +146,41 @@ export default function SearchScreen() {
 
       {/* Results */}
       {!hasQuery ? (
-        <View className="flex-1 items-center justify-center px-6">
-          <Users size={48} color="#6B7280" />
-          <Text className="text-text-primary text-lg font-semibold mt-4">Search Cannect</Text>
-          <Text className="text-text-muted text-center mt-2">
-            Find users and posts across the network
-          </Text>
-        </View>
+        <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+          {/* Suggested Users Section */}
+          <View className="px-4 pt-4 pb-2">
+            <View className="flex-row items-center gap-2 mb-3">
+              <Sparkles size={18} color="#10B981" />
+              <Text className="text-text-primary font-semibold text-lg">
+                Suggested for you
+              </Text>
+            </View>
+          </View>
+          
+          {suggestedUsersQuery.isLoading ? (
+            <View className="py-8 items-center">
+              <ActivityIndicator size="large" color="#10B981" />
+            </View>
+          ) : suggestedUsersQuery.data && suggestedUsersQuery.data.length > 0 ? (
+            suggestedUsersQuery.data.map((user) => (
+              <UserRow 
+                key={user.did} 
+                user={user} 
+                onPress={() => handleUserPress(user)} 
+              />
+            ))
+          ) : (
+            <View className="py-12 items-center px-6">
+              <Users size={48} color="#6B7280" />
+              <Text className="text-text-primary text-lg font-semibold mt-4">
+                Discover people
+              </Text>
+              <Text className="text-text-muted text-center mt-2">
+                Search for users and posts to connect with others
+              </Text>
+            </View>
+          )}
+        </ScrollView>
       ) : isLoading ? (
         <View className="flex-1 items-center justify-center">
           <ActivityIndicator size="large" color="#10B981" />

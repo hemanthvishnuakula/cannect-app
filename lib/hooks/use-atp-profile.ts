@@ -210,3 +210,20 @@ export function useSearchUsers(query: string) {
     staleTime: 1000 * 60,
   });
 }
+
+/**
+ * Get suggested users to follow
+ */
+export function useSuggestedUsers() {
+  const { isAuthenticated } = useAuthStore();
+  
+  return useQuery({
+    queryKey: ['suggestedUsers'],
+    queryFn: async () => {
+      const result = await atproto.getSuggestions(undefined, 15);
+      return result.data.actors;
+    },
+    enabled: isAuthenticated,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  });
+}
