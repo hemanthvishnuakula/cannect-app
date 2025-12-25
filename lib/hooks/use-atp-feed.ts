@@ -63,14 +63,35 @@ export function useCannectFeed() {
 }
 
 /**
- * Get a specific user's feed
+ * Get a specific user's feed with optional filter
  */
-export function useAuthorFeed(actor: string | undefined) {
+export function useAuthorFeed(
+  actor: string | undefined, 
+  filter?: 'posts_with_replies' | 'posts_no_replies' | 'posts_with_media' | 'posts_and_author_threads'
+) {
   return useInfiniteQuery({
-    queryKey: ['authorFeed', actor],
+    queryKey: ['authorFeed', actor, filter],
     queryFn: async ({ pageParam }) => {
       if (!actor) throw new Error('Actor required');
-      const result = await atproto.getAuthorFeed(actor, pageParam, 30);
+      const result = await atproto.getAuthorFeed(actor, pageParam, 30, filter);
+      return result.data;
+    },
+    getNextPageParam: (lastPage) => lastPage.cursor,
+    initialPageParam: undefined as string | undefined,
+    enabled: !!actor,
+    staleTime: 1000 * 60,
+  });
+}
+
+/**
+ * Get a user's liked posts
+ */
+export function useActorLikes(actor: string | undefined) {
+  return useInfiniteQuery({
+    queryKey: ['actorLikes', actor],
+    queryFn: async ({ pageParam }) => {
+      if (!actor) throw new Error('Actor required');
+      const result = await atproto.getActorLikes(actor, pageParam, 30);
       return result.data;
     },
     getNextPageParam: (lastPage) => lastPage.cursor,

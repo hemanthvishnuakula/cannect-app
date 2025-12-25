@@ -22,6 +22,7 @@ export {
   useTimeline as useFollowingFeed,
   useCannectFeed,
   useAuthorFeed,
+  useActorLikes,
   usePostThread,
   useCreatePost,
   useDeletePost,

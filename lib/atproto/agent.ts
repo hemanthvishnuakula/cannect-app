@@ -255,11 +255,25 @@ export async function getTimeline(cursor?: string, limit = 50) {
 }
 
 /**
- * Get author's feed
+ * Get author's feed with optional filter
+ * filter options: 'posts_with_replies', 'posts_no_replies', 'posts_with_media', 'posts_and_author_threads'
  */
-export async function getAuthorFeed(actor: string, cursor?: string, limit = 50) {
+export async function getAuthorFeed(
+  actor: string, 
+  cursor?: string, 
+  limit = 50,
+  filter?: 'posts_with_replies' | 'posts_no_replies' | 'posts_with_media' | 'posts_and_author_threads'
+) {
   const bskyAgent = getAgent();
-  return bskyAgent.getAuthorFeed({ actor, cursor, limit });
+  return bskyAgent.getAuthorFeed({ actor, cursor, limit, filter });
+}
+
+/**
+ * Get actor's likes
+ */
+export async function getActorLikes(actor: string, cursor?: string, limit = 50) {
+  const bskyAgent = getAgent();
+  return bskyAgent.app.bsky.feed.getActorLikes({ actor, cursor, limit });
 }
 
 /**
