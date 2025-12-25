@@ -325,9 +325,18 @@ export async function getSuggestions(cursor?: string, limit = 10) {
  * List all repos (users) on Cannect PDS
  */
 export async function listPdsRepos(limit = 100): Promise<string[]> {
-  const response = await fetch(`${PDS_SERVICE}/xrpc/com.atproto.sync.listRepos?limit=${limit}`);
-  const data = await response.json();
-  return data.repos?.map((repo: { did: string }) => repo.did) || [];
+  try {
+    const response = await fetch(`${PDS_SERVICE}/xrpc/com.atproto.sync.listRepos?limit=${limit}`);
+    if (!response.ok) {
+      console.error('[listPdsRepos] Failed:', response.status, response.statusText);
+      return [];
+    }
+    const data = await response.json();
+    return data.repos?.map((repo: { did: string }) => repo.did) || [];
+  } catch (error) {
+    console.error('[listPdsRepos] Error:', error);
+    return [];
+  }
 }
 
 /**

@@ -9,16 +9,17 @@ import { FlashList } from "@shopify/flash-list";
 import { Search as SearchIcon, X, Users, Sparkles, UserPlus, Check } from "lucide-react-native";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
-import { useSearchUsers, useSearchPosts, useSuggestedUsers, useSuggestedPosts, useFollow } from "@/lib/hooks";
+import { useSearchUsers, useSuggestedUsers, useFollow } from "@/lib/hooks";
 import { useDebounce } from "@/lib/hooks";
 import { useAuthStore } from "@/lib/stores";
 import { useQueryClient } from "@tanstack/react-query";
-import type { AppBskyActorDefs, AppBskyFeedDefs } from '@atproto/api';
+import type { AppBskyActorDefs } from '@atproto/api';
 
 type ProfileView = AppBskyActorDefs.ProfileView;
-type PostView = AppBskyFeedDefs.PostView;
+type ProfileViewDetailed = AppBskyActorDefs.ProfileViewDetailed;
+type AnyProfileView = ProfileView | ProfileViewDetailed;
 
-type SearchTab = "users" | "posts";
+type SearchTab = "users" | "trending";
 
 function UserRow({ 
   user, 
@@ -28,7 +29,7 @@ function UserRow({
   showFollowButton = true,
   currentUserDid,
 }: { 
-  user: ProfileView; 
+  user: AnyProfileView; 
   onPress: () => void;
   onFollow?: () => void;
   isFollowPending?: boolean;
@@ -93,28 +94,17 @@ function UserRow({
   );
 }
 
-function PostRow({ post, onPress }: { post: PostView; onPress: () => void }) {
-  const record = post.record as any;
+function TrendingPlaceholder() {
   return (
-    <Pressable 
-      onPress={onPress}
-      className="px-4 py-3 border-b border-border active:bg-surface-elevated"
-    >
-      <View className="flex-row items-center mb-2">
-        {post.author.avatar ? (
-          <Image source={{ uri: post.author.avatar }} className="w-8 h-8 rounded-full" />
-        ) : (
-          <View className="w-8 h-8 rounded-full bg-surface-elevated items-center justify-center">
-            <Text className="text-text-muted">{post.author.handle[0].toUpperCase()}</Text>
-          </View>
-        )}
-        <Text className="font-semibold text-text-primary ml-2">
-          {post.author.displayName || post.author.handle}
-        </Text>
-        <Text className="text-text-muted ml-1">@{post.author.handle}</Text>
-      </View>
-      <Text className="text-text-primary" numberOfLines={3}>{record.text}</Text>
-    </Pressable>
+    <View className="py-12 items-center px-6">
+      <Sparkles size={48} color="#6B7280" />
+      <Text className="text-text-primary text-lg font-semibold mt-4">
+        Coming Soon
+      </Text>
+      <Text className="text-text-muted text-center mt-2">
+        Trending topics and hashtags will appear here.
+      </Text>
+    </View>
   );
 }
 
@@ -127,9 +117,7 @@ export default function SearchScreen() {
   const hasQuery = debouncedQuery.trim().length >= 2;
 
   const usersQuery = useSearchUsers(hasQuery && activeTab === "users" ? debouncedQuery : "");
-  const postsQuery = useSearchPosts(hasQuery && activeTab === "posts" ? debouncedQuery : "");
   const suggestedUsersQuery = useSuggestedUsers();
-  const suggestedPostsQuery = useSuggestedPosts();
   
   const { did: currentUserDid } = useAuthStore();
   const followMutation = useFollow();
@@ -152,24 +140,14 @@ export default function SearchScreen() {
     );
   }, [suggestedUsersQuery.data, currentUserDid]);
 
-  const posts = useMemo(() => {
-    return postsQuery.data?.pages?.flatMap(page => page.posts) || [];
-  }, [postsQuery.data]);
+  const isLoading = usersQuery.isLoading;
+  const data = users;
 
-  const isLoading = activeTab === "users" ? usersQuery.isLoading : postsQuery.isLoading;
-  const data = activeTab === "users" ? users : posts;
-
-  const handleUserPress = (user: ProfileView) => {
+  const handleUserPress = (user: AnyProfileView) => {
     router.push(`/user/${user.handle}`);
   };
 
-  const handlePostPress = (post: PostView) => {
-    const uriParts = post.uri.split('/');
-    const rkey = uriParts[uriParts.length - 1];
-    router.push(`/post/${post.author.did}/${rkey}`);
-  };
-
-  const handleFollow = useCallback(async (user: ProfileView) => {
+  const handleFollow = useCallback(async (user: AnyProfileView) => {
     if (Platform.OS !== "web") {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
@@ -226,11 +204,11 @@ export default function SearchScreen() {
           </Text>
         </Pressable>
         <Pressable
-          onPress={() => setActiveTab("posts")}
-          className={`flex-1 py-3 items-center ${activeTab === "posts" ? "border-b-2 border-primary" : ""}`}
+          onPress={() => setActiveTab("trending")}
+          className={`flex-1 py-3 items-center ${activeTab === "trending" ? "border-b-2 border-primary" : ""}`}
         >
-          <Text className={activeTab === "posts" ? "text-primary font-semibold" : "text-text-muted"}>
-            Posts
+          <Text className={activeTab === "trending" ? "text-primary font-semibold" : "text-text-muted"}>
+            Trending
           </Text>
         </Pressable>
       </View>
@@ -278,43 +256,11 @@ export default function SearchScreen() {
               )}
             </>
           ) : (
-            <>
-              {/* Suggested Posts Section */}
-              <View className="px-4 pt-4 pb-2">
-                <View className="flex-row items-center gap-2 mb-3">
-                  <Sparkles size={18} color="#10B981" />
-                  <Text className="text-text-primary font-semibold text-lg">
-                    From Cannect
-                  </Text>
-                </View>
-              </View>
-              
-              {suggestedPostsQuery.isLoading ? (
-                <View className="py-8 items-center">
-                  <ActivityIndicator size="large" color="#10B981" />
-                </View>
-              ) : suggestedPostsQuery.data && suggestedPostsQuery.data.length > 0 ? (
-                suggestedPostsQuery.data.map((post) => (
-                  <PostRow 
-                    key={post.uri} 
-                    post={post} 
-                    onPress={() => handlePostPress(post)} 
-                  />
-                ))
-              ) : (
-                <View className="py-12 items-center px-6">
-                  <Sparkles size={48} color="#6B7280" />
-                  <Text className="text-text-primary text-lg font-semibold mt-4">
-                    No posts yet
-                  </Text>
-                  <Text className="text-text-muted text-center mt-2">
-                    Be the first to share on Cannect!
-                  </Text>
-                </View>
-              )}
-            </>
+            <TrendingPlaceholder />
           )}
         </ScrollView>
+      ) : activeTab === "trending" ? (
+        <TrendingPlaceholder />
       ) : isLoading ? (
         <View className="flex-1 items-center justify-center">
           <ActivityIndicator size="large" color="#10B981" />
@@ -322,38 +268,31 @@ export default function SearchScreen() {
       ) : (
         <FlashList
           data={data}
-          keyExtractor={(item: any, index) => `${item.uri || item.did}-${index}`}
+          keyExtractor={(item: ProfileView, index) => `${item.did}-${index}`}
           estimatedItemSize={80}
-          renderItem={({ item }: { item: any }) => 
-            activeTab === "users" ? (
-              <UserRow 
-                user={item} 
-                onPress={() => handleUserPress(item)}
-                onFollow={() => handleFollow(item)}
-                isFollowPending={pendingFollows.has(item.did)}
-                currentUserDid={currentUserDid || undefined}
-              />
-            ) : (
-              <PostRow post={item} onPress={() => handlePostPress(item)} />
-            )
-          }
+          renderItem={({ item }: { item: ProfileView }) => (
+            <UserRow 
+              user={item} 
+              onPress={() => handleUserPress(item)}
+              onFollow={() => handleFollow(item)}
+              isFollowPending={pendingFollows.has(item.did)}
+              currentUserDid={currentUserDid || undefined}
+            />
+          )}
           onEndReached={() => {
-            const query = activeTab === "users" ? usersQuery : postsQuery;
-            if (query.hasNextPage && !query.isFetchingNextPage) {
-              query.fetchNextPage();
+            if (usersQuery.hasNextPage && !usersQuery.isFetchingNextPage) {
+              usersQuery.fetchNextPage();
             }
           }}
           onEndReachedThreshold={0.5}
           contentContainerStyle={{ paddingBottom: 20 }}
           ListEmptyComponent={
             <View className="flex-1 items-center justify-center py-20">
-              <Text className="text-text-muted">
-                No {activeTab === "users" ? "users" : "posts"} found
-              </Text>
+              <Text className="text-text-muted">No users found</Text>
             </View>
           }
           ListFooterComponent={
-            (activeTab === "users" ? usersQuery : postsQuery).isFetchingNextPage ? (
+            usersQuery.isFetchingNextPage ? (
               <View className="py-4 items-center">
                 <ActivityIndicator size="small" color="#10B981" />
               </View>
