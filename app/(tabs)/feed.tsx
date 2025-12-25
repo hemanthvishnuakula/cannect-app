@@ -6,7 +6,7 @@
  * - Following: Posts from people the user follows
  */
 
-import { View, Text, RefreshControl, ActivityIndicator, Platform, Pressable, Image } from "react-native";
+import { View, Text, RefreshControl, ActivityIndicator, Platform, Pressable, Image, Share as RNShare } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { FlashList } from "@shopify/flash-list";
 import { useRouter } from "expo-router";
@@ -16,6 +16,7 @@ import * as Haptics from "expo-haptics";
 import { useTimeline, useCannectFeed, useLikePost, useUnlikePost, useRepost, useDeleteRepost } from "@/lib/hooks";
 import { useAuthStore } from "@/lib/stores";
 import { OfflineBanner } from "@/components/OfflineBanner";
+import { RepostMenu } from "@/components/social/RepostMenu";
 import type { AppBskyFeedDefs, AppBskyFeedPost } from '@atproto/api';
 
 type FeedType = 'cannect' | 'following';
@@ -44,6 +45,7 @@ function FeedItem({
   onRepost,
   onReply,
   onAuthorPress,
+  onShare,
 }: { 
   item: FeedViewPost;
   onPress: () => void;
@@ -51,6 +53,7 @@ function FeedItem({
   onRepost: () => void;
   onReply: () => void;
   onAuthorPress: () => void;
+  onShare: () => void;
 }) {
   const post = item.post;
   const record = post.record as AppBskyFeedPost.Record;
@@ -181,7 +184,7 @@ function FeedItem({
             </Pressable>
 
             {/* Share */}
-            <Pressable className="flex-row items-center">
+            <Pressable onPress={onShare} className="flex-row items-center">
               <Share size={18} color="#6B7280" />
             </Pressable>
           </View>
@@ -212,6 +215,10 @@ export default function FeedScreen() {
   const router = useRouter();
   const { did } = useAuthStore();
   const [activeFeed, setActiveFeed] = useState<FeedType>('cannect');
+  
+  // Repost menu state
+  const [repostMenuVisible, setRepostMenuVisible] = useState(false);
+  const [selectedPost, setSelectedPost] = useState<PostView | null>(null);
   
   // Both feeds - only active one will fetch
   const cannectFeedQuery = useCannectFeed();
@@ -249,23 +256,64 @@ export default function FeedScreen() {
     }
     
     if (post.viewer?.like) {
-      await unlikeMutation.mutateAsync(post.viewer.like);
+      await unlikeMutation.mutateAsync({ likeUri: post.viewer.like, postUri: post.uri });
     } else {
       await likeMutation.mutateAsync({ uri: post.uri, cid: post.cid });
     }
   }, [likeMutation, unlikeMutation]);
 
-  const handleRepost = useCallback(async (post: PostView) => {
+  // Open repost menu
+  const handleRepostPress = useCallback((post: PostView) => {
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    setSelectedPost(post);
+    setRepostMenuVisible(true);
+  }, []);
+
+  // Handle actual repost from menu
+  const handleRepost = useCallback(async () => {
+    if (!selectedPost) return;
+    
+    if (selectedPost.viewer?.repost) {
+      await unrepostMutation.mutateAsync({ repostUri: selectedPost.viewer.repost, postUri: selectedPost.uri });
+    } else {
+      await repostMutation.mutateAsync({ uri: selectedPost.uri, cid: selectedPost.cid });
+    }
+  }, [selectedPost, repostMutation, unrepostMutation]);
+
+  // Handle quote post from menu
+  const handleQuotePost = useCallback(() => {
+    if (!selectedPost) return;
+    
+    router.push({
+      pathname: '/compose',
+      params: {
+        quoteUri: selectedPost.uri,
+        quoteCid: selectedPost.cid,
+      }
+    });
+  }, [selectedPost, router]);
+
+  // Share post
+  const handleShare = useCallback(async (post: PostView) => {
     if (Platform.OS !== 'web') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
     
-    if (post.viewer?.repost) {
-      await unrepostMutation.mutateAsync(post.viewer.repost);
-    } else {
-      await repostMutation.mutateAsync({ uri: post.uri, cid: post.cid });
+    const uriParts = post.uri.split('/');
+    const rkey = uriParts[uriParts.length - 1];
+    const shareUrl = `https://bsky.app/profile/${post.author.handle}/post/${rkey}`;
+    
+    try {
+      await RNShare.share({
+        message: `Check out this post on Cannect: ${shareUrl}`,
+        url: shareUrl,
+      });
+    } catch (err) {
+      console.log('Share cancelled or failed');
     }
-  }, [repostMutation, unrepostMutation]);
+  }, []);
 
   const handlePostPress = useCallback((post: PostView) => {
     // Navigate to thread view using DID and rkey
@@ -284,8 +332,6 @@ export default function FeedScreen() {
     }
     
     // Navigate to compose with reply params
-    const uriParts = post.uri.split('/');
-    const rkey = uriParts[uriParts.length - 1];
     router.push({
       pathname: '/compose',
       params: {
@@ -351,9 +397,10 @@ export default function FeedScreen() {
                 item={item}
                 onPress={() => handlePostPress(item.post)}
                 onLike={() => handleLike(item.post)}
-                onRepost={() => handleRepost(item.post)}
+                onRepost={() => handleRepostPress(item.post)}
                 onReply={() => handleReply(item.post)}
                 onAuthorPress={() => handleAuthorPress(item.post)}
+                onShare={() => handleShare(item.post)}
               />
             )}
             estimatedItemSize={200}
@@ -391,6 +438,15 @@ export default function FeedScreen() {
           />
         </View>
       )}
+
+      {/* Repost Menu */}
+      <RepostMenu
+        isVisible={repostMenuVisible}
+        onClose={() => setRepostMenuVisible(false)}
+        onRepost={handleRepost}
+        onQuotePost={handleQuotePost}
+        isReposted={!!selectedPost?.viewer?.repost}
+      />
     </SafeAreaView>
   );
 }

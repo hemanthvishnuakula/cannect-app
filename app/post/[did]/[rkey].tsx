@@ -279,7 +279,7 @@ export default function PostDetailsScreen() {
     triggerHaptic();
     
     if (post.viewer?.like) {
-      unlikeMutation.mutate(post.viewer.like);
+      unlikeMutation.mutate({ likeUri: post.viewer.like, postUri: post.uri });
     } else {
       likeMutation.mutate({ uri: post.uri, cid: post.cid });
     }
@@ -291,7 +291,7 @@ export default function PostDetailsScreen() {
     triggerHaptic();
     
     if (post.viewer?.repost) {
-      unrepostMutation.mutate(post.viewer.repost);
+      unrepostMutation.mutate({ repostUri: post.viewer.repost, postUri: post.uri });
     } else {
       repostMutation.mutate({ uri: post.uri, cid: post.cid });
     }
@@ -363,7 +363,7 @@ export default function PostDetailsScreen() {
   const handleReplyLike = useCallback((replyPost: PostView) => {
     triggerHaptic();
     if (replyPost.viewer?.like) {
-      unlikeMutation.mutate(replyPost.viewer.like);
+      unlikeMutation.mutate({ likeUri: replyPost.viewer.like, postUri: replyPost.uri });
     } else {
       likeMutation.mutate({ uri: replyPost.uri, cid: replyPost.cid });
     }
@@ -372,7 +372,7 @@ export default function PostDetailsScreen() {
   const handleReplyRepost = useCallback((replyPost: PostView) => {
     triggerHaptic();
     if (replyPost.viewer?.repost) {
-      unrepostMutation.mutate(replyPost.viewer.repost);
+      unrepostMutation.mutate({ repostUri: replyPost.viewer.repost, postUri: replyPost.uri });
     } else {
       repostMutation.mutate({ uri: replyPost.uri, cid: replyPost.cid });
     }
