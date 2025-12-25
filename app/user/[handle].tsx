@@ -234,7 +234,8 @@ export default function UserProfileScreen() {
   // Different feeds based on active tab
   const postsQuery = useAuthorFeed(profileData?.did, 'posts_no_replies');
   const repliesQuery = useAuthorFeed(profileData?.did, 'posts_with_replies');
-  const likesQuery = useActorLikes(profileData?.did);
+  // Only fetch likes for own profile - getActorLikes only works for authenticated user
+  const likesQuery = useActorLikes(isOwnProfile ? profileData?.did : undefined);
 
   // Get posts data based on active tab
   const posts = useMemo(() => {
@@ -399,11 +400,12 @@ export default function UserProfileScreen() {
   const isFollowing = !!profileData.viewer?.following;
   const isFollowPending = followMutation.isPending || unfollowMutation.isPending;
 
+  // Only show Likes tab for own profile - getActorLikes only works for authenticated user
   const tabs: { key: ProfileTab; label: string }[] = [
     { key: "posts", label: "Posts" },
     { key: "reposts", label: "Reposts" },
     { key: "replies", label: "Replies" },
-    { key: "likes", label: "Likes" },
+    ...(isOwnProfile ? [{ key: "likes" as ProfileTab, label: "Likes" }] : []),
   ];
 
   return (
