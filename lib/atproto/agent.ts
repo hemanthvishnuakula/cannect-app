@@ -341,6 +341,7 @@ export async function listPdsRepos(limit = 100): Promise<string[]> {
 
 /**
  * Get profiles for multiple DIDs
+ * Falls back to individual getProfile calls if batch fails
  */
 export async function getProfiles(dids: string[]) {
   const bskyAgent = getAgent();
@@ -350,11 +351,32 @@ export async function getProfiles(dids: string[]) {
     chunks.push(dids.slice(i, i + 25));
   }
   
-  const results = await Promise.all(
-    chunks.map(chunk => bskyAgent.getProfiles({ actors: chunk }))
-  );
-  
-  return results.flatMap(r => r.data.profiles);
+  try {
+    const results = await Promise.all(
+      chunks.map(chunk => bskyAgent.getProfiles({ actors: chunk }))
+    );
+    
+    const profiles = results.flatMap(r => r.data.profiles);
+    console.log('[getProfiles] Got', profiles.length, 'profiles from batch');
+    return profiles;
+  } catch (error) {
+    console.error('[getProfiles] Batch failed, trying individual:', error);
+    // Fallback: fetch profiles individually
+    const profiles = [];
+    for (const did of dids) {
+      try {
+        const result = await bskyAgent.getProfile({ actor: did });
+        if (result.data) {
+          profiles.push(result.data);
+        }
+      } catch (e) {
+        // Skip failed profiles
+        console.log('[getProfiles] Failed for', did);
+      }
+    }
+    console.log('[getProfiles] Got', profiles.length, 'profiles from fallback');
+    return profiles;
+  }
 }
 
 /**
