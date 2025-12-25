@@ -459,7 +459,6 @@ export default function PostDetailsScreen() {
           ),
         }}
       />
-      
       <ScrollView className="flex-1">
         {/* Parent Posts (Thread Ancestors) */}
         {hasParents && (
@@ -475,7 +474,7 @@ export default function PostDetailsScreen() {
         )}
 
         {/* Main Post */}
-        <View className="px-4 pt-4 pb-3 border-b border-border">
+        <View className={`px-4 ${hasParents ? 'pt-2' : 'pt-3'} pb-3 border-b border-border`}>
           {/* Replying To indicator */}
           {hasParents && (
             <View className="flex-row items-center mb-2">
