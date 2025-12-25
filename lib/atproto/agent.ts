@@ -322,6 +322,42 @@ export async function getSuggestions(cursor?: string, limit = 10) {
 }
 
 /**
+ * List all repos (users) on Cannect PDS
+ */
+export async function listPdsRepos(limit = 100): Promise<string[]> {
+  const response = await fetch(`${PDS_SERVICE}/xrpc/com.atproto.sync.listRepos?limit=${limit}`);
+  const data = await response.json();
+  return data.repos?.map((repo: { did: string }) => repo.did) || [];
+}
+
+/**
+ * Get profiles for multiple DIDs
+ */
+export async function getProfiles(dids: string[]) {
+  const bskyAgent = getAgent();
+  // API limit is 25 actors at a time
+  const chunks = [];
+  for (let i = 0; i < dids.length; i += 25) {
+    chunks.push(dids.slice(i, i + 25));
+  }
+  
+  const results = await Promise.all(
+    chunks.map(chunk => bskyAgent.getProfiles({ actors: chunk }))
+  );
+  
+  return results.flatMap(r => r.data.profiles);
+}
+
+/**
+ * Get all Cannect users directly from PDS
+ */
+export async function getCannectUsers(limit = 50) {
+  const dids = await listPdsRepos(limit);
+  if (dids.length === 0) return [];
+  return getProfiles(dids);
+}
+
+/**
  * Search actors
  */
 export async function searchActors(query: string, cursor?: string, limit = 25) {
@@ -335,6 +371,43 @@ export async function searchActors(query: string, cursor?: string, limit = 25) {
 export async function searchPosts(query: string, cursor?: string, limit = 25) {
   const bskyAgent = getAgent();
   return bskyAgent.app.bsky.feed.searchPosts({ q: query, cursor, limit });
+}
+
+/**
+ * Get recent posts from Cannect users
+ * Fetches posts directly from a sample of active users on the PDS
+ */
+export async function getCannectPosts(limit = 30) {
+  const dids = await listPdsRepos(50);
+  if (dids.length === 0) return [];
+  
+  const bskyAgent = getAgent();
+  
+  // Get recent posts from up to 10 random users
+  const shuffled = dids.sort(() => Math.random() - 0.5).slice(0, 10);
+  
+  const results = await Promise.all(
+    shuffled.map(async (did) => {
+      try {
+        const feed = await bskyAgent.getAuthorFeed({ 
+          actor: did, 
+          limit: 5,
+          filter: 'posts_no_replies'
+        });
+        return feed.data.feed.map(item => item.post);
+      } catch {
+        return [];
+      }
+    })
+  );
+  
+  // Flatten and sort by date, most recent first
+  const allPosts = results.flat();
+  const sorted = allPosts.sort((a, b) => 
+    new Date(b.indexedAt).getTime() - new Date(a.indexedAt).getTime()
+  );
+  
+  return sorted.slice(0, limit);
 }
 
 /**

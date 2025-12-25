@@ -468,6 +468,7 @@ export function useSearchPosts(query: string) {
 
 /**
  * Get suggested posts from Cannect users
+ * Fetches recent posts directly from Cannect PDS users
  */
 export function useSuggestedPosts() {
   const { isAuthenticated } = useAuthStore();
@@ -475,13 +476,9 @@ export function useSuggestedPosts() {
   return useQuery({
     queryKey: ['suggestedPosts', 'cannect'],
     queryFn: async () => {
-      // Search for posts mentioning cannect.space to find Cannect users' content
-      const result = await atproto.searchPosts('cannect.space', undefined, 25);
-      // Filter to only show posts from cannect.space users
-      const cannectPosts = result.data.posts.filter(
-        (post) => post.author.handle.endsWith('.cannect.space')
-      );
-      return cannectPosts;
+      // Get recent posts directly from Cannect PDS users
+      const posts = await atproto.getCannectPosts(30);
+      return posts;
     },
     enabled: isAuthenticated,
     staleTime: 1000 * 60 * 5, // 5 minutes

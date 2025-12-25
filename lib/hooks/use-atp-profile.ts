@@ -217,20 +217,23 @@ export function useSearchUsers(query: string) {
 
 /**
  * Get suggested users to follow - Cannect users only
+ * Fetches users directly from Cannect PDS instead of relying on Bluesky's search index
  */
 export function useSuggestedUsers() {
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, did } = useAuthStore();
   
   return useQuery({
-    queryKey: ['suggestedUsers', 'cannect'],
+    queryKey: ['suggestedUsers', 'cannect', did],
     queryFn: async () => {
-      // Search for users on Cannect PDS (handles end with .cannect.space)
-      const result = await atproto.searchActors('cannect.space', undefined, 25);
-      // Filter to only show users with cannect.space handles
-      const cannectUsers = result.data.actors.filter(
-        (actor) => actor.handle.endsWith('.cannect.space')
-      );
-      return cannectUsers;
+      // Get all users directly from Cannect PDS
+      const profiles = await atproto.getCannectUsers(100);
+      
+      // Filter out current user and shuffle for variety
+      const otherUsers = profiles.filter(p => p.did !== did);
+      
+      // Sort by follower count descending, take top 25
+      const sorted = otherUsers.sort((a, b) => (b.followersCount || 0) - (a.followersCount || 0));
+      return sorted.slice(0, 25);
     },
     enabled: isAuthenticated,
     staleTime: 1000 * 60 * 5, // 5 minutes
