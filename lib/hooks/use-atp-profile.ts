@@ -212,18 +212,22 @@ export function useSearchUsers(query: string) {
 }
 
 /**
- * Get suggested users to follow
+ * Get suggested users to follow - cannabis industry focused
  */
 export function useSuggestedUsers() {
   const { isAuthenticated } = useAuthStore();
   
   return useQuery({
-    queryKey: ['suggestedUsers'],
+    queryKey: ['suggestedUsers', 'cannabis'],
     queryFn: async () => {
-      const result = await atproto.getSuggestions(undefined, 15);
+      // Search for cannabis-related users
+      const searchTerms = ['cannabis', 'weed', '420', 'dispensary', 'marijuana'];
+      const randomTerm = searchTerms[Math.floor(Math.random() * searchTerms.length)];
+      
+      const result = await atproto.searchActors(randomTerm, undefined, 15);
       return result.data.actors;
     },
     enabled: isAuthenticated,
-    staleTime: 1000 * 60 * 5, // 5 minutes
+    staleTime: 1000 * 60 * 10, // 10 minutes - cache longer since it's random
   });
 }
