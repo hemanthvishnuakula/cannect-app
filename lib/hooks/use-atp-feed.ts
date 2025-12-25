@@ -484,3 +484,30 @@ export function useSuggestedPosts() {
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
 }
+
+/**
+ * Get trending hashtags from Cannect feed generator
+ */
+export function useTrending(hours = 24, limit = 10) {
+  const { isAuthenticated } = useAuthStore();
+  
+  return useQuery({
+    queryKey: ['trending', hours, limit],
+    queryFn: async () => {
+      const response = await fetch(
+        `https://feed.cannect.space/trending?hours=${hours}&limit=${limit}`
+      );
+      if (!response.ok) {
+        throw new Error('Failed to fetch trending');
+      }
+      const data = await response.json() as {
+        hashtags: { tag: string; count: number; posts: number }[];
+        analyzedPosts: number;
+        timeWindow: string;
+      };
+      return data;
+    },
+    enabled: isAuthenticated,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  });
+}

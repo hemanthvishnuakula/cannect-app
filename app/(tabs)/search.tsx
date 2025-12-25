@@ -6,10 +6,10 @@ import { useState, useMemo, useCallback } from "react";
 import { View, Text, TextInput, Pressable, ActivityIndicator, Image, ScrollView, Platform } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { FlashList } from "@shopify/flash-list";
-import { Search as SearchIcon, X, Users, Sparkles, UserPlus, Check } from "lucide-react-native";
+import { Search as SearchIcon, X, Users, Sparkles, UserPlus, Check, TrendingUp, Hash } from "lucide-react-native";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
-import { useSearchUsers, useSuggestedUsers, useFollow } from "@/lib/hooks";
+import { useSearchUsers, useSuggestedUsers, useFollow, useTrending } from "@/lib/hooks";
 import { useDebounce } from "@/lib/hooks";
 import { useAuthStore } from "@/lib/stores";
 import { useQueryClient } from "@tanstack/react-query";
@@ -94,16 +94,64 @@ function UserRow({
   );
 }
 
-function TrendingPlaceholder() {
+function TrendingList({ 
+  hashtags, 
+  isLoading, 
+  analyzedPosts,
+  onHashtagPress 
+}: { 
+  hashtags: { tag: string; count: number; posts: number }[];
+  isLoading: boolean;
+  analyzedPosts?: number;
+  onHashtagPress: (tag: string) => void;
+}) {
+  if (isLoading) {
+    return (
+      <View className="py-8 items-center">
+        <ActivityIndicator size="large" color="#10B981" />
+      </View>
+    );
+  }
+
+  if (!hashtags || hashtags.length === 0) {
+    return (
+      <View className="py-12 items-center px-6">
+        <TrendingUp size={48} color="#6B7280" />
+        <Text className="text-text-primary text-lg font-semibold mt-4">
+          No trends yet
+        </Text>
+        <Text className="text-text-muted text-center mt-2">
+          Trending hashtags will appear as more posts come in.
+        </Text>
+      </View>
+    );
+  }
+
   return (
-    <View className="py-12 items-center px-6">
-      <Sparkles size={48} color="#6B7280" />
-      <Text className="text-text-primary text-lg font-semibold mt-4">
-        Coming Soon
-      </Text>
-      <Text className="text-text-muted text-center mt-2">
-        Trending topics and hashtags will appear here.
-      </Text>
+    <View className="px-4 pt-4">
+      <View className="flex-row items-center gap-2 mb-4">
+        <TrendingUp size={18} color="#10B981" />
+        <Text className="text-text-primary font-semibold text-lg">Trending Now</Text>
+        {analyzedPosts && (
+          <Text className="text-text-muted text-sm">({analyzedPosts} posts)</Text>
+        )}
+      </View>
+      {hashtags.map((item, index) => (
+        <Pressable
+          key={item.tag}
+          onPress={() => onHashtagPress(item.tag)}
+          className="flex-row items-center py-3 border-b border-border active:bg-surface-elevated"
+        >
+          <View className="w-8 h-8 rounded-full bg-primary/10 items-center justify-center mr-3">
+            <Text className="text-primary font-bold text-sm">{index + 1}</Text>
+          </View>
+          <View className="flex-1">
+            <Text className="text-text-primary font-semibold text-base">{item.tag}</Text>
+            <Text className="text-text-muted text-sm">{item.count} mentions · {item.posts} posts</Text>
+          </View>
+          <Hash size={16} color="#6B7280" />
+        </Pressable>
+      ))}
     </View>
   );
 }
@@ -118,11 +166,19 @@ export default function SearchScreen() {
 
   const usersQuery = useSearchUsers(hasQuery && activeTab === "users" ? debouncedQuery : "");
   const suggestedUsersQuery = useSuggestedUsers();
+  const trendingQuery = useTrending(24, 15);
   
   const { did: currentUserDid } = useAuthStore();
   const followMutation = useFollow();
   const queryClient = useQueryClient();
   const [pendingFollows, setPendingFollows] = useState<Set<string>>(new Set());
+
+  const handleHashtagPress = (tag: string) => {
+    // Remove # prefix if present and search for it
+    const cleanTag = tag.startsWith('#') ? tag.slice(1) : tag;
+    setQuery(cleanTag);
+    setActiveTab("users"); // Switch to users to show search results
+  };
 
   // Filter out users already being followed and self
   const users = useMemo(() => {
@@ -256,11 +312,23 @@ export default function SearchScreen() {
               )}
             </>
           ) : (
-            <TrendingPlaceholder />
+            <TrendingList 
+              hashtags={trendingQuery.data?.hashtags || []}
+              isLoading={trendingQuery.isLoading}
+              analyzedPosts={trendingQuery.data?.analyzedPosts}
+              onHashtagPress={handleHashtagPress}
+            />
           )}
         </ScrollView>
       ) : activeTab === "trending" ? (
-        <TrendingPlaceholder />
+        <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+          <TrendingList 
+            hashtags={trendingQuery.data?.hashtags || []}
+            isLoading={trendingQuery.isLoading}
+            analyzedPosts={trendingQuery.data?.analyzedPosts}
+            onHashtagPress={handleHashtagPress}
+          />
+        </ScrollView>
       ) : isLoading ? (
         <View className="flex-1 items-center justify-center">
           <ActivityIndicator size="large" color="#10B981" />
