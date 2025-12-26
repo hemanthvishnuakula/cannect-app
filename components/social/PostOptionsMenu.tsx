@@ -1,8 +1,10 @@
-import { Modal, View, Text, Pressable, Platform } from "react-native";
+import { Modal, View, Text, Pressable, Platform, Alert } from "react-native";
 import { Trash2, Flag, Share2, Link } from "lucide-react-native";
 import * as Haptics from "expo-haptics";
 import * as Clipboard from "expo-clipboard";
 import { canShare, share } from "@/lib/utils/pwa-apis";
+import * as atproto from "@/lib/atproto/agent";
+import type { ReportReason } from "@/lib/atproto/agent";
 
 interface PostOptionsMenuProps {
   isVisible: boolean;
@@ -13,6 +15,8 @@ interface PostOptionsMenuProps {
   postText?: string;
   authorHandle?: string;
   isReply?: boolean;
+  postUri?: string;
+  postCid?: string;
 }
 
 export function PostOptionsMenu({ 
@@ -24,6 +28,8 @@ export function PostOptionsMenu({
   postText,
   authorHandle,
   isReply = false,
+  postUri,
+  postCid,
 }: PostOptionsMenuProps) {
   
   // 💎 DIAMOND: Check if native share is available
@@ -62,12 +68,80 @@ export function PostOptionsMenu({
     onClose();
   };
 
-  const handleReport = () => {
+  const showReportOptions = () => {
     if (Platform.OS !== "web") {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
-    // TODO: Implement report functionality
     onClose();
+
+    // Show report reason picker
+    const reportReasons: { label: string; value: ReportReason }[] = [
+      { label: 'Sexual Content', value: 'sexual' },
+      { label: 'Spam', value: 'spam' },
+      { label: 'Harassment/Rude', value: 'rude' },
+      { label: 'Misleading', value: 'misleading' },
+      { label: 'Violation of Terms', value: 'violation' },
+      { label: 'Other', value: 'other' },
+    ];
+
+    if (Platform.OS === 'web') {
+      // Web: use simple confirm dialog
+      const reason = window.prompt(
+        'Report this post?\n\nReasons:\n1. Sexual Content\n2. Spam\n3. Harassment\n4. Misleading\n5. Violation\n6. Other\n\nEnter number (1-6):'
+      );
+      
+      if (reason) {
+        const reasonMap: Record<string, ReportReason> = {
+          '1': 'sexual',
+          '2': 'spam', 
+          '3': 'rude',
+          '4': 'misleading',
+          '5': 'violation',
+          '6': 'other',
+        };
+        const selectedReason = reasonMap[reason];
+        if (selectedReason && postUri && postCid) {
+          submitReport(selectedReason);
+        }
+      }
+    } else {
+      // Native: use Alert with buttons
+      Alert.alert(
+        'Report Post',
+        'Why are you reporting this content?',
+        [
+          ...reportReasons.map(r => ({
+            text: r.label,
+            onPress: () => submitReport(r.value),
+          })),
+          { text: 'Cancel', style: 'cancel' as const },
+        ]
+      );
+    }
+  };
+
+  const submitReport = async (reason: ReportReason) => {
+    if (!postUri || !postCid) {
+      Alert.alert('Error', 'Unable to report this post');
+      return;
+    }
+
+    try {
+      await atproto.reportPost(postUri, postCid, reason);
+      
+      if (Platform.OS === 'web') {
+        window.alert('Report submitted. Thank you for helping keep Cannect safe.');
+      } else {
+        Alert.alert('Report Submitted', 'Thank you for helping keep Cannect safe.');
+      }
+    } catch (error) {
+      console.error('Failed to submit report:', error);
+      if (Platform.OS === 'web') {
+        window.alert('Failed to submit report. Please try again.');
+      } else {
+        Alert.alert('Error', 'Failed to submit report. Please try again.');
+      }
+    }
   };
 
   return (
@@ -156,7 +230,7 @@ export function PostOptionsMenu({
           {/* Report Option - Only for other's posts */}
           {!isOwnPost && (
             <Pressable
-              onPress={handleReport}
+              onPress={showReportOptions}
               className="flex-row items-center gap-4 py-4 px-4 rounded-xl active:bg-zinc-800/50"
             >
               <View className="w-11 h-11 rounded-full bg-zinc-800 items-center justify-center">

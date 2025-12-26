@@ -48,6 +48,36 @@ const BLOCKED_LABELS = new Set([
 ]);
 
 /**
+ * Keyword-based content filtering for unlabeled explicit content
+ * These keywords will trigger filtering even if the post isn't labeled
+ */
+const BLOCKED_KEYWORDS = [
+  // Sexual content - explicit terms
+  'nude', 'nudes', 'naked', 'dick', 'cock', 'pussy', 'penis', 'vagina',
+  'boobs', 'tits', 'titties', 'sex', 'sexy', 'horny', 'cum', 'cumshot',
+  'blowjob', 'bj', 'handjob', 'fuck', 'fucking', 'fucked', 'fucks',
+  'anal', 'porn', 'pornhub', 'xvideos', 'onlyfans', 'fansly',
+  'hentai', 'xxx', 'nsfw', 'erotic', 'masturbat',
+  // Child safety - CSAM indicators
+  'cp', 'pedo', 'pedophile', 'underage', 'minor', 'jailbait', 'loli', 'shota',
+  'child porn', 'kiddie', 'preteen',
+];
+
+// Build regex for efficient keyword matching
+const BLOCKED_KEYWORDS_REGEX = new RegExp(
+  '\\b(' + BLOCKED_KEYWORDS.map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|') + ')\\b',
+  'i'
+);
+
+/**
+ * Check if text contains blocked keywords
+ */
+function containsBlockedKeywords(text: string): boolean {
+  if (!text) return false;
+  return BLOCKED_KEYWORDS_REGEX.test(text);
+}
+
+/**
  * Check if a post should be filtered based on its labels
  */
 function shouldFilterPost(post: PostView): boolean {
@@ -67,6 +97,17 @@ function shouldFilterPost(post: PostView): boolean {
         return true;
       }
     }
+  }
+
+  // Check post text for blocked keywords
+  const record = post.record as any;
+  if (record?.text && containsBlockedKeywords(record.text)) {
+    return true;
+  }
+
+  // Check author display name and bio for blocked keywords (catches spam accounts)
+  if (post.author?.displayName && containsBlockedKeywords(post.author.displayName)) {
+    return true;
   }
   
   return false;

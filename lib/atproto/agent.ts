@@ -720,4 +720,74 @@ export async function resetPassword(token: string, password: string): Promise<vo
   await bskyAgent.com.atproto.server.resetPassword({ token, password });
 }
 
+/**
+ * Report content to AT Protocol moderation service
+ * This sends a report to Bluesky's moderation team
+ */
+export type ReportReason = 
+  | 'spam'
+  | 'violation' 
+  | 'misleading'
+  | 'sexual'
+  | 'rude'
+  | 'other';
+
+export async function reportPost(
+  postUri: string, 
+  postCid: string, 
+  reason: ReportReason,
+  additionalInfo?: string
+): Promise<void> {
+  const bskyAgent = getAgent();
+  
+  // Map our simple reasons to AT Protocol reason types
+  const reasonTypeMap: Record<ReportReason, string> = {
+    spam: 'com.atproto.moderation.defs#reasonSpam',
+    violation: 'com.atproto.moderation.defs#reasonViolation',
+    misleading: 'com.atproto.moderation.defs#reasonMisleading',
+    sexual: 'com.atproto.moderation.defs#reasonSexual',
+    rude: 'com.atproto.moderation.defs#reasonRude',
+    other: 'com.atproto.moderation.defs#reasonOther',
+  };
+
+  await bskyAgent.com.atproto.moderation.createReport({
+    reasonType: reasonTypeMap[reason],
+    reason: additionalInfo,
+    subject: {
+      $type: 'com.atproto.repo.strongRef',
+      uri: postUri,
+      cid: postCid,
+    },
+  });
+}
+
+/**
+ * Report an account to AT Protocol moderation service
+ */
+export async function reportAccount(
+  did: string,
+  reason: ReportReason,
+  additionalInfo?: string
+): Promise<void> {
+  const bskyAgent = getAgent();
+  
+  const reasonTypeMap: Record<ReportReason, string> = {
+    spam: 'com.atproto.moderation.defs#reasonSpam',
+    violation: 'com.atproto.moderation.defs#reasonViolation',
+    misleading: 'com.atproto.moderation.defs#reasonMisleading',
+    sexual: 'com.atproto.moderation.defs#reasonSexual',
+    rude: 'com.atproto.moderation.defs#reasonRude',
+    other: 'com.atproto.moderation.defs#reasonOther',
+  };
+
+  await bskyAgent.com.atproto.moderation.createReport({
+    reasonType: reasonTypeMap[reason],
+    reason: additionalInfo,
+    subject: {
+      $type: 'com.atproto.admin.defs#repoRef',
+      did: did,
+    },
+  });
+}
+
 export { RichText };

@@ -951,6 +951,8 @@ export default function PostDetailsScreen() {
           : record.text}
         authorHandle={selectedReply ? selectedReply.author.handle : post.author.handle}
         isReply={selectedReply ? true : hasParents}
+        postUri={selectedReply ? selectedReply.uri : post.uri}
+        postCid={selectedReply ? selectedReply.cid : post.cid}
       />
     </SafeAreaView>
   );

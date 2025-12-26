@@ -735,6 +735,8 @@ export default function FeedScreen() {
         postUrl={selectedPost ? `https://bsky.app/profile/${selectedPost.author.handle}/post/${selectedPost.uri.split('/').pop()}` : undefined}
         postText={(selectedPost?.record as any)?.text}
         authorHandle={selectedPost?.author.handle}
+        postUri={selectedPost?.uri}
+        postCid={selectedPost?.cid}
       />
       
       {/* Media Viewer */}
