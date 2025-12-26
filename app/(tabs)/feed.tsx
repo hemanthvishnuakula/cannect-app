@@ -636,7 +636,8 @@ export default function FeedScreen() {
                 onImagePress={handleImagePress}
               />
             )}
-            estimatedItemSize={200}
+            estimatedItemSize={280}
+            drawDistance={300}
             refreshControl={
               <RefreshControl 
                 refreshing={activeQuery.isRefetching} 
