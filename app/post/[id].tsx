@@ -29,7 +29,7 @@ export default function PostDetailsScreen() {
     const post = thread.post;
     
     if (post.viewer?.like) {
-      unlikeMutation.mutate(post.viewer.like);
+      unlikeMutation.mutate({ likeUri: post.viewer.like, postUri: post.uri });
     } else {
       likeMutation.mutate({ uri: post.uri, cid: post.cid });
     }
@@ -40,7 +40,7 @@ export default function PostDetailsScreen() {
     const post = thread.post;
     
     if (post.viewer?.repost) {
-      unrepostMutation.mutate(post.viewer.repost);
+      unrepostMutation.mutate({ repostUri: post.viewer.repost, postUri: post.uri });
     } else {
       repostMutation.mutate({ uri: post.uri, cid: post.cid });
     }
