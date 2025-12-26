@@ -108,7 +108,10 @@ function FeedItem({
   const recordWithMediaQuote = recordWithMedia?.record?.record;
 
   return (
-    <View className="px-4 py-3 border-b border-border">
+    <Pressable 
+      onPress={onPress}
+      className="px-4 py-3 border-b border-border active:bg-surface-elevated/50"
+    >
       {/* Repost indicator */}
       {isRepost && repostBy && (
         <View className="flex-row items-center mb-2 pl-10">
@@ -121,7 +124,7 @@ function FeedItem({
 
       <View className="flex-row">
         {/* Avatar */}
-        <Pressable onPress={onAuthorPress}>
+        <Pressable onPress={(e) => { e.stopPropagation(); onAuthorPress(); }}>
           {author.avatar ? (
             <Image 
               source={{ uri: author.avatar }} 
@@ -135,9 +138,9 @@ function FeedItem({
         </Pressable>
 
         {/* Content */}
-        <Pressable className="flex-1 ml-3" onPress={onPress}>
+        <View className="flex-1 ml-3">
           {/* Header - Author info (clickable to profile) */}
-          <Pressable onPress={onAuthorPress} className="flex-row items-center flex-wrap">
+          <Pressable onPress={(e) => { e.stopPropagation(); onAuthorPress(); }} className="flex-row items-center flex-wrap self-start">
             <Text className="font-semibold text-text-primary flex-shrink" numberOfLines={1}>
               {author.displayName || author.handle}
             </Text>
@@ -147,7 +150,7 @@ function FeedItem({
             </Text>
           </Pressable>
           {/* Handle (clickable to profile) */}
-          <Pressable onPress={onAuthorPress}>
+          <Pressable onPress={(e) => { e.stopPropagation(); onAuthorPress(); }} className="self-start">
             <Text className="text-text-muted text-sm" numberOfLines={1}>
               @{author.handle}
             </Text>
@@ -163,7 +166,7 @@ function FeedItem({
             <View className="mt-2 rounded-xl overflow-hidden">
               {embedImages.length === 1 ? (
                 <Pressable 
-                  onPress={() => onImagePress([embedImages[0].fullsize || embedImages[0].thumb], 0)}
+                  onPress={(e) => { e.stopPropagation(); onImagePress([embedImages[0].fullsize || embedImages[0].thumb], 0); }}
                 >
                   <Image 
                     source={{ uri: embedImages[0].thumb }} 
@@ -176,10 +179,10 @@ function FeedItem({
                   {embedImages.slice(0, 4).map((img: any, idx: number) => (
                     <Pressable 
                       key={idx}
-                      onPress={() => onImagePress(
+                      onPress={(e) => { e.stopPropagation(); onImagePress(
                         embedImages.map((i: any) => i.fullsize || i.thumb), 
                         idx
-                      )}
+                      ); }}
                       className="w-[48%]"
                     >
                       <Image 
@@ -197,7 +200,7 @@ function FeedItem({
           {/* Link Preview Card */}
           {linkPreview && (
             <Pressable 
-              onPress={() => Linking.openURL(linkPreview.uri)}
+              onPress={(e) => { e.stopPropagation(); Linking.openURL(linkPreview.uri); }}
               className="mt-2 border border-border rounded-xl overflow-hidden"
             >
               {linkPreview.thumb && (
@@ -272,7 +275,7 @@ function FeedItem({
                 <View className="mt-2 rounded-xl overflow-hidden">
                   {recordWithMediaImages.length === 1 ? (
                     <Pressable 
-                      onPress={() => onImagePress([recordWithMediaImages[0].fullsize || recordWithMediaImages[0].thumb], 0)}
+                      onPress={(e) => { e.stopPropagation(); onImagePress([recordWithMediaImages[0].fullsize || recordWithMediaImages[0].thumb], 0); }}
                     >
                       <Image 
                         source={{ uri: recordWithMediaImages[0].thumb }} 
@@ -285,10 +288,10 @@ function FeedItem({
                       {recordWithMediaImages.slice(0, 4).map((img: any, idx: number) => (
                         <Pressable 
                           key={idx}
-                          onPress={() => onImagePress(
+                          onPress={(e) => { e.stopPropagation(); onImagePress(
                             recordWithMediaImages.map((i: any) => i.fullsize || i.thumb), 
                             idx
-                          )}
+                          ); }}
                           className="w-[48%]"
                         >
                           <Image 
@@ -347,7 +350,7 @@ function FeedItem({
           <View className="flex-row items-center justify-between mt-3 pr-4">
             {/* Reply */}
             <Pressable 
-              onPress={onReply}
+              onPress={(e) => { e.stopPropagation(); onReply(); }}
               className="flex-row items-center py-1"
             >
               <MessageCircle size={18} color="#6B7280" />
@@ -358,7 +361,7 @@ function FeedItem({
 
             {/* Repost */}
             <Pressable 
-              onPress={onRepost}
+              onPress={(e) => { e.stopPropagation(); onRepost(); }}
               className="flex-row items-center py-1"
             >
               <Repeat2 
@@ -372,7 +375,7 @@ function FeedItem({
 
             {/* Like */}
             <Pressable 
-              onPress={onLike}
+              onPress={(e) => { e.stopPropagation(); onLike(); }}
               className="flex-row items-center py-1"
             >
               <Heart 
@@ -386,18 +389,18 @@ function FeedItem({
             </Pressable>
 
             {/* Share */}
-            <Pressable onPress={onShare} className="flex-row items-center py-1">
+            <Pressable onPress={(e) => { e.stopPropagation(); onShare(); }} className="flex-row items-center py-1">
               <Share size={18} color="#6B7280" />
             </Pressable>
 
             {/* More Options */}
-            <Pressable onPress={onOptionsPress} className="flex-row items-center py-1">
+            <Pressable onPress={(e) => { e.stopPropagation(); onOptionsPress(); }} className="flex-row items-center py-1">
               <MoreHorizontal size={18} color="#6B7280" />
             </Pressable>
           </View>
-        </Pressable>
+        </View>
       </View>
-    </View>
+    </Pressable>
   );
 }
 
