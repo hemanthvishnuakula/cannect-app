@@ -4,7 +4,7 @@
  * Handles web push subscription for browsers including iOS Safari 16.4+
  * iOS requires: PWA must be installed to home screen first
  * 
- * Sends subscription to Feed VPS for server-initiated push notifications.
+ * Sends subscription to Push VPS for server-initiated push notifications.
  */
 
 import { useState, useEffect, useCallback } from 'react';
@@ -12,8 +12,8 @@ import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuthStore } from '@/lib/stores/auth-store';
 
-// Feed VPS API endpoint for push subscriptions
-const PUSH_API_URL = process.env.EXPO_PUBLIC_FEED_API_URL || 'https://feed.cannect.space';
+// Push VPS API endpoint for push subscriptions
+const PUSH_API_URL = process.env.EXPO_PUBLIC_PUSH_API_URL || 'https://push.cannect.space';
 
 // VAPID public key - fetched from server or fallback to env
 const VAPID_PUBLIC_KEY = process.env.EXPO_PUBLIC_VAPID_PUBLIC_KEY || '';
