@@ -11,13 +11,14 @@ import { View, Text, RefreshControl, ActivityIndicator, Platform, Pressable, Ima
 import { SafeAreaView } from "react-native-safe-area-context";
 import { FlashList } from "@shopify/flash-list";
 import { useRouter } from "expo-router";
-import { Leaf, Heart, MessageCircle, Repeat2, Share, ExternalLink, ImageOff } from "lucide-react-native";
+import { Leaf, Heart, MessageCircle, Repeat2, Share, ExternalLink, ImageOff, MoreHorizontal } from "lucide-react-native";
 import { useState, useMemo, useCallback } from "react";
 import * as Haptics from "expo-haptics";
-import { useCannectFeed, useGlobalFeed, useTimeline, useLikePost, useUnlikePost, useRepost, useDeleteRepost } from "@/lib/hooks";
+import { useCannectFeed, useGlobalFeed, useTimeline, useLikePost, useUnlikePost, useRepost, useDeleteRepost, useDeletePost } from "@/lib/hooks";
 import { useAuthStore } from "@/lib/stores";
 import { OfflineBanner } from "@/components/OfflineBanner";
 import { RepostMenu } from "@/components/social/RepostMenu";
+import { PostOptionsMenu } from "@/components/social/PostOptionsMenu";
 import { MediaViewer } from "@/components/ui/MediaViewer";
 import { VideoPlayer } from "@/components/ui/VideoPlayer";
 import type { AppBskyFeedDefs, AppBskyFeedPost } from '@atproto/api';
@@ -50,6 +51,7 @@ function FeedItem({
   onAuthorPress,
   onShare,
   onImagePress,
+  onOptionsPress,
 }: { 
   item: FeedViewPost;
   onPress: () => void;
@@ -59,6 +61,7 @@ function FeedItem({
   onAuthorPress: () => void;
   onShare: () => void;
   onImagePress: (images: string[], index: number) => void;
+  onOptionsPress: () => void;
 }) {
   const post = item.post;
   const record = post.record as AppBskyFeedPost.Record;
@@ -387,6 +390,11 @@ function FeedItem({
             <Pressable onPress={onShare} className="flex-row items-center py-1">
               <Share size={18} color="#6B7280" />
             </Pressable>
+
+            {/* More Options */}
+            <Pressable onPress={onOptionsPress} className="flex-row items-center py-1">
+              <MoreHorizontal size={18} color="#6B7280" />
+            </Pressable>
           </View>
         </View>
       </View>
@@ -421,6 +429,9 @@ export default function FeedScreen() {
   const [repostMenuVisible, setRepostMenuVisible] = useState(false);
   const [selectedPost, setSelectedPost] = useState<PostView | null>(null);
   
+  // Options menu state
+  const [optionsMenuVisible, setOptionsMenuVisible] = useState(false);
+  
   // Media viewer state
   const [mediaViewerVisible, setMediaViewerVisible] = useState(false);
   const [mediaViewerImages, setMediaViewerImages] = useState<string[]>([]);
@@ -442,6 +453,7 @@ export default function FeedScreen() {
   const unlikeMutation = useUnlikePost();
   const repostMutation = useRepost();
   const unrepostMutation = useDeleteRepost();
+  const deletePostMutation = useDeletePost();
 
   const posts = useMemo(() => {
     const allPosts = activeQuery.data?.pages?.flatMap(page => page.feed) || [];
@@ -567,6 +579,30 @@ export default function FeedScreen() {
     });
   }, [router]);
 
+  // Open options menu
+  const handleOptionsPress = useCallback((post: PostView) => {
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    setSelectedPost(post);
+    setOptionsMenuVisible(true);
+  }, []);
+
+  // Delete post handler
+  const handleDelete = useCallback(async () => {
+    if (!selectedPost) return;
+    
+    try {
+      await deletePostMutation.mutateAsync(selectedPost.uri);
+      setOptionsMenuVisible(false);
+      setSelectedPost(null);
+      // Refetch feed to reflect deletion
+      activeQuery.refetch();
+    } catch (error) {
+      console.error('Failed to delete post:', error);
+    }
+  }, [selectedPost, deletePostMutation, activeQuery]);
+
   if (activeQuery.isError) {
     return (
       <SafeAreaView className="flex-1 bg-background items-center justify-center px-6">
@@ -634,6 +670,7 @@ export default function FeedScreen() {
                 onAuthorPress={() => handleAuthorPress(item.post)}
                 onShare={() => handleShare(item.post)}
                 onImagePress={handleImagePress}
+                onOptionsPress={() => handleOptionsPress(item.post)}
               />
             )}
             estimatedItemSize={280}
@@ -682,6 +719,20 @@ export default function FeedScreen() {
         onRepost={handleRepost}
         onQuotePost={handleQuotePost}
         isReposted={!!selectedPost?.viewer?.repost}
+      />
+      
+      {/* Post Options Menu */}
+      <PostOptionsMenu
+        isVisible={optionsMenuVisible}
+        onClose={() => {
+          setOptionsMenuVisible(false);
+          setSelectedPost(null);
+        }}
+        onDelete={handleDelete}
+        isOwnPost={selectedPost?.author.did === did}
+        postUrl={selectedPost ? `https://bsky.app/profile/${selectedPost.author.handle}/post/${selectedPost.uri.split('/').pop()}` : undefined}
+        postText={(selectedPost?.record as any)?.text}
+        authorHandle={selectedPost?.author.handle}
       />
       
       {/* Media Viewer */}

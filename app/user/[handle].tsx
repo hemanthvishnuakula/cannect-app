@@ -14,9 +14,10 @@ import { ArrowLeft, UserPlus, UserMinus, MoreHorizontal, Heart, MessageCircle, R
 import { Image } from "expo-image";
 import { useState, useMemo, useCallback } from "react";
 import * as Haptics from "expo-haptics";
-import { useProfile, useAuthorFeed, useActorLikes, useFollow, useUnfollow, useLikePost, useUnlikePost, useRepost, useDeleteRepost } from "@/lib/hooks";
+import { useProfile, useAuthorFeed, useActorLikes, useFollow, useUnfollow, useLikePost, useUnlikePost, useRepost, useDeleteRepost, useDeletePost } from "@/lib/hooks";
 import { useAuthStore } from "@/lib/stores";
 import { RepostMenu } from "@/components/social/RepostMenu";
+import { PostOptionsMenu } from "@/components/social/PostOptionsMenu";
 import type { AppBskyFeedDefs, AppBskyFeedPost } from '@atproto/api';
 
 type FeedViewPost = AppBskyFeedDefs.FeedViewPost;
@@ -52,6 +53,7 @@ function UserPost({
   onRepost,
   onReply,
   onShare,
+  onOptionsPress,
 }: { 
   item: FeedViewPost; 
   showAuthor?: boolean;
@@ -59,6 +61,7 @@ function UserPost({
   onRepost: () => void;
   onReply: () => void;
   onShare: () => void;
+  onOptionsPress: () => void;
 }) {
   const post = item.post;
   const record = post.record as AppBskyFeedPost.Record;
@@ -208,6 +211,11 @@ function UserPost({
             <Pressable onPress={onShare} className="flex-row items-center py-1">
               <Share size={18} color="#6B7280" />
             </Pressable>
+
+            {/* More Options */}
+            <Pressable onPress={onOptionsPress} className="flex-row items-center py-1">
+              <MoreHorizontal size={18} color="#6B7280" />
+            </Pressable>
           </View>
         </View>
       </View>
@@ -221,6 +229,7 @@ export default function UserProfileScreen() {
   const { did: myDid } = useAuthStore();
   const [activeTab, setActiveTab] = useState<ProfileTab>("posts");
   const [repostMenuVisible, setRepostMenuVisible] = useState(false);
+  const [optionsMenuVisible, setOptionsMenuVisible] = useState(false);
   const [selectedPost, setSelectedPost] = useState<PostView | null>(null);
   
   const profileQuery = useProfile(handle || "");
@@ -234,6 +243,7 @@ export default function UserProfileScreen() {
   const unlikeMutation = useUnlikePost();
   const repostMutation = useRepost();
   const deleteRepostMutation = useDeleteRepost();
+  const deletePostMutation = useDeletePost();
   
   // Different feeds based on active tab
   const postsQuery = useAuthorFeed(profileData?.did, 'posts_no_replies');
@@ -348,6 +358,30 @@ export default function UserProfileScreen() {
     setRepostMenuVisible(false);
     setSelectedPost(null);
   }, [selectedPost, router]);
+
+  // Open options menu
+  const handleOptionsPress = useCallback((post: PostView) => {
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    setSelectedPost(post);
+    setOptionsMenuVisible(true);
+  }, []);
+
+  // Delete post handler
+  const handleDelete = useCallback(async () => {
+    if (!selectedPost) return;
+    
+    try {
+      await deletePostMutation.mutateAsync(selectedPost.uri);
+      setOptionsMenuVisible(false);
+      setSelectedPost(null);
+      // Refetch posts to reflect deletion
+      postsQuery.refetch();
+    } catch (error) {
+      console.error('Failed to delete post:', error);
+    }
+  }, [selectedPost, deletePostMutation, postsQuery]);
 
   // Loading state
   if (profileQuery.isLoading) {
@@ -561,6 +595,7 @@ export default function UserProfileScreen() {
             onRepost={() => handleRepost(item.post)}
             onReply={() => handleReply(item.post)}
             onShare={() => handleShare(item.post)}
+            onOptionsPress={() => handleOptionsPress(item.post)}
           />
         )}
         refreshControl={
@@ -613,6 +648,20 @@ export default function UserProfileScreen() {
         onRepost={handleRepostAction}
         onQuotePost={handleQuote}
         isReposted={!!selectedPost?.viewer?.repost}
+      />
+
+      {/* Post Options Menu */}
+      <PostOptionsMenu
+        isVisible={optionsMenuVisible}
+        onClose={() => {
+          setOptionsMenuVisible(false);
+          setSelectedPost(null);
+        }}
+        onDelete={handleDelete}
+        isOwnPost={selectedPost?.author.did === myDid}
+        postUrl={selectedPost ? `https://bsky.app/profile/${selectedPost.author.handle}/post/${selectedPost.uri.split('/').pop()}` : undefined}
+        postText={(selectedPost?.record as any)?.text}
+        authorHandle={selectedPost?.author.handle}
       />
     </SafeAreaView>
   );
