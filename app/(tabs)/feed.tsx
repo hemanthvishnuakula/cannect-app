@@ -19,6 +19,7 @@ import { useAuthStore } from "@/lib/stores";
 import { OfflineBanner } from "@/components/OfflineBanner";
 import { RepostMenu } from "@/components/social/RepostMenu";
 import { MediaViewer } from "@/components/ui/MediaViewer";
+import { VideoPlayer } from "@/components/ui/VideoPlayer";
 import type { AppBskyFeedDefs, AppBskyFeedPost } from '@atproto/api';
 
 type FeedType = 'global' | 'local' | 'following';
@@ -88,6 +89,20 @@ function FeedItem({
   const recordWithMedia = embedType === 'app.bsky.embed.recordWithMedia#view'
     ? embed as any
     : null;
+  
+  // Video embed
+  const videoEmbed = embedType === 'app.bsky.embed.video#view'
+    ? embed as any
+    : null;
+  
+  // Extract media from recordWithMedia
+  const recordWithMediaImages = recordWithMedia?.media?.$type === 'app.bsky.embed.images#view'
+    ? recordWithMedia.media.images
+    : [];
+  const recordWithMediaVideo = recordWithMedia?.media?.$type === 'app.bsky.embed.video#view'
+    ? recordWithMedia.media
+    : null;
+  const recordWithMediaQuote = recordWithMedia?.record?.record;
 
   return (
     <Pressable 
@@ -230,6 +245,100 @@ function FeedItem({
                 {(quotedPost.value as any)?.text}
               </Text>
             </View>
+          )}
+          
+          {/* Video Embed */}
+          {videoEmbed && (
+            <View className="mt-2 rounded-xl overflow-hidden">
+              <VideoPlayer
+                url={videoEmbed.playlist}
+                thumbnailUrl={videoEmbed.thumbnail}
+                aspectRatio={videoEmbed.aspectRatio?.width && videoEmbed.aspectRatio?.height 
+                  ? videoEmbed.aspectRatio.width / videoEmbed.aspectRatio.height 
+                  : 16 / 9}
+                muted={true}
+                loop={true}
+              />
+            </View>
+          )}
+          
+          {/* Record with Media (Quote + Images/Video) */}
+          {recordWithMedia && (
+            <>
+              {/* Images from recordWithMedia */}
+              {recordWithMediaImages.length > 0 && (
+                <View className="mt-2 rounded-xl overflow-hidden">
+                  {recordWithMediaImages.length === 1 ? (
+                    <Pressable 
+                      onPress={() => onImagePress([recordWithMediaImages[0].fullsize || recordWithMediaImages[0].thumb], 0)}
+                    >
+                      <Image 
+                        source={{ uri: recordWithMediaImages[0].thumb }} 
+                        className="w-full h-48 rounded-xl"
+                        resizeMode="cover"
+                      />
+                    </Pressable>
+                  ) : (
+                    <View className="flex-row flex-wrap gap-1">
+                      {recordWithMediaImages.slice(0, 4).map((img: any, idx: number) => (
+                        <Pressable 
+                          key={idx}
+                          onPress={() => onImagePress(
+                            recordWithMediaImages.map((i: any) => i.fullsize || i.thumb), 
+                            idx
+                          )}
+                          className="w-[48%]"
+                        >
+                          <Image 
+                            source={{ uri: img.thumb }} 
+                            className="w-full h-32 rounded-lg"
+                            resizeMode="cover"
+                          />
+                        </Pressable>
+                      ))}
+                    </View>
+                  )}
+                </View>
+              )}
+              
+              {/* Video from recordWithMedia */}
+              {recordWithMediaVideo && (
+                <View className="mt-2 rounded-xl overflow-hidden">
+                  <VideoPlayer
+                    url={recordWithMediaVideo.playlist}
+                    thumbnailUrl={recordWithMediaVideo.thumbnail}
+                    aspectRatio={recordWithMediaVideo.aspectRatio?.width && recordWithMediaVideo.aspectRatio?.height 
+                      ? recordWithMediaVideo.aspectRatio.width / recordWithMediaVideo.aspectRatio.height 
+                      : 16 / 9}
+                    muted={true}
+                    loop={true}
+                  />
+                </View>
+              )}
+              
+              {/* Quoted record from recordWithMedia */}
+              {recordWithMediaQuote && recordWithMediaQuote.$type === 'app.bsky.embed.record#viewRecord' && (
+                <View className="mt-2 border border-border rounded-xl p-3">
+                  <View className="flex-row items-center mb-1">
+                    {recordWithMediaQuote.author?.avatar && (
+                      <Image 
+                        source={{ uri: recordWithMediaQuote.author.avatar }}
+                        className="w-5 h-5 rounded-full mr-2"
+                      />
+                    )}
+                    <Text className="text-text-primary font-medium text-sm">
+                      {recordWithMediaQuote.author?.displayName || recordWithMediaQuote.author?.handle}
+                    </Text>
+                    <Text className="text-text-muted text-sm ml-1">
+                      @{recordWithMediaQuote.author?.handle}
+                    </Text>
+                  </View>
+                  <Text className="text-text-primary text-sm" numberOfLines={3}>
+                    {(recordWithMediaQuote.value as any)?.text}
+                  </Text>
+                </View>
+              )}
+            </>
           )}
 
           {/* Actions */}
