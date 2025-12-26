@@ -41,8 +41,13 @@ export function useTimeline() {
 }
 
 /**
- * Get Global feed - posts from people you follow
- * Uses Bluesky's official timeline API
+ * Cannabis search keywords for Global feed
+ */
+const CANNABIS_KEYWORDS = 'cannabis OR weed OR marijuana OR 420 OR thc OR cbd OR dispensary OR indica OR sativa';
+
+/**
+ * Get Global feed - high quality cannabis content from Bluesky network
+ * Uses searchPosts API with cannabis-related keywords
  */
 export function useGlobalFeed() {
   const { isAuthenticated } = useAuthStore();
@@ -50,13 +55,17 @@ export function useGlobalFeed() {
   return useInfiniteQuery({
     queryKey: ['globalFeed'],
     queryFn: async ({ pageParam }) => {
-      const result = await atproto.getTimeline(pageParam, 30);
-      return result.data;
+      const result = await atproto.searchPosts(CANNABIS_KEYWORDS, pageParam, 30);
+      // Transform searchPosts response to match feed format
+      return {
+        feed: result.data.posts.map(post => ({ post })),
+        cursor: result.data.cursor,
+      };
     },
     getNextPageParam: (lastPage) => lastPage.cursor,
     initialPageParam: undefined as string | undefined,
     enabled: isAuthenticated,
-    staleTime: 1000 * 60, // 1 minute
+    staleTime: 1000 * 60 * 2, // 2 minutes
   });
 }
 
