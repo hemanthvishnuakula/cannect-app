@@ -152,18 +152,20 @@ app.get('/xrpc/app.bsky.feed.getTimeline', (req, res) => {
       cursorTimestamp = ts
     }
 
-    // Get posts from users the viewer follows
+    // Get posts from users the viewer follows + their own posts
     const posts = db.prepare(`
       SELECT p.*, pr.handle, pr.display_name, pr.avatar_cid
       FROM posts p
-      JOIN follows f ON f.subject_did = p.author_did
       LEFT JOIN profiles pr ON pr.did = p.author_did
-      WHERE f.author_did = ?
+      WHERE (
+        p.author_did IN (SELECT subject_did FROM follows WHERE author_did = ?)
+        OR p.author_did = ?
+      )
         AND p.created_at < ?
         AND p.reply_parent IS NULL  -- Top-level posts only
       ORDER BY p.created_at DESC
       LIMIT ?
-    `).all(viewerDid, cursorTimestamp, limit) as (DbPost & Partial<DbProfile>)[]
+    `).all(viewerDid, viewerDid, cursorTimestamp, limit) as (DbPost & Partial<DbProfile>)[]
 
     const feed: FeedViewPost[] = posts.map(post => ({
       post: toPostView(post, getPostCounts(db, post.uri)),

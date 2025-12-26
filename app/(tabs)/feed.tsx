@@ -2,8 +2,8 @@
  * Feed Screen - Pure AT Protocol
  * 
  * Displays two feeds:
- * - Cannect: Cannabis content from the network + cannect.space users
- * - Following: Posts from people the user follows
+ * - Cannect: Posts from cannect.space users (our community)
+ * - Global: Posts from the Bluesky network (people you follow)
  */
 
 import { View, Text, RefreshControl, ActivityIndicator, Platform, Pressable, Image, Share as RNShare } from "react-native";
@@ -13,13 +13,13 @@ import { useRouter } from "expo-router";
 import { Leaf, Heart, MessageCircle, Repeat2, Share } from "lucide-react-native";
 import { useState, useMemo, useCallback } from "react";
 import * as Haptics from "expo-haptics";
-import { useCannectFollowing, useCannectFeed, useLikePost, useUnlikePost, useRepost, useDeleteRepost } from "@/lib/hooks";
+import { useCannectFeed, useGlobalFeed, useLikePost, useUnlikePost, useRepost, useDeleteRepost } from "@/lib/hooks";
 import { useAuthStore } from "@/lib/stores";
 import { OfflineBanner } from "@/components/OfflineBanner";
 import { RepostMenu } from "@/components/social/RepostMenu";
 import type { AppBskyFeedDefs, AppBskyFeedPost } from '@atproto/api';
 
-type FeedType = 'cannect' | 'following';
+type FeedType = 'cannect' | 'global';
 type FeedViewPost = AppBskyFeedDefs.FeedViewPost;
 type PostView = AppBskyFeedDefs.PostView;
 
@@ -223,10 +223,10 @@ export default function FeedScreen() {
   
   // Both feeds - only active one will fetch
   const cannectFeedQuery = useCannectFeed();
-  const followingQuery = useCannectFollowing();
+  const globalQuery = useGlobalFeed();
   
   // Select active query based on tab
-  const activeQuery = activeFeed === 'cannect' ? cannectFeedQuery : followingQuery;
+  const activeQuery = activeFeed === 'cannect' ? cannectFeedQuery : globalQuery;
   
   const likeMutation = useLikePost();
   const unlikeMutation = useUnlikePost();
@@ -374,11 +374,11 @@ export default function FeedScreen() {
           </Text>
         </Pressable>
         <Pressable 
-          onPress={() => handleTabChange('following')}
-          className={`flex-1 py-3 items-center ${activeFeed === 'following' ? 'border-b-2 border-primary' : ''}`}
+          onPress={() => handleTabChange('global')}
+          className={`flex-1 py-3 items-center ${activeFeed === 'global' ? 'border-b-2 border-primary' : ''}`}
         >
-          <Text className={`font-semibold ${activeFeed === 'following' ? 'text-primary' : 'text-text-muted'}`}>
-            Following
+          <Text className={`font-semibold ${activeFeed === 'global' ? 'text-primary' : 'text-text-muted'}`}>
+            Global
           </Text>
         </Pressable>
       </View>

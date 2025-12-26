@@ -1,5 +1,6 @@
 {
   "name": "cannect-appview",
+  "type": "module",
   "version": "1.0.0",
   "description": "Cannect AppView - indexes and serves AT Protocol data",
   "main": "dist/index.js",

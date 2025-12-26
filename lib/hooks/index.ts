@@ -19,8 +19,7 @@ export {
 export {
   useTimeline,
   useTimeline as useFeed,
-  useCannectFollowing,
-  useCannectFollowing as useFollowingFeed,
+  useGlobalFeed,
   useCannectFeed,
   useAuthorFeed,
   useActorLikes,

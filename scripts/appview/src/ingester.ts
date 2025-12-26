@@ -1,5 +1,6 @@
 import WebSocket from 'ws'
 import { decode } from 'cbor-x'
+import { CID } from 'multiformats/cid'
 import { createDb, AppViewDb } from './db.js'
 import { config } from './config.js'
 
@@ -114,29 +115,56 @@ export class Ingester {
   }
 
   private async handleMessage(data: Buffer) {
-    // CBOR decode the message
-    // The message is: [header, body] where header has {op: 1, t: "#commit"}
-    const decoded = decode(data) as unknown
+    // AT Protocol firehose uses a specific framing format
+    // The message consists of: header CBOR + body CBOR concatenated
+    // We need to decode them sequentially
+    
+    try {
+      // Try decoding as a single CBOR item first (array)
+      const decoded = decode(data) as unknown
 
-    if (!Array.isArray(decoded) || decoded.length < 2) {
-      return
-    }
+      if (!Array.isArray(decoded) || decoded.length < 2) {
+        return
+      }
 
-    const [header, body] = decoded as [FirehoseMessage, unknown]
+      const [header, body] = decoded as [FirehoseMessage, unknown]
 
-    if (header.t === '#commit' && header.op === 1) {
-      await this.handleCommit(body as CommitEvent)
+      if (header.t === '#commit' && header.op === 1) {
+        await this.handleCommit(body as CommitEvent)
+      }
+    } catch (firstErr) {
+      // If single decode fails, try sequential decoding
+      try {
+        // Use decodeMultiple for concatenated CBOR values
+        const { decodeMultiple } = await import('cbor-x')
+        const items = decodeMultiple(data) as unknown[]
+        
+        if (items.length < 2) return
+        
+        const header = items[0] as FirehoseMessage
+        const body = items[1] as unknown
+        
+        if (header.t === '#commit' && header.op === 1) {
+          await this.handleCommit(body as CommitEvent)
+        }
+      } catch {
+        // Silently skip malformed messages
+      }
     }
   }
 
   private async handleCommit(commit: CommitEvent) {
     const { repo: did, ops, blocks, rev } = commit
 
+    console.log(`[Ingester] Commit from ${did}: ${ops.length} ops`)
+
     // Decode the CAR blocks to get record data
     const records = await this.decodeBlocks(blocks)
+    console.log(`[Ingester] Decoded ${records.size} blocks`)
 
     for (const op of ops) {
       const [collection, rkey] = op.path.split('/')
+      console.log(`[Ingester] Op: ${op.action} ${collection}/${rkey}`)
 
       if (op.action === 'delete') {
         await this.handleDelete(did, collection, rkey)
@@ -145,10 +173,39 @@ export class Ingester {
 
       if (!op.cid) continue
 
-      const record = records.get(op.cid.toString())
-      if (!record) continue
+      // Convert CID to string properly
+      // CBOR decodes CIDs as Tagged objects with {value: Uint8Array, tag: 42}
+      let cidStr: string
+      if (typeof op.cid === 'string') {
+        cidStr = op.cid
+      } else if (op.cid.$link) {
+        cidStr = op.cid.$link
+      } else if (op.cid.value && op.cid.tag === 42) {
+        // CBOR Tagged CID - value is the raw bytes
+        // Skip the first byte (0x00 multibase prefix) and decode
+        const cidBytes = op.cid.value instanceof Uint8Array ? op.cid.value : new Uint8Array(op.cid.value)
+        const cid = CID.decode(cidBytes.slice(1)) // Skip 0x00 prefix
+        cidStr = cid.toString()
+      } else {
+        // Try CID.asCID
+        const asCid = CID.asCID(op.cid)
+        if (asCid) {
+          cidStr = asCid.toString()
+        } else {
+          console.log(`[Ingester] Unknown CID format:`, JSON.stringify(op.cid))
+          continue
+        }
+      }
+      
+      console.log(`[Ingester] Looking for CID: ${cidStr}`)
+      
+      const record = records.get(cidStr)
+      if (!record) {
+        console.log(`[Ingester] No record found for CID ${cidStr}`)
+        continue
+      }
 
-      await this.handleRecord(did, collection, rkey, op.cid.toString(), record)
+      await this.handleRecord(did, collection, rkey, cidStr, record)
     }
 
     // Update cursor
@@ -158,6 +215,13 @@ export class Ingester {
   private async decodeBlocks(blocks: Uint8Array): Promise<Map<string, unknown>> {
     const records = new Map<string, unknown>()
 
+    if (!blocks || blocks.length === 0) {
+      console.log('[Ingester] No blocks to decode')
+      return records
+    }
+
+    console.log(`[Ingester] Decoding ${blocks.length} bytes of blocks`)
+
     try {
       // Simple CAR parsing - skip header, iterate blocks
       let offset = 0
@@ -165,6 +229,7 @@ export class Ingester {
       // Read header length (varint)
       const headerLen = this.readVarint(blocks, offset)
       offset += headerLen.bytesRead + headerLen.value
+      console.log(`[Ingester] Header length: ${headerLen.value}, offset now: ${offset}`)
 
       // Read blocks
       while (offset < blocks.length) {
@@ -184,9 +249,10 @@ export class Ingester {
             const cid = CID.decode(blockData.slice(0, cidLen))
             const data = decode(blockData.slice(cidLen))
             records.set(cid.toString(), data)
+            console.log(`[Ingester] Decoded block: ${cid.toString().substring(0, 20)}...`)
           }
-        } catch {
-          // Skip malformed blocks
+        } catch (blockErr) {
+          console.log(`[Ingester] Block decode error:`, blockErr)
         }
       }
     } catch (err) {
