@@ -12,7 +12,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { FlashList } from "@shopify/flash-list";
 import { useRouter } from "expo-router";
 import { Leaf, Heart, MessageCircle, Repeat2, Share, ExternalLink, ImageOff, MoreHorizontal } from "lucide-react-native";
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useRef } from "react";
 import * as Haptics from "expo-haptics";
 import { useCannectFeed, useGlobalFeed, useTimeline, useLikePost, useUnlikePost, useRepost, useDeleteRepost, useDeletePost } from "@/lib/hooks";
 import { useAuthStore } from "@/lib/stores";
@@ -671,6 +671,22 @@ export default function FeedScreen() {
             )}
             estimatedItemSize={280}
             drawDistance={300}
+            ListHeaderComponent={
+              Platform.OS === 'web' ? (
+                <Pressable 
+                  onPress={handleRefresh}
+                  className="py-3 items-center border-b border-border"
+                >
+                  {activeQuery.isRefetching ? (
+                    <ActivityIndicator size="small" color="#10B981" />
+                  ) : (
+                    <View className="flex-row items-center">
+                      <Text className="text-text-muted text-sm">Tap to refresh</Text>
+                    </View>
+                  )}
+                </Pressable>
+              ) : null
+            }
             refreshControl={
               <RefreshControl 
                 refreshing={activeQuery.isRefetching} 
