@@ -41,7 +41,7 @@ export function useTimeline() {
 }
 
 /**
- * Get Global feed - posts from people you follow on Bluesky network
+ * Get Global feed - posts from people you follow
  * Uses Bluesky's official timeline API
  */
 export function useGlobalFeed() {
@@ -50,7 +50,6 @@ export function useGlobalFeed() {
   return useInfiniteQuery({
     queryKey: ['globalFeed'],
     queryFn: async ({ pageParam }) => {
-      // Use Bluesky's official timeline API
       const result = await atproto.getTimeline(pageParam, 30);
       return result.data;
     },
@@ -62,10 +61,13 @@ export function useGlobalFeed() {
 }
 
 /**
- * Get Cannect feed - cannabis content from the network + cannect.space users
- * This is our custom curated feed combining:
- * - Cannabis-related posts from the entire AT Protocol network
- * - Posts from users on cannect.space PDS (our community)
+ * Cannabis search keywords for Cannect feed
+ */
+const CANNABIS_KEYWORDS = 'cannabis OR weed OR marijuana OR 420 OR thc OR cbd OR dispensary OR indica OR sativa';
+
+/**
+ * Get Cannect feed - cannabis content from the Bluesky network
+ * Uses searchPosts API with cannabis-related keywords
  */
 export function useCannectFeed() {
   const { isAuthenticated } = useAuthStore();
@@ -73,13 +75,17 @@ export function useCannectFeed() {
   return useInfiniteQuery({
     queryKey: ['cannectFeed'],
     queryFn: async ({ pageParam }) => {
-      const result = await atproto.getCannectFeed(pageParam, 30);
-      return result.data;
+      const result = await atproto.searchPosts(CANNABIS_KEYWORDS, pageParam, 30);
+      // Transform searchPosts response to match feed format
+      return {
+        feed: result.data.posts.map(post => ({ post })),
+        cursor: result.data.cursor,
+      };
     },
     getNextPageParam: (lastPage) => lastPage.cursor,
     initialPageParam: undefined as string | undefined,
     enabled: isAuthenticated,
-    staleTime: 1000 * 60 * 2, // 2 minutes (search results change less frequently)
+    staleTime: 1000 * 60 * 2, // 2 minutes
   });
 }
 
