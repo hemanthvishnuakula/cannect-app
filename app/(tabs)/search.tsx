@@ -248,10 +248,32 @@ export default function SearchScreen() {
   // Suggested users when no query
   const suggestedUsers = useMemo(() => {
     const allUsers = suggestedUsersQuery.data || [];
-    // Filter out current user and users we already follow - show only new people to discover
-    return allUsers.filter(user => 
-      user.did !== currentUserDid && !user.viewer?.following
-    );
+    
+    // Filter out invalid/test accounts
+    const testPatterns = /^(test|demo|fake|dummy|sample|example|admin|bot|temp|tmp)/i;
+    
+    return allUsers.filter(user => {
+      // Skip current user
+      if (user.did === currentUserDid) return false;
+      
+      // Skip users we already follow
+      if (user.viewer?.following) return false;
+      
+      // Skip accounts with no handle
+      if (!user.handle) return false;
+      
+      // Skip test/invalid handles
+      const handleName = user.handle.split('.')[0]; // Get the part before .cannect.space
+      if (testPatterns.test(handleName)) return false;
+      
+      // Skip handles that are just numbers or very short
+      if (/^\d+$/.test(handleName) || handleName.length < 3) return false;
+      
+      // Skip accounts with no display name AND no bio (likely incomplete)
+      if (!user.displayName && !user.description) return false;
+      
+      return true;
+    });
   }, [suggestedUsersQuery.data, currentUserDid]);
 
   // Build unified search results
