@@ -14,7 +14,8 @@ import { Image } from "expo-image";
 import { Linking } from "react-native";
 import * as Haptics from "expo-haptics";
 import { VideoPlayer } from "@/components/ui/VideoPlayer";
-import { usePostThread, useLikePost, useUnlikePost, useRepost, useDeleteRepost, useCreatePost } from "@/lib/hooks";
+import { PostOptionsMenu } from "@/components/social/PostOptionsMenu";
+import { usePostThread, useLikePost, useUnlikePost, useRepost, useDeleteRepost, useCreatePost, useDeletePost } from "@/lib/hooks";
 import { useAuthStore } from "@/lib/stores";
 import type { AppBskyFeedDefs, AppBskyFeedPost } from '@atproto/api';
 
@@ -243,6 +244,10 @@ export default function PostDetailsScreen() {
   const repostMutation = useRepost();
   const unrepostMutation = useDeleteRepost();
   const createPostMutation = useCreatePost();
+  const deleteMutation = useDeletePost();
+  
+  // Options menu state
+  const [optionsMenuVisible, setOptionsMenuVisible] = useState(false);
 
   // Auto-scroll to main post when thread loads (if there are parents)
   const handleMainPostLayout = useCallback((event: LayoutChangeEvent) => {
@@ -358,6 +363,27 @@ export default function PostDetailsScreen() {
   const handleAuthorPress = () => {
     if (thread?.post) {
       router.push(`/user/${thread.post.author.handle}`);
+    }
+  };
+
+  // Options menu handlers
+  const handleOptionsPress = () => {
+    triggerHaptic();
+    setOptionsMenuVisible(true);
+  };
+
+  const handleDelete = async () => {
+    if (!thread?.post) return;
+    try {
+      await deleteMutation.mutateAsync(thread.post.uri);
+      // Navigate back after successful delete
+      if (router.canGoBack()) {
+        router.back();
+      } else {
+        router.replace('/feed');
+      }
+    } catch (err) {
+      console.error('Failed to delete post:', err);
     }
   };
 
@@ -566,7 +592,7 @@ export default function PostDetailsScreen() {
               </Text>
               <Text className="text-text-muted">@{post.author.handle}</Text>
             </View>
-            <Pressable className="p-2 active:opacity-70">
+            <Pressable onPress={handleOptionsPress} className="p-2 active:opacity-70">
               <MoreHorizontal size={20} color="#6B7280" />
             </Pressable>
           </Pressable>
@@ -855,6 +881,17 @@ export default function PostDetailsScreen() {
           </Pressable>
         </View>
       </KeyboardAvoidingView>
+      
+      {/* Post Options Menu */}
+      <PostOptionsMenu
+        isVisible={optionsMenuVisible}
+        onClose={() => setOptionsMenuVisible(false)}
+        onDelete={handleDelete}
+        isOwnPost={post.author.did === did}
+        postUrl={`https://bsky.app/profile/${post.author.handle}/post/${rkey}`}
+        postText={record.text}
+        authorHandle={post.author.handle}
+      />
     </SafeAreaView>
   );
 }
