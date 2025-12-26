@@ -61,13 +61,8 @@ export function useGlobalFeed() {
 }
 
 /**
- * Cannabis search keywords for Cannect feed
- */
-const CANNABIS_KEYWORDS = 'cannabis OR weed OR marijuana OR 420 OR thc OR cbd OR dispensary OR indica OR sativa';
-
-/**
- * Get Cannect feed - cannabis content from the Bluesky network
- * Uses searchPosts API with cannabis-related keywords
+ * Get Cannect feed - posts from Cannect PDS users
+ * Fetches directly from Cannect users' author feeds (bypasses search API issues)
  */
 export function useCannectFeed() {
   const { isAuthenticated } = useAuthStore();
@@ -75,11 +70,43 @@ export function useCannectFeed() {
   return useInfiniteQuery({
     queryKey: ['cannectFeed'],
     queryFn: async ({ pageParam }) => {
-      const result = await atproto.searchPosts(CANNABIS_KEYWORDS, pageParam, 30);
-      // Transform searchPosts response to match feed format
+      // Get all Cannect user DIDs from PDS
+      const dids = await atproto.listPdsRepos(100);
+      if (dids.length === 0) {
+        return { feed: [], cursor: undefined };
+      }
+      
+      // Parse cursor to get offset
+      const offset = pageParam ? parseInt(pageParam, 10) : 0;
+      const pageSize = 20;
+      
+      // Get posts from multiple users
+      const userSlice = dids.slice(offset, offset + 10);
+      
+      const results = await Promise.all(
+        userSlice.map(async (did) => {
+          try {
+            const feed = await atproto.getAuthorFeed(did, undefined, 5, 'posts_no_replies');
+            return feed.data.feed.map(item => item);
+          } catch {
+            return [];
+          }
+        })
+      );
+      
+      // Flatten and sort by date
+      const allPosts = results.flat();
+      const sorted = allPosts.sort((a, b) => 
+        new Date(b.post.indexedAt).getTime() - new Date(a.post.indexedAt).getTime()
+      );
+      
+      // Calculate next cursor
+      const nextOffset = offset + 10;
+      const hasMore = nextOffset < dids.length;
+      
       return {
-        feed: result.data.posts.map(post => ({ post })),
-        cursor: result.data.cursor,
+        feed: sorted.slice(0, pageSize),
+        cursor: hasMore ? String(nextOffset) : undefined,
       };
     },
     getNextPageParam: (lastPage) => lastPage.cursor,
