@@ -22,11 +22,70 @@ export type PostView = AppBskyFeedDefs.PostView;
 export type ThreadViewPost = AppBskyFeedDefs.ThreadViewPost;
 
 /**
+ * Content moderation - filter out NSFW/harmful content
+ * Bluesky's labeling system includes labels like: porn, sexual, nsfw, nudity, gore, graphic-media, etc.
+ */
+const BLOCKED_LABELS = new Set([
+  // Sexual content
+  'porn',
+  'sexual',
+  'nsfw', 
+  'nudity',
+  'adult',
+  // Violence/gore
+  'gore',
+  'graphic-media',
+  'corpse',
+  // Child safety (CSAM)
+  'csam',
+  'child-exploitation',
+  // Other harmful content
+  'self-harm',
+  'intolerant',
+  'threat',
+  'spam',
+  'impersonation',
+]);
+
+/**
+ * Check if a post should be filtered based on its labels
+ */
+function shouldFilterPost(post: PostView): boolean {
+  // Check post labels
+  if (post.labels && post.labels.length > 0) {
+    for (const label of post.labels) {
+      if (BLOCKED_LABELS.has(label.val.toLowerCase())) {
+        return true;
+      }
+    }
+  }
+  
+  // Check author labels (account-level moderation)
+  if (post.author?.labels && post.author.labels.length > 0) {
+    for (const label of post.author.labels) {
+      if (BLOCKED_LABELS.has(label.val.toLowerCase())) {
+        return true;
+      }
+    }
+  }
+  
+  return false;
+}
+
+/**
+ * Filter an array of feed posts for moderation
+ */
+function filterFeedForModeration(feed: FeedViewPost[]): FeedViewPost[] {
+  return feed.filter(item => !shouldFilterPost(item.post));
+}
+
+/**
  * Get Following feed - posts from users the current user follows
  * Fetches followed users, then their posts, sorted by date
  */
 export function useTimeline() {
   const { isAuthenticated, did } = useAuthStore();
+
 
   return useInfiniteQuery({
     queryKey: ['timeline', did],
@@ -70,17 +129,20 @@ export function useTimeline() {
         const bDate = (b.post.record as any)?.createdAt || b.post.indexedAt;
         return new Date(bDate).getTime() - new Date(aDate).getTime();
       });
+
+      // Apply content moderation filter
+      const moderated = filterFeedForModeration(sorted);
       
       // Parse cursor for pagination through sorted results
       const offset = pageParam ? parseInt(pageParam, 10) : 0;
       const pageSize = 20;
       
       // Get the page slice
-      const pageSlice = sorted.slice(offset, offset + pageSize);
+      const pageSlice = moderated.slice(offset, offset + pageSize);
       
       // Calculate next cursor
       const nextOffset = offset + pageSize;
-      const hasMore = nextOffset < sorted.length;
+      const hasMore = nextOffset < moderated.length;
       
       return {
         feed: pageSlice,
@@ -250,11 +312,14 @@ export function useGlobalFeed() {
         return new Date(bDate).getTime() - new Date(aDate).getTime();
       });
 
+      // Apply content moderation filter
+      const moderated = filterFeedForModeration(sorted);
+
       // Check if any feed has more content
       const hasMore = Object.values(newCursors).some(c => c !== undefined);
 
       return {
-        feed: sorted,
+        feed: moderated,
         cursor: hasMore ? JSON.stringify(newCursors) : undefined,
       };
     },
@@ -308,17 +373,20 @@ export function useCannectFeed() {
         const bDate = (b.post.record as any)?.createdAt || b.post.indexedAt;
         return new Date(bDate).getTime() - new Date(aDate).getTime();
       });
+
+      // Apply content moderation filter
+      const moderated = filterFeedForModeration(sorted);
       
       // Parse cursor for pagination through sorted results
       const offset = pageParam ? parseInt(pageParam, 10) : 0;
       const pageSize = 20;
       
       // Get the page slice
-      const pageSlice = sorted.slice(offset, offset + pageSize);
+      const pageSlice = moderated.slice(offset, offset + pageSize);
       
       // Calculate next cursor
       const nextOffset = offset + pageSize;
-      const hasMore = nextOffset < sorted.length;
+      const hasMore = nextOffset < moderated.length;
       
       return {
         feed: pageSlice,
