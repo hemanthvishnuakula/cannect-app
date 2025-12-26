@@ -431,6 +431,24 @@ export function useLikePost() {
       queryClient.setQueryData(['globalFeed'], updatePostInFeed);
       // Update all authorFeed queries
       queryClient.setQueriesData({ queryKey: ['authorFeed'] }, updatePostInFeed);
+      // Update thread queries
+      queryClient.setQueriesData({ queryKey: ['thread'] }, (old: any) => {
+        if (!old?.thread?.post) return old;
+        if (old.thread.post.uri === uri) {
+          return {
+            ...old,
+            thread: {
+              ...old.thread,
+              post: {
+                ...old.thread.post,
+                likeCount: (old.thread.post.likeCount || 0) + 1,
+                viewer: { ...old.thread.post.viewer, like: 'pending' },
+              },
+            },
+          };
+        }
+        return old;
+      });
 
       return { previousTimeline, previousCannectFeed, previousglobalFeed };
     },
@@ -506,6 +524,24 @@ export function useUnlikePost() {
       queryClient.setQueryData(['cannectFeed'], updatePostInFeed);
       queryClient.setQueryData(['globalFeed'], updatePostInFeed);
       queryClient.setQueriesData({ queryKey: ['authorFeed'] }, updatePostInFeed);
+      // Update thread queries for unlike
+      queryClient.setQueriesData({ queryKey: ['thread'] }, (old: any) => {
+        if (!old?.thread?.post) return old;
+        if (old.thread.post.uri === postUri) {
+          return {
+            ...old,
+            thread: {
+              ...old.thread,
+              post: {
+                ...old.thread.post,
+                likeCount: Math.max((old.thread.post.likeCount || 1) - 1, 0),
+                viewer: { ...old.thread.post.viewer, like: undefined },
+              },
+            },
+          };
+        }
+        return old;
+      });
 
       return { previousTimeline, previousCannectFeed, previousglobalFeed };
     },
@@ -578,6 +614,24 @@ export function useRepost() {
       queryClient.setQueryData(['cannectFeed'], updatePostInFeed);
       queryClient.setQueryData(['globalFeed'], updatePostInFeed);
       queryClient.setQueriesData({ queryKey: ['authorFeed'] }, updatePostInFeed);
+      // Update thread queries for repost
+      queryClient.setQueriesData({ queryKey: ['thread'] }, (old: any) => {
+        if (!old?.thread?.post) return old;
+        if (old.thread.post.uri === uri) {
+          return {
+            ...old,
+            thread: {
+              ...old.thread,
+              post: {
+                ...old.thread.post,
+                repostCount: (old.thread.post.repostCount || 0) + 1,
+                viewer: { ...old.thread.post.viewer, repost: 'pending' },
+              },
+            },
+          };
+        }
+        return old;
+      });
 
       return { previousTimeline, previousCannectFeed, previousglobalFeed };
     },
@@ -597,6 +651,7 @@ export function useRepost() {
       queryClient.invalidateQueries({ queryKey: ['cannectFeed'] });
       queryClient.invalidateQueries({ queryKey: ['globalFeed'] });
       queryClient.invalidateQueries({ queryKey: ['authorFeed'] });
+      queryClient.invalidateQueries({ queryKey: ['thread'] });
     },
   });
 }
@@ -649,6 +704,25 @@ export function useDeleteRepost() {
       queryClient.setQueryData(['globalFeed'], updatePostInFeed);
       queryClient.setQueriesData({ queryKey: ['authorFeed'] }, updatePostInFeed);
 
+      // Also update thread queries
+      queryClient.setQueriesData({ queryKey: ['thread'] }, (old: any) => {
+        if (!old?.thread?.post) return old;
+        if (old.thread.post.uri === postUri) {
+          return {
+            ...old,
+            thread: {
+              ...old.thread,
+              post: {
+                ...old.thread.post,
+                repostCount: Math.max((old.thread.post.repostCount || 1) - 1, 0),
+                viewer: { ...old.thread.post.viewer, repost: undefined },
+              },
+            },
+          };
+        }
+        return old;
+      });
+
       return { previousTimeline, previousCannectFeed, previousglobalFeed };
     },
     onError: (err, variables, context) => {
@@ -667,6 +741,7 @@ export function useDeleteRepost() {
       queryClient.invalidateQueries({ queryKey: ['cannectFeed'] });
       queryClient.invalidateQueries({ queryKey: ['globalFeed'] });
       queryClient.invalidateQueries({ queryKey: ['authorFeed'] });
+      queryClient.invalidateQueries({ queryKey: ['thread'] });
     },
   });
 }
