@@ -1,6 +1,7 @@
 import React, { Component, ReactNode } from 'react';
 import { View, Text, Pressable, Platform, StyleSheet } from 'react-native';
 import { AlertTriangle, RefreshCw, Home } from 'lucide-react-native';
+import { logger } from '@/lib/utils/logger';
 
 interface Props {
   children: ReactNode;
@@ -34,8 +35,9 @@ export class ErrorBoundary extends Component<Props, State> {
     console.error('[ErrorBoundary] Caught error:', error);
     console.error('[ErrorBoundary] Component stack:', errorInfo.componentStack);
     
-    // TODO: Send to error tracking service
-    // Sentry.captureException(error, { extra: errorInfo });
+    // Log to remote logging service
+    logger.system.error(error, 'ErrorBoundary');
+    logger.info('error', 'component_stack', errorInfo.componentStack?.slice(0, 500));
   }
 
   handleRetry = () => {

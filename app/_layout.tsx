@@ -17,7 +17,7 @@ import { IOSInstallPrompt } from "@/components/IOSInstallPrompt";
 import { WhatsNewToast } from "@/components/WhatsNewToast";
 import { OfflineBanner } from "@/components/OfflineBanner";
 import { ToastProvider } from "@/components/ui/Toast";
-import { logger, setupGlobalErrorHandlers } from "@/lib/utils/logger";
+import { logger, setupGlobalErrorHandlers, perf } from "@/lib/utils/logger";
 
 // Prevent splash screen from auto-hiding
 SplashScreen.preventAutoHideAsync();
@@ -40,6 +40,9 @@ function AppContent() {
     // Setup global error handlers for logging
     if (Platform.OS === 'web') {
       setupGlobalErrorHandlers();
+      // Track performance metrics and Core Web Vitals
+      perf.appStart();
+      perf.trackWebVitals();
     }
   }, []);
 

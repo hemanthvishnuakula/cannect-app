@@ -8,6 +8,7 @@
 import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
 import * as atproto from '@/lib/atproto/agent';
 import { useAuthStore } from '@/lib/stores/auth-store-atp';
+import { logger, perf } from '@/lib/utils/logger';
 import type { 
   AppBskyFeedDefs, 
   AppBskyFeedPost,
@@ -517,7 +518,18 @@ export function useCreatePost() {
       };
       embed?: any;
     }) => {
-      return atproto.createPost(text, { reply, embed });
+      logger.post.createStart(text, embed?.images?.length || 0);
+      perf.start('post_create');
+      try {
+        const result = await atproto.createPost(text, { reply, embed });
+        const duration = perf.end('post_create');
+        logger.post.createSuccess(result.uri);
+        return result;
+      } catch (err: any) {
+        perf.end('post_create');
+        logger.post.createError(err.message || 'Unknown error');
+        throw err;
+      }
     },
     onSuccess: (_, variables) => {
       // Invalidate all feeds so new post appears immediately
@@ -539,8 +551,15 @@ export function useDeletePost() {
 
   return useMutation({
     mutationFn: async (uri: string) => {
-      await atproto.deletePost(uri);
-      return uri;
+      logger.post.deleteStart(uri);
+      try {
+        await atproto.deletePost(uri);
+        logger.post.deleteSuccess(uri);
+        return uri;
+      } catch (err: any) {
+        logger.post.deleteError(uri, err.message || 'Unknown error');
+        throw err;
+      }
     },
     onMutate: async (uri: string) => {
       // Cancel any outgoing refetches
@@ -615,7 +634,9 @@ export function useLikePost() {
 
   return useMutation({
     mutationFn: async ({ uri, cid }: { uri: string; cid: string }) => {
-      return atproto.likePost(uri, cid);
+      const result = await atproto.likePost(uri, cid);
+      logger.post.like(uri);
+      return result;
     },
     onMutate: async ({ uri }) => {
       // Cancel any outgoing refetches
@@ -715,6 +736,7 @@ export function useUnlikePost() {
   return useMutation({
     mutationFn: async ({ likeUri, postUri }: { likeUri: string; postUri: string }) => {
       await atproto.unlikePost(likeUri);
+      logger.post.unlike(postUri);
     },
     onMutate: async ({ postUri }) => {
       await queryClient.cancelQueries({ queryKey: ['timeline'] });
@@ -826,7 +848,9 @@ export function useRepost() {
 
   return useMutation({
     mutationFn: async ({ uri, cid }: { uri: string; cid: string }) => {
-      return atproto.repost(uri, cid);
+      const result = await atproto.repost(uri, cid);
+      logger.post.repost(uri);
+      return result;
     },
     onMutate: async ({ uri }) => {
       await queryClient.cancelQueries({ queryKey: ['timeline'] });
@@ -916,6 +940,7 @@ export function useDeleteRepost() {
   return useMutation({
     mutationFn: async ({ repostUri, postUri }: { repostUri: string; postUri: string }) => {
       await atproto.deleteRepost(repostUri);
+      logger.post.unrepost(postUri);
     },
     onMutate: async ({ postUri }) => {
       await queryClient.cancelQueries({ queryKey: ['timeline'] });

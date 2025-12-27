@@ -9,6 +9,7 @@ import { BskyAgent, RichText } from '@atproto/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
+import { logger, perf } from '@/lib/utils/logger';
 
 // Storage keys
 const SESSION_KEY = 'atproto_session';
@@ -372,7 +373,10 @@ export async function unfollow(followUri: string): Promise<void> {
  */
 export async function getTimeline(cursor?: string, limit = 50) {
   const bskyAgent = getAgent();
-  return bskyAgent.getTimeline({ cursor, limit });
+  const start = performance.now();
+  const result = await bskyAgent.getTimeline({ cursor, limit });
+  logger.network.requestSuccess('getTimeline', Math.round(performance.now() - start));
+  return result;
 }
 
 /**
@@ -386,7 +390,10 @@ export async function getAuthorFeed(
   filter?: 'posts_with_replies' | 'posts_no_replies' | 'posts_with_media' | 'posts_and_author_threads'
 ) {
   const bskyAgent = getAgent();
-  return bskyAgent.getAuthorFeed({ actor, cursor, limit, filter });
+  const start = performance.now();
+  const result = await bskyAgent.getAuthorFeed({ actor, cursor, limit, filter });
+  logger.network.requestSuccess('getAuthorFeed', Math.round(performance.now() - start));
+  return result;
 }
 
 /**
@@ -402,7 +409,10 @@ export async function getActorLikes(actor: string, cursor?: string, limit = 50) 
  */
 export async function getPostThread(uri: string, depth = 6, parentHeight = 80) {
   const bskyAgent = getAgent();
-  return bskyAgent.getPostThread({ uri, depth, parentHeight });
+  const start = performance.now();
+  const result = await bskyAgent.getPostThread({ uri, depth, parentHeight });
+  logger.network.requestSuccess('getPostThread', Math.round(performance.now() - start));
+  return result;
 }
 
 /**
@@ -410,7 +420,10 @@ export async function getPostThread(uri: string, depth = 6, parentHeight = 80) {
  */
 export async function getProfile(actor: string) {
   const bskyAgent = getAgent();
-  return bskyAgent.getProfile({ actor });
+  const start = performance.now();
+  const result = await bskyAgent.getProfile({ actor });
+  logger.network.requestSuccess('getProfile', Math.round(performance.now() - start));
+  return result;
 }
 
 /**

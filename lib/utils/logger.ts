@@ -1,12 +1,39 @@
 /**
- * Cannect Remote Logger
+ * Cannect Remote Logger - Gold Standard Instrumentation
  * 
  * Comprehensive logging system that sends all app events to Supabase
  * for real-time monitoring. Silent, non-blocking, fire-and-forget.
+ * 
+ * Features:
+ * - Kill switch via EXPO_PUBLIC_LOGGING_ENABLED=false
+ * - Per-category enable/disable
+ * - Performance timing helpers
+ * - Batched async writes (zero UI blocking)
  */
 
 import { Platform } from 'react-native';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+
+// =====================================================
+// CONFIGURATION - Kill Switch & Category Controls
+// =====================================================
+
+// Master kill switch - set to 'false' to disable all logging
+const LOGGING_ENABLED = process.env.EXPO_PUBLIC_LOGGING_ENABLED !== 'false';
+
+// Per-category enable/disable (all enabled by default)
+const ENABLED_CATEGORIES: Record<string, boolean> = {
+  auth: true,      // Login, logout, register, session
+  post: true,      // Create, delete, like, repost
+  media: true,     // Upload, compress, view
+  push: true,      // Web push flow
+  nav: true,       // Navigation, screen views
+  error: true,     // Errors, exceptions - ALWAYS keep this on
+  network: true,   // API calls
+  profile: true,   // Profile updates, follows
+  system: true,    // App lifecycle
+  perf: true,      // Performance metrics
+};
 
 // Supabase Logging Project (separate from main app)
 const LOG_SUPABASE_URL = process.env.EXPO_PUBLIC_LOG_SUPABASE_URL || '';
@@ -22,7 +49,8 @@ export type LogCategory =
   | 'error'     // Errors, exceptions
   | 'network'   // API calls
   | 'profile'   // Profile updates, follows
-  | 'system';   // App lifecycle
+  | 'system'    // App lifecycle
+  | 'perf';     // Performance metrics
 
 export type LogStatus = 'start' | 'success' | 'error' | 'info';
 
@@ -155,6 +183,12 @@ function queueLog(entry: any) {
  * Main logging function
  */
 export function log(entry: LogEntry) {
+  // Kill switch check
+  if (!LOGGING_ENABLED) return;
+  
+  // Category check
+  if (!ENABLED_CATEGORIES[entry.category]) return;
+  
   const fullEntry = {
     ...entry,
     did: currentDid,
@@ -437,5 +471,181 @@ export function setupGlobalErrorHandlers() {
   // Log app start
   logger.nav.appStart();
 }
+
+// =====================================================
+// PERFORMANCE TRACKING
+// =====================================================
+
+// Store for timing marks
+const perfMarks: Map<string, number> = new Map();
+
+/**
+ * Performance logging helpers
+ * 
+ * Usage:
+ *   logger.perf.start('feed_load');
+ *   await loadFeed();
+ *   logger.perf.end('feed_load'); // Auto-logs duration
+ * 
+ * Or one-shot:
+ *   logger.perf.measure('api_call', 340);
+ */
+export const perf = {
+  /**
+   * Start a performance timing
+   */
+  start: (name: string) => {
+    perfMarks.set(name, performance.now());
+    log({ category: 'perf', action: name, status: 'start' });
+  },
+  
+  /**
+   * End a performance timing and log duration
+   */
+  end: (name: string, metadata?: Record<string, any>) => {
+    const startTime = perfMarks.get(name);
+    if (!startTime) {
+      log({ category: 'perf', action: name, status: 'error', error: 'No start mark found' });
+      return 0;
+    }
+    
+    const duration = Math.round(performance.now() - startTime);
+    perfMarks.delete(name);
+    
+    log({ 
+      category: 'perf', 
+      action: name, 
+      status: 'success', 
+      metadata: { duration_ms: duration, ...metadata } 
+    });
+    
+    return duration;
+  },
+  
+  /**
+   * Log a one-shot performance measurement
+   */
+  measure: (name: string, durationMs: number, metadata?: Record<string, any>) => {
+    log({ 
+      category: 'perf', 
+      action: name, 
+      status: 'success', 
+      metadata: { duration_ms: durationMs, ...metadata } 
+    });
+  },
+  
+  /**
+   * Track app startup metrics
+   */
+  appStart: () => {
+    if (typeof performance === 'undefined') return;
+    
+    const now = performance.now();
+    const timing = (performance as any).timing;
+    
+    // Basic timing without navigation timing API
+    log({
+      category: 'perf',
+      action: 'app_bootstrap',
+      status: 'success',
+      metadata: { 
+        time_since_start_ms: Math.round(now),
+      }
+    });
+    
+    // If navigation timing available (web only)
+    if (timing && timing.navigationStart) {
+      const metrics = {
+        dns_ms: timing.domainLookupEnd - timing.domainLookupStart,
+        tcp_ms: timing.connectEnd - timing.connectStart,
+        ttfb_ms: timing.responseStart - timing.requestStart,
+        dom_interactive_ms: timing.domInteractive - timing.navigationStart,
+        dom_complete_ms: timing.domComplete - timing.navigationStart,
+        load_event_ms: timing.loadEventEnd - timing.navigationStart,
+      };
+      
+      // Only log if we have valid data
+      if (metrics.dom_complete_ms > 0) {
+        log({
+          category: 'perf',
+          action: 'page_load',
+          status: 'success',
+          metadata: metrics
+        });
+      }
+    }
+  },
+  
+  /**
+   * Track Core Web Vitals (LCP, FID, CLS)
+   */
+  trackWebVitals: () => {
+    if (typeof window === 'undefined' || typeof PerformanceObserver === 'undefined') return;
+    
+    try {
+      // Largest Contentful Paint
+      const lcpObserver = new PerformanceObserver((list) => {
+        const entries = list.getEntries();
+        const lastEntry = entries[entries.length - 1] as any;
+        log({
+          category: 'perf',
+          action: 'lcp',
+          status: 'success',
+          metadata: { 
+            lcp_ms: Math.round(lastEntry.startTime),
+            element: lastEntry.element?.tagName 
+          }
+        });
+      });
+      lcpObserver.observe({ type: 'largest-contentful-paint', buffered: true });
+      
+      // First Input Delay
+      const fidObserver = new PerformanceObserver((list) => {
+        const entries = list.getEntries();
+        entries.forEach((entry: any) => {
+          log({
+            category: 'perf',
+            action: 'fid',
+            status: 'success',
+            metadata: { 
+              fid_ms: Math.round(entry.processingStart - entry.startTime),
+              event_type: entry.name 
+            }
+          });
+        });
+      });
+      fidObserver.observe({ type: 'first-input', buffered: true });
+      
+      // Cumulative Layout Shift
+      let clsValue = 0;
+      const clsObserver = new PerformanceObserver((list) => {
+        list.getEntries().forEach((entry: any) => {
+          if (!entry.hadRecentInput) {
+            clsValue += entry.value;
+          }
+        });
+      });
+      clsObserver.observe({ type: 'layout-shift', buffered: true });
+      
+      // Log CLS on page hide
+      window.addEventListener('visibilitychange', () => {
+        if (document.hidden && clsValue > 0) {
+          log({
+            category: 'perf',
+            action: 'cls',
+            status: 'success',
+            metadata: { cls: clsValue.toFixed(4) }
+          });
+        }
+      }, { once: true });
+      
+    } catch (e) {
+      // PerformanceObserver not fully supported
+    }
+  },
+};
+
+// Add perf to logger object
+Object.assign(logger, { perf });
 
 export default logger;
