@@ -118,7 +118,7 @@ export function PWAUpdater({ checkInterval = 60000 }: PWAUpdaterProps) {
       navigator.serviceWorker.removeEventListener('controllerchange', handleControllerChange);
       navigator.serviceWorker.removeEventListener('message', handleMessage);
     };
-  }, []);
+  }, [isMounted]); // Re-run when mounted changes
 
   // =====================================================
   // Periodic Update Check
