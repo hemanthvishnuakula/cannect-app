@@ -57,9 +57,6 @@ export type LogCategory =
   | 'cache'     // Query cache operations
   | 'render'    // Component render timing
   | 'mutation'; // Optimistic update lifecycle
-  | 'profile'   // Profile updates, follows
-  | 'system'    // App lifecycle
-  | 'perf';     // Performance metrics
 
 export type LogStatus = 'start' | 'success' | 'error' | 'info';
 
