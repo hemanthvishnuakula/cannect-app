@@ -81,6 +81,41 @@ function isPushSupported(): boolean {
   return true;
 }
 
+/**
+ * Get active service worker registration with timeout
+ * Uses getRegistration() instead of ready to avoid hanging
+ */
+async function getActiveRegistration(timeoutMs = 3000): Promise<ServiceWorkerRegistration | null> {
+  try {
+    const registration = await Promise.race([
+      navigator.serviceWorker.getRegistration(),
+      new Promise<undefined>((resolve) => setTimeout(() => resolve(undefined), timeoutMs))
+    ]);
+    
+    if (!registration) {
+      console.log('[WebPush] No SW registration found');
+      return null;
+    }
+    
+    // Check if we have an active worker
+    if (registration.active) {
+      console.log('[WebPush] SW is active');
+      return registration;
+    }
+    
+    // If installing or waiting, the SW isn't ready for push yet
+    if (registration.installing || registration.waiting) {
+      console.log('[WebPush] SW is installing/waiting, not active yet');
+      return null;
+    }
+    
+    return null;
+  } catch (e) {
+    console.error('[WebPush] Error getting registration:', e);
+    return null;
+  }
+}
+
 export function useWebPush() {
   const { did } = useAuthStore();
   const [state, setState] = useState<WebPushState>({
@@ -110,19 +145,21 @@ export function useWebPush() {
         const iosPWA = isIOSInstalledPWA();
         const permission = supported ? Notification.permission : 'unsupported';
         
+        console.log('[WebPush] Checking state:', { supported, iosPWA, permission });
+        
         let isSubscribed = false;
         
+        // Only check subscription if we have permission and an active SW
         if (supported && permission === 'granted') {
-          try {
-            // Add timeout to prevent hanging
-            const registration = await Promise.race([
-              navigator.serviceWorker.ready,
-              new Promise((_, reject) => setTimeout(() => reject(new Error('SW timeout')), 5000))
-            ]) as ServiceWorkerRegistration;
-            const subscription = await registration.pushManager.getSubscription();
-            isSubscribed = !!subscription;
-          } catch (e) {
-            console.error('[WebPush] Error checking subscription:', e);
+          const registration = await getActiveRegistration();
+          if (registration) {
+            try {
+              const subscription = await registration.pushManager.getSubscription();
+              isSubscribed = !!subscription;
+              console.log('[WebPush] Existing subscription:', isSubscribed);
+            } catch (e) {
+              console.error('[WebPush] Error checking subscription:', e);
+            }
           }
         }
 
@@ -141,7 +178,9 @@ export function useWebPush() {
       }
     };
 
-    checkState();
+    // Small delay to let PWAUpdater register the SW first
+    const timer = setTimeout(checkState, 500);
+    return () => clearTimeout(timer);
   }, []);
 
   /**
@@ -162,8 +201,10 @@ export function useWebPush() {
     setState(s => ({ ...s, isLoading: true, error: null }));
 
     try {
-      // Request permission
+      // Request permission first
+      console.log('[WebPush] Requesting permission...');
       const permission = await Notification.requestPermission();
+      console.log('[WebPush] Permission result:', permission);
       
       if (permission !== 'granted') {
         setState(s => ({ 
@@ -175,19 +216,45 @@ export function useWebPush() {
         return false;
       }
 
-      // Get service worker registration
-      const registration = await navigator.serviceWorker.ready;
+      // Get service worker registration - use our robust method with longer timeout for subscribe
+      console.log('[WebPush] Getting SW registration...');
+      let registration = await getActiveRegistration(5000);
+      
+      // If no active registration, try to wait for ready with timeout
+      if (!registration) {
+        console.log('[WebPush] No active SW, waiting for ready...');
+        try {
+          registration = await Promise.race([
+            navigator.serviceWorker.ready,
+            new Promise<null>((resolve) => setTimeout(() => resolve(null), 5000))
+          ]) as ServiceWorkerRegistration | null;
+        } catch (e) {
+          console.error('[WebPush] SW ready timeout:', e);
+        }
+      }
+      
+      if (!registration) {
+        setState(s => ({ 
+          ...s, 
+          isLoading: false,
+          error: 'Service worker not ready. Try refreshing the page.'
+        }));
+        return false;
+      }
 
       // Check for existing subscription
+      console.log('[WebPush] Checking existing subscription...');
       let subscription = await registration.pushManager.getSubscription();
 
       // Create new subscription if needed
       if (!subscription) {
+        console.log('[WebPush] Creating new subscription...');
         const applicationServerKey = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
         subscription = await registration.pushManager.subscribe({
           userVisibleOnly: true,
           applicationServerKey: applicationServerKey.buffer as ArrayBuffer,
         });
+        console.log('[WebPush] Subscription created');
       }
 
       // Save subscription locally
