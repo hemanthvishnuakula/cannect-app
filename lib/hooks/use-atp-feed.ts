@@ -3,6 +3,9 @@
  * 
  * Pure AT Protocol - no Supabase.
  * All data comes directly from the PDS.
+ * 
+ * Feed aggregation is done server-side by the Cannect Feed Service
+ * (feed.cannect.space) to reduce API calls from 100+ to just 1-2.
  */
 
 import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
@@ -21,6 +24,9 @@ import type {
 export type FeedViewPost = AppBskyFeedDefs.FeedViewPost;
 export type PostView = AppBskyFeedDefs.PostView;
 export type ThreadViewPost = AppBskyFeedDefs.ThreadViewPost;
+
+// Feed Service URL - aggregates feeds server-side to reduce API calls
+const FEED_SERVICE_URL = 'https://feed.cannect.space';
 
 /**
  * Content moderation - filter out NSFW/harmful content
@@ -199,91 +205,108 @@ export function useTimeline() {
 }
 
 /**
- * Top cannabis feeds on Bluesky - aggregated for Global feed
- * Multiple feeds combined for diverse, high-quality content
- * Sorted by likes/popularity - feeds may go offline, handled gracefully
+ * Helper: Fetch from Feed Service and convert to FeedViewPost format
+ * The Feed Service returns a simplified format, we wrap it for compatibility
  */
-const CANNABIS_FEEDS = [
-  // Top 5 (most popular)
-  {
-    name: 'The Weed Feed',
-    uri: 'at://did:plc:kil6rach2ost5soyq4qc3yyj/app.bsky.feed.generator/aaacchngc7ky4',
-    likes: 308,
-  },
-  {
-    name: 'WeedMob',
-    uri: 'at://did:plc:bz77aitjmyojh2gcrzle55qt/app.bsky.feed.generator/aaajk2dvt3bnu',
-    likes: 224,
-  },
-  {
-    name: 'Cannabis Community 420',
-    uri: 'at://did:plc:ofa3uzadvnxtusxbpr6yvdck/app.bsky.feed.generator/aaanpawlgfvb6',
-    likes: 76,
-  },
-  {
-    name: 'Weedsky',
-    uri: 'at://did:plc:icrcghfflckt22o7dhyyuzfl/app.bsky.feed.generator/aaakxsdsjsy64',
-    likes: 69,
-  },
-  {
-    name: 'Cannabis',
-    uri: 'at://did:plc:lr32wj3jvvt3reue6wexabfh/app.bsky.feed.generator/aaahmzu672jva',
-    likes: 51,
-  },
-  // Additional feeds
-  {
-    name: 'Maconha',
-    uri: 'at://did:plc:lqzay5ya6b7gwyn45qbl2s4x/app.bsky.feed.generator/maconha',
-    likes: 44,
-  },
-  {
-    name: 'The Weed Feed 🥦💚',
-    uri: 'at://did:plc:pn26lakhwjdhgcwmjth3xfnn/app.bsky.feed.generator/aaaco4ykybqh4',
-    likes: 41,
-  },
-  {
-    name: 'Skyhigh',
-    uri: 'at://did:plc:yyds2w4plzj2atyn7yirzxo4/app.bsky.feed.generator/aaadytslg5w5s',
-    likes: 29,
-  },
-  {
-    name: 'Cannabis+ (DE)',
-    uri: 'at://did:plc:mdn3kmif4emrl5ipgjwgi3bs/app.bsky.feed.generator/feed420',
-    likes: 27,
-  },
-  {
-    name: '420Sky',
-    uri: 'at://did:plc:wlmqo4tsne55b7acvmmygswh/app.bsky.feed.generator/aaak3xiau2t3y',
-    likes: 20,
-  },
-  {
-    name: 'Black Cannabis Community',
-    uri: 'at://did:plc:v42wslr7d5oixwivjwwlg2ra/app.bsky.feed.generator/blackcannabis',
-    likes: 18,
-  },
-  {
-    name: 'Weed Memes',
-    uri: 'at://did:plc:23mflh3oyzajrpua5dmy7cj5/app.bsky.feed.generator/aaaohjsoof6aa',
-    likes: 15,
-  },
-  {
-    name: 'CannabisSky',
-    uri: 'at://did:plc:pvyuheklxfqw6cdnmam2u5yw/app.bsky.feed.generator/aaagareaigvvg',
-    likes: 14,
-  },
-  {
-    name: 'Cannabis Cultivators 🍃',
-    uri: 'at://did:plc:nukogzpij6wd4cx35lhonnaq/app.bsky.feed.generator/aaag6zmge756k',
-    likes: 12,
-  },
-];
-
-// Track feed failures to avoid spamming logs
-const feedFailures = new Map<string, number>();
+async function fetchFromFeedService(
+  endpoint: 'local' | 'global', 
+  cursor?: string, 
+  limit: number = 50
+): Promise<{ feed: FeedViewPost[]; cursor: string | undefined }> {
+  const perfKey = `feed_service_${endpoint}`;
+  const feedEndpoint = `feed.cannect.space/feed/${endpoint}`;
+  
+  perf.start(perfKey);
+  logger.start('network', 'feed_fetch', `Fetching ${endpoint} feed`, {
+    endpoint,
+    limit,
+    hasCursor: !!cursor,
+    source: 'feed_service',  // vs 'direct_api' - the old way
+  });
+  
+  const url = new URL(`${FEED_SERVICE_URL}/feed/${endpoint}`);
+  url.searchParams.set('limit', String(limit));
+  if (cursor) {
+    url.searchParams.set('cursor', cursor);
+  }
+  
+  try {
+    const response = await fetch(url.toString());
+    
+    if (!response.ok) {
+      const duration = perf.end(perfKey);
+      logger.error('network', 'feed_fetch', `Feed service HTTP ${response.status}`, {
+        endpoint,
+        httpStatus: response.status,
+        durationMs: duration,
+        source: 'feed_service',
+      });
+      throw new Error(`Feed service error: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    const duration = perf.end(perfKey);
+    
+    // Comprehensive success log with all metrics for comparison
+    logger.success('network', 'feed_fetch', `${endpoint}: ${data.posts?.length || 0} posts in ${duration}ms`, {
+      endpoint,
+      postCount: data.posts?.length || 0,
+      durationMs: duration,
+      hasCursor: !!data.cursor,
+      source: 'feed_service',
+      apiCalls: 1,  // KEY METRIC: was 100+ getAuthorFeed calls before!
+      // Compare to old method which did: 100 users * 1 call = 100 calls
+      // Now: 1 call to aggregated feed service
+    });
+    
+    // Convert Feed Service format to FeedViewPost format expected by the app
+    const feed: FeedViewPost[] = data.posts.map((post: any) => ({
+      post: {
+        uri: post.uri,
+        cid: post.cid,
+        author: {
+          did: post.author.did,
+          handle: post.author.handle,
+          displayName: post.author.displayName || post.author.handle,
+          avatar: post.author.avatar,
+          labels: [],
+        },
+        record: {
+          $type: 'app.bsky.feed.post',
+          text: post.record.text,
+          createdAt: post.record.createdAt,
+        },
+        embed: post.embed,
+        likeCount: post.likeCount || 0,
+        repostCount: post.repostCount || 0,
+        replyCount: post.replyCount || 0,
+        indexedAt: post.indexedAt,
+        labels: [],
+      },
+      // No reply context from feed service (yet)
+      reply: undefined,
+    }));
+    
+    return {
+      feed,
+      cursor: data.cursor,
+    };
+  } catch (error: any) {
+    const duration = perf.end(perfKey);
+    logger.error('network', 'feed_fetch', error.message || 'Unknown error', {
+      endpoint,
+      durationMs: duration,
+      source: 'feed_service',
+    });
+    throw error;
+  }
+}
 
 /**
- * Get Global feed - aggregated cannabis content from multiple Bluesky feeds
- * Fetches from all cannabis feeds, deduplicates, and sorts by recency
+ * Get Global feed - aggregated cannabis content from Cannect Feed Service
+ * 
+ * This is now a SINGLE API call instead of 14+ parallel feed requests.
+ * The Feed Service aggregates content from curated cannabis accounts.
  */
 export function useGlobalFeed() {
   const { isAuthenticated } = useAuthStore();
@@ -291,78 +314,15 @@ export function useGlobalFeed() {
   return useInfiniteQuery({
     queryKey: ['globalFeed'],
     queryFn: async ({ pageParam }) => {
-      // Parse cursors for each feed (stored as JSON)
-      const cursors: Record<string, string | undefined> = pageParam 
-        ? JSON.parse(pageParam) 
-        : {};
+      // Single API call to Feed Service
+      const result = await fetchFromFeedService('global', pageParam, 50);
       
-      // Fetch from all feeds in parallel
-      const feedResults = await Promise.allSettled(
-        CANNABIS_FEEDS.map(async (feed) => {
-          try {
-            const result = await atproto.getExternalFeed(
-              feed.uri, 
-              cursors[feed.uri], 
-              8  // Get 8 from each feed (14 feeds * 8 = 112 max posts)
-            );
-            // Reset failure count on success
-            feedFailures.delete(feed.uri);
-            return { 
-              feedUri: feed.uri, 
-              data: result.data,
-              name: feed.name 
-            };
-          } catch (error: any) {
-            // Track failures - only log first occurrence to avoid spam
-            const failCount = (feedFailures.get(feed.uri) || 0) + 1;
-            feedFailures.set(feed.uri, failCount);
-            
-            if (failCount === 1) {
-              // Only log on first failure
-              const status = error?.status || error?.response?.status || 'unknown';
-              console.log(`[Feed] ${feed.name} unavailable (${status})`);
-            }
-            return null;
-          }
-        })
-      );
-
-      // Collect posts and new cursors
-      const allPosts: FeedViewPost[] = [];
-      const newCursors: Record<string, string | undefined> = {};
-      const seenUris = new Set<string>();
-
-      for (const result of feedResults) {
-        if (result.status === 'fulfilled' && result.value) {
-          const { feedUri, data } = result.value;
-          newCursors[feedUri] = data.cursor;
-          
-          // Deduplicate by post URI
-          for (const item of data.feed) {
-            if (!seenUris.has(item.post.uri)) {
-              seenUris.add(item.post.uri);
-              allPosts.push(item);
-            }
-          }
-        }
-      }
-
-      // Sort by createdAt (when user posted) - not indexedAt (when network indexed)
-      const sorted = allPosts.sort((a, b) => {
-        const aDate = (a.post.record as any)?.createdAt || a.post.indexedAt;
-        const bDate = (b.post.record as any)?.createdAt || b.post.indexedAt;
-        return new Date(bDate).getTime() - new Date(aDate).getTime();
-      });
-
-      // Apply content moderation filter
-      const moderated = filterFeedForModeration(sorted);
-
-      // Check if any feed has more content
-      const hasMore = Object.values(newCursors).some(c => c !== undefined);
+      // Apply content moderation filter (in case of any slipped through)
+      const moderated = filterFeedForModeration(result.feed);
 
       return {
         feed: moderated,
-        cursor: hasMore ? JSON.stringify(newCursors) : undefined,
+        cursor: result.cursor,
       };
     },
     getNextPageParam: (lastPage) => lastPage.cursor,
@@ -373,8 +333,10 @@ export function useGlobalFeed() {
 }
 
 /**
- * Get Cannect feed - posts from Cannect PDS users
- * Fetches from ALL users, sorts globally by date, then paginates
+ * Get Cannect feed - posts from Cannect PDS users via Feed Service
+ * 
+ * This is now a SINGLE API call instead of 100+ parallel getAuthorFeed requests.
+ * The Feed Service maintains a real-time cache of all Cannect user posts via Jetstream.
  */
 export function useCannectFeed() {
   const { isAuthenticated } = useAuthStore();
@@ -382,57 +344,15 @@ export function useCannectFeed() {
   return useInfiniteQuery({
     queryKey: ['cannectFeed'],
     queryFn: async ({ pageParam }) => {
-      // Get all Cannect user DIDs from PDS
-      const dids = await atproto.listPdsRepos(100);
-      if (dids.length === 0) {
-        return { feed: [], cursor: undefined };
-      }
+      // Single API call to Feed Service
+      const result = await fetchFromFeedService('local', pageParam, 50);
       
-      // Fetch recent posts from ALL users in parallel
-      // Get 3 posts per user to keep it fast (86 users × 3 = ~258 posts max)
-      const results = await Promise.allSettled(
-        dids.map(async (did) => {
-          try {
-            const feed = await atproto.getAuthorFeed(did, undefined, 3, 'posts_no_replies');
-            return feed.data.feed;
-          } catch {
-            return [];
-          }
-        })
-      );
-      
-      // Collect all posts
-      const allPosts: FeedViewPost[] = [];
-      for (const result of results) {
-        if (result.status === 'fulfilled' && result.value) {
-          allPosts.push(...result.value);
-        }
-      }
-      
-      // Sort by createdAt (when user posted) - not indexedAt (when network indexed)
-      const sorted = allPosts.sort((a, b) => {
-        const aDate = (a.post.record as any)?.createdAt || a.post.indexedAt;
-        const bDate = (b.post.record as any)?.createdAt || b.post.indexedAt;
-        return new Date(bDate).getTime() - new Date(aDate).getTime();
-      });
-
       // Apply content moderation filter
-      const moderated = filterFeedForModeration(sorted);
-      
-      // Parse cursor for pagination through sorted results
-      const offset = pageParam ? parseInt(pageParam, 10) : 0;
-      const pageSize = 20;
-      
-      // Get the page slice
-      const pageSlice = moderated.slice(offset, offset + pageSize);
-      
-      // Calculate next cursor
-      const nextOffset = offset + pageSize;
-      const hasMore = nextOffset < moderated.length;
-      
+      const moderated = filterFeedForModeration(result.feed);
+
       return {
-        feed: pageSlice,
-        cursor: hasMore ? String(nextOffset) : undefined,
+        feed: moderated,
+        cursor: result.cursor,
       };
     },
     getNextPageParam: (lastPage) => lastPage.cursor,
