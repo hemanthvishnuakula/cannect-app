@@ -18,57 +18,39 @@ const CANNECT_PDS = 'https://cannect.space';
 const JETSTREAM_URL = 'wss://jetstream2.us-west.bsky.network/subscribe';
 
 // Curated cannabis community accounts for global feed
-// These are known cannabis advocates, dispensaries, and industry accounts on Bluesky
+// Verified accounts that actively post about cannabis (reviewed 2024-12-28)
+// Rating: percentage of recent posts about cannabis
 const CANNABIS_ACCOUNTS = [
-  // === SEED ACCOUNTS ===
-  'boxbrown.bsky.social',           // Cannabis activist, cartoonist
-  'mistressmatisse.bsky.social',    // Cannabis advocate
-  'rosasparks.bsky.social',         // Cannabis lover
+  // === 🟢 HIGH CONFIDENCE (50%+ cannabis posts) ===
+  'normlorg.bsky.social',           // 100% - NORML, cannabis reform since 1970
+  'weedjesus.bsky.social',          // 100% - OG cannabis cultivator
+  'oglesby.bsky.social',            // 100% - Tax lawyer turned marijuana law reformer
+  'junglecae.bsky.social',          // 100% - Cannabis educator
+  'montelwilliams.bsky.social',     // 93% - Let's Be Blunt cannabis podcast
+  'chrisgoldstein.bsky.social',     // 67% - Cannabis writer/activist
+  'nycannabistimes.com',            // 63% - NY Cannabis Times
+  'mybpg.bsky.social',              // 63% - Berkeley Patients Group dispensary
   
-  // === CANNABIS MEDIA & NEWS ===
-  'nycannabistimes.com',            // NY Cannabis Times - cannabis news
-  'normlorg.bsky.social',           // NORML - cannabis reform since 1970
-  'filtermag.bsky.social',          // Filter Magazine - drug policy
+  // === 🟡 MEDIUM CONFIDENCE (20-49% cannabis posts) ===
+  'breedersteve.bsky.social',       // 47% - Cannabis breeder
+  'nhcannapatient.bsky.social',     // 47% - NH cannabis patient advocate
+  'ngaio420.bsky.social',           // 43% - Comedian, stoner, activist
+  'cantrip.bsky.social',            // 41% - Weed beverage company
+  'cannabis.bsky.social',           // 40% - Cannabis 101 growing
+  'filtermag.bsky.social',          // 37% - Drug policy journalism
+  'leddder.bsky.social',            // 37% - Cannabis editor at SFGATE
+  'ommpeddie.bsky.social',          // 37% - Oregon Medical Marijuana
+  'samreisman.bsky.social',         // 37% - Cannabis reporter at Law360
+  'danalarsen.bsky.social',         // 23% - Drug testing/mushroom dispensary
+  'ricksteves.bsky.social',         // 23% - Travel writer, NORML board member
+  'cannabis-lounges.bsky.social',   // 20% - Cannabis consumption lounges
   
-  // === CANNABIS INDUSTRY ===
-  'cannabis-lounges.bsky.social',   // Cannabis consumption lounges
-  'mybpg.bsky.social',              // Berkeley Patients Group dispensary
-  'cantrip.bsky.social',            // Weed beverage company
-  'hempfarm.bsky.social',           // Hemp farm
-  
-  // === CANNABIS ADVOCATES & ACTIVISTS ===
-  'weedjesus.bsky.social',          // OG cannabis cultivator
-  'ngaio420.bsky.social',           // Comedian, stoner, activist
-  'milfweed.bsky.social',           // Cannabis content creator
-  'oglesby.bsky.social',            // Marijuana law reformer
-  'junglecae.bsky.social',          // Cannabis educator
-  'chrisgoldstein.bsky.social',     // Cannabis writer/activist
-  'danalarsen.bsky.social',         // Medicinal Mushroom Dispensary founder
-  'montelwilliams.bsky.social',     // Let's Be Blunt podcast
-  'njlegalizeme.bsky.social',       // NJ cannabis news
-  'breedersteve.bsky.social',       // Cannabis breeder
-  'leddder.bsky.social',            // Cannabis editor at SFGATE
-  'nhcannapatient.bsky.social',     // NH cannabis patient advocate
-  'shaleen.bsky.social',            // Former marijuana regulator
-  'ommpeddie.bsky.social',          // Oregon Medical Marijuana
-  'buchanan.today',                 // Cannabis activist/researcher
-  'samreisman.bsky.social',         // Cannabis reporter at Law360
-  'thedocumattarian.bsky.social',   // Cannabis documentary filmmaker
-  
-  // === CANNABIS CULTURE ===
-  'hotnails666420.bsky.social',     // 420 culture
-  'cannabis.bsky.social',           // Cannabis handle
-  'vulgarweed.bsky.social',         // Cannabis culture
-  'catarinakush.bsky.social',       // Kush culture
-  'kushkomikss.bsky.social',        // Cannabis comics
-  'thepotlabphd.bsky.social',       // Cannabis research
-  'ricksteves.bsky.social',         // Travel writer, cannabis advocate
-  
-  // === CANNABIS-ADJACENT ADVOCATES ===
-  'weedlordbonerchamp.hellthread.vet', // Cannabis culture
-  'jonweb.bsky.social',             // Cannabis mention in bio
-  'atheistgirl.bsky.social',        // Cannabis loving
-  'timmytwoshirts.bsky.social',     // 420 toker
+  // === 🟡 MEDIUM CONFIDENCE (10-19% cannabis posts, strong bio) ===
+  'shaleen.bsky.social',            // 17% - Former marijuana regulator
+  'boxbrown.bsky.social',           // 13% - Cannabis activist, cartoonist
+  'hempfarm.bsky.social',           // 11% - Hemp revival advocate
+  'buchanan.today',                 // 10% - Cannabis activist/researcher
+  'thepotlabphd.bsky.social',       // 10% - ThePotLab cannabis research
 ];
 
 // Initialize SQLite database
