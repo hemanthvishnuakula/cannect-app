@@ -506,9 +506,7 @@ export function useLikePost() {
     onSuccess: (result, variables) => {
       logger.mutation.serverResponse('like', variables.uri, { likeUri: result.uri }, true);
     },
-    onSettled: () => {
-      optimistic.invalidate();
-    },
+    // No onSettled - optimistic update is the final state
   });
 }
 
@@ -539,11 +537,7 @@ export function useUnlikePost() {
     onSuccess: (_, variables) => {
       logger.mutation.serverResponse('unlike', variables.postUri, { removed: true }, true);
     },
-    onSettled: () => {
-      // NOTE: Exclude actorLikes - the post was removed optimistically
-      // Refetching would bring it back due to AppView caching delays
-      optimistic.invalidate({ exclude: ['actorLikes'] });
-    },
+    // No onSettled - optimistic update is the final state
   });
 }
 
@@ -574,9 +568,7 @@ export function useRepost() {
     onSuccess: (result, variables) => {
       logger.mutation.serverResponse('repost', variables.uri, { repostUri: result.uri }, true);
     },
-    onSettled: () => {
-      optimistic.invalidate();
-    },
+    // No onSettled - optimistic update is the final state
   });
 }
 
@@ -606,9 +598,7 @@ export function useDeleteRepost() {
     onSuccess: (_, variables) => {
       logger.mutation.serverResponse('unrepost', variables.postUri, { removed: true }, true);
     },
-    onSettled: () => {
-      optimistic.invalidate();
-    },
+    // No onSettled - optimistic update is the final state
   });
 }
 
