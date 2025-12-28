@@ -591,7 +591,22 @@ export function setupGlobalErrorHandlers() {
   
   // Catch unhandled promise rejections
   window.onunhandledrejection = (event) => {
-    logger.system.promiseRejection(event.reason);
+    const reason = event.reason;
+    // Try to extract more meaningful info
+    const errorMessage = reason?.message || reason?.error || String(reason);
+    const errorName = reason?.name || 'UnhandledRejection';
+    const errorStack = reason?.stack?.split('\n').slice(0, 5).join('\n'); // First 5 lines
+    
+    console.error('[Logger] Unhandled Promise Rejection:', errorMessage, reason);
+    
+    logger.system.promiseRejection({
+      message: errorMessage,
+      name: errorName,
+      stack: errorStack,
+      // Include raw reason type for debugging
+      reasonType: typeof reason,
+      hasMessage: !!reason?.message,
+    });
   };
   
   // Flush logs before page unload
