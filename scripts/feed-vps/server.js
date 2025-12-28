@@ -20,12 +20,55 @@ const JETSTREAM_URL = 'wss://jetstream2.us-west.bsky.network/subscribe';
 // Curated cannabis community accounts for global feed
 // These are known cannabis advocates, dispensaries, and industry accounts on Bluesky
 const CANNABIS_ACCOUNTS = [
-  // Cannabis advocates and writers
-  'boxbrown.bsky.social',          // Brian Box Brown - cannabis activist, cartoonist
-  'mistressmatisse.bsky.social',   // Mistress Matisse - cannabis user
-  'rosasparks.bsky.social',        // Rosa Sparks - cannabis lover
-  // Add more accounts as discovered - this list can grow over time
-  // The global feed acts as "discover cannabis content on Bluesky"
+  // === SEED ACCOUNTS ===
+  'boxbrown.bsky.social',           // Cannabis activist, cartoonist
+  'mistressmatisse.bsky.social',    // Cannabis advocate
+  'rosasparks.bsky.social',         // Cannabis lover
+  
+  // === CANNABIS MEDIA & NEWS ===
+  'nycannabistimes.com',            // NY Cannabis Times - cannabis news
+  'normlorg.bsky.social',           // NORML - cannabis reform since 1970
+  'filtermag.bsky.social',          // Filter Magazine - drug policy
+  
+  // === CANNABIS INDUSTRY ===
+  'cannabis-lounges.bsky.social',   // Cannabis consumption lounges
+  'mybpg.bsky.social',              // Berkeley Patients Group dispensary
+  'cantrip.bsky.social',            // Weed beverage company
+  'hempfarm.bsky.social',           // Hemp farm
+  
+  // === CANNABIS ADVOCATES & ACTIVISTS ===
+  'weedjesus.bsky.social',          // OG cannabis cultivator
+  'ngaio420.bsky.social',           // Comedian, stoner, activist
+  'milfweed.bsky.social',           // Cannabis content creator
+  'oglesby.bsky.social',            // Marijuana law reformer
+  'junglecae.bsky.social',          // Cannabis educator
+  'chrisgoldstein.bsky.social',     // Cannabis writer/activist
+  'danalarsen.bsky.social',         // Medicinal Mushroom Dispensary founder
+  'montelwilliams.bsky.social',     // Let's Be Blunt podcast
+  'njlegalizeme.bsky.social',       // NJ cannabis news
+  'breedersteve.bsky.social',       // Cannabis breeder
+  'leddder.bsky.social',            // Cannabis editor at SFGATE
+  'nhcannapatient.bsky.social',     // NH cannabis patient advocate
+  'shaleen.bsky.social',            // Former marijuana regulator
+  'ommpeddie.bsky.social',          // Oregon Medical Marijuana
+  'buchanan.today',                 // Cannabis activist/researcher
+  'samreisman.bsky.social',         // Cannabis reporter at Law360
+  'thedocumattarian.bsky.social',   // Cannabis documentary filmmaker
+  
+  // === CANNABIS CULTURE ===
+  'hotnails666420.bsky.social',     // 420 culture
+  'cannabis.bsky.social',           // Cannabis handle
+  'vulgarweed.bsky.social',         // Cannabis culture
+  'catarinakush.bsky.social',       // Kush culture
+  'kushkomikss.bsky.social',        // Cannabis comics
+  'thepotlabphd.bsky.social',       // Cannabis research
+  'ricksteves.bsky.social',         // Travel writer, cannabis advocate
+  
+  // === CANNABIS-ADJACENT ADVOCATES ===
+  'weedlordbonerchamp.hellthread.vet', // Cannabis culture
+  'jonweb.bsky.social',             // Cannabis mention in bio
+  'atheistgirl.bsky.social',        // Cannabis loving
+  'timmytwoshirts.bsky.social',     // 420 toker
 ];
 
 // Initialize SQLite database
