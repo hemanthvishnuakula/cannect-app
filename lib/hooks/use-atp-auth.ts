@@ -32,29 +32,37 @@ export function useAuth() {
 
   // Subscribe to session expiry events
   useEffect(() => {
+    console.log('[useAuth] Setting up session expiry listener');
     const unsubscribe = atproto.onSessionExpired(() => {
-      console.log('[Auth] Session expired - clearing state');
+      console.log('[useAuth] 🔴 Session expired callback fired - clearing all state');
       clear();
       queryClient.clear();
     });
     
-    return unsubscribe;
+    return () => {
+      console.log('[useAuth] Cleaning up session expiry listener');
+      unsubscribe();
+    };
   }, [clear, queryClient]);
 
   // Initialize agent and restore session on mount
   useEffect(() => {
     let mounted = true;
+    console.log('[useAuth] Mounting, initializing agent...');
     
     async function init() {
       try {
         const agent = await atproto.initializeAgent();
+        console.log('[useAuth] Agent initialized, session:', agent.session ? `did:${agent.session.did?.substring(8,20)}` : 'none');
         if (mounted && agent.session) {
+          console.log('[useAuth] ✅ Setting session in store');
           setSession(agent.session);
         } else if (mounted) {
+          console.log('[useAuth] No session, setting loading=false');
           setLoading(false);
         }
       } catch (err) {
-        console.error('Failed to initialize auth:', err);
+        console.error('[useAuth] ❌ Failed to initialize auth:', err);
         if (mounted) {
           setLoading(false);
         }

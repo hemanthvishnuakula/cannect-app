@@ -41,10 +41,15 @@ export function onSessionExpired(handler: SessionExpiredHandler): () => void {
 
 function notifySessionExpired() {
   // Prevent multiple notifications
-  if (hasNotifiedExpiry) return;
+  if (hasNotifiedExpiry) {
+    console.log('[Agent] Session expiry already notified, skipping');
+    return;
+  }
   hasNotifiedExpiry = true;
   
-  console.warn('[Auth] Session expired - user must re-login');
+  console.warn('[Auth] 🔴 Session expired - notifying', sessionExpiredListeners.size, 'listeners');
+  logger.error('auth', 'notify_expired', `Notifying ${sessionExpiredListeners.size} listeners`);
+  
   sessionExpiredListeners.forEach(handler => {
     try {
       handler();
@@ -66,10 +71,18 @@ export function isAuthError(error: any): boolean {
   const errorMessage = typeof error === 'string' ? error : 
     error?.message || error?.data?.message || '';
   
+  // Log the error being checked
+  console.log('[Agent] isAuthError checking:', { status, errorCode, errorMessage: errorMessage.substring(0,100) });
+  
   // 401 Unauthorized is always an auth error
-  if (status === 401) return true;
+  if (status === 401) {
+    console.log('[Agent] 🔴 401 Unauthorized detected');
+    logger.error('auth', 'auth_error', '401 Unauthorized', { status, errorCode });
+    return true;
+  }
   
   // 400 with specific auth-related error codes or messages
+  // NOTE: Be VERY specific here to avoid false positives!
   if (status === 400) {
     const authPatterns = [
       'InvalidToken',
@@ -79,16 +92,23 @@ export function isAuthError(error: any): boolean {
       'token_expired',
       'AuthRequired',
       'Bad token',
-      'invalid request',
       'authentication required',
       'not authenticated',
-      'session',
+      'session expired',        // More specific than just 'session'
+      'invalid session',        // More specific than just 'session'
+      'session not found',      // More specific than just 'session'
     ];
     
     const textToCheck = `${errorCode || ''} ${errorMessage || ''}`.toLowerCase();
-    if (authPatterns.some(p => textToCheck.includes(p.toLowerCase()))) {
+    const matchedPattern = authPatterns.find(p => textToCheck.includes(p.toLowerCase()));
+    
+    if (matchedPattern) {
+      console.log('[Agent] 🔴 400 with auth pattern detected:', { pattern: matchedPattern, text: textToCheck.substring(0,100) });
+      logger.error('auth', 'auth_error', '400 with auth pattern', { status, errorCode, pattern: matchedPattern });
       return true;
     }
+    
+    console.log('[Agent] 400 error but no auth pattern match:', textToCheck.substring(0,100));
   }
   
   return false;
@@ -98,6 +118,8 @@ export function isAuthError(error: any): boolean {
  * Handle an auth error by clearing session and notifying listeners
  */
 export async function handleAuthError(): Promise<void> {
+  console.warn('[Agent] 🔴 handleAuthError called - clearing session');
+  logger.error('auth', 'handle_auth_error', 'Clearing session due to auth error');
   await clearSession();
   agent = null;
   notifySessionExpired();
@@ -149,13 +171,26 @@ export function getAgent(): BskyAgent {
     agent = new BskyAgent({
       service: PDS_SERVICE,
       persistSession: (evt, sess) => {
+        console.log('[Agent] persistSession event:', evt, sess?.did ? `did:${sess.did.substring(8,20)}` : 'no session');
+        logger.info('auth', 'persist_session', `Session event: ${evt}`, { 
+          event: evt, 
+          hasDid: !!sess?.did,
+          did: sess?.did?.substring(8,20)
+        });
+        
         if (evt === 'expired') {
           // Refresh token expired - user must re-login
+          console.warn('[Agent] 🔴 Session EXPIRED - user must re-login');
+          logger.error('auth', 'session_expired', 'Refresh token expired');
           clearSession();
           notifySessionExpired();
+        } else if (evt === 'create' || evt === 'update') {
+          console.log('[Agent] ✅ Session created/updated, storing...');
+          storeSession(sess);
         } else if (sess) {
           storeSession(sess);
         } else {
+          console.log('[Agent] ⚠️ Clearing session (no session data)');
           clearSession();
         }
       },
@@ -171,11 +206,24 @@ export async function initializeAgent(): Promise<BskyAgent> {
   const bskyAgent = getAgent();
   
   const storedSession = await getStoredSession();
+  console.log('[Agent] initializeAgent - stored session:', storedSession ? `did:${storedSession.did?.substring(8,20)}` : 'none');
+  logger.info('auth', 'init_agent', 'Initializing agent', { 
+    hasStoredSession: !!storedSession,
+    storedDid: storedSession?.did?.substring(8,20)
+  });
+  
   if (storedSession) {
     try {
+      console.log('[Agent] Attempting to resume session...');
       await bskyAgent.resumeSession(storedSession);
-    } catch (err) {
-      console.warn('Failed to restore session:', err);
+      console.log('[Agent] ✅ Session resumed successfully');
+      logger.info('auth', 'session_resume', 'Session resumed', { did: storedSession.did?.substring(8,20) });
+    } catch (err: any) {
+      console.warn('[Agent] ❌ Failed to restore session:', err?.message || err);
+      logger.error('auth', 'session_resume', `Resume failed: ${err?.message || 'Unknown'}`, { 
+        error: err?.message,
+        status: err?.status
+      });
       await clearSession();
     }
   }

@@ -1,5 +1,6 @@
 import { QueryClient } from "@tanstack/react-query";
 import { isAuthError, handleAuthError } from "./atproto/agent";
+import { logger } from "./utils";
 
 // Track if we're already handling an auth error to prevent multiple triggers
 let isHandlingAuthError = false;
@@ -19,7 +20,24 @@ const CONSECUTIVE_400_WINDOW_MS = 2000; // Reset count if more than 2s between e
  */
 function shouldRetry(failureCount: number, error: any): boolean {
   const status = error?.status || error?.response?.status;
+  const errorMsg = error?.message || error?.data?.message || String(error).substring(0, 100);
   const now = Date.now();
+  
+  // Log every error through retry logic
+  console.log('[QueryClient] shouldRetry called:', { 
+    failureCount, 
+    status, 
+    errorMsg,
+    isHandlingAuthError,
+    consecutive400Count 
+  });
+  logger.debug('query', 'retry_check', `Checking retry: status=${status}`, {
+    failureCount,
+    status,
+    errorMsg: errorMsg.substring(0, 50),
+    isHandlingAuthError,
+    consecutive400Count
+  });
   
   // Track consecutive 400 errors
   if (status === 400) {
@@ -30,9 +48,12 @@ function shouldRetry(failureCount: number, error: any): boolean {
     }
     last400Time = now;
     
+    console.log('[QueryClient] 400 error tracked:', { consecutive400Count, threshold: CONSECUTIVE_400_THRESHOLD });
+    
     // Multiple 400s in quick succession = likely auth failure
     if (consecutive400Count >= CONSECUTIVE_400_THRESHOLD && !isHandlingAuthError) {
-      console.warn(`[QueryClient] ${consecutive400Count} consecutive 400 errors - likely auth failure`);
+      console.warn(`[QueryClient] 🔴 ${consecutive400Count} consecutive 400 errors - triggering auth failure`);
+      logger.error('query', 'consecutive_400_auth', `${consecutive400Count} consecutive 400s`, { errorMsg });
       isHandlingAuthError = true;
       consecutive400Count = 0;
       handleAuthError().finally(() => {
@@ -46,9 +67,13 @@ function shouldRetry(failureCount: number, error: any): boolean {
   }
   
   // Check if this is a specific auth error - trigger session expiry
-  if (isAuthError(error) && !isHandlingAuthError) {
+  const authError = isAuthError(error);
+  console.log('[QueryClient] isAuthError result:', authError);
+  
+  if (authError && !isHandlingAuthError) {
     isHandlingAuthError = true;
-    console.warn('[QueryClient] Auth error detected, triggering session expiry');
+    console.warn('[QueryClient] 🔴 Auth error detected, triggering session expiry');
+    logger.error('query', 'auth_error_detected', 'Query triggered auth error', { status, errorMsg });
     handleAuthError().finally(() => {
       // Reset after a delay to allow re-detection if needed
       setTimeout(() => { isHandlingAuthError = false; }, 5000);
@@ -58,15 +83,18 @@ function shouldRetry(failureCount: number, error: any): boolean {
   
   // Rate limited - retry more aggressively with backoff
   if (status === 429) {
+    console.log('[QueryClient] Rate limited, will retry');
     return failureCount < 5;
   }
   
   // Other client errors (400, 401, 403, 404) - don't retry
   if (status >= 400 && status < 500) {
+    console.log('[QueryClient] Client error, not retrying');
     return false;
   }
   
   // Server errors or network errors - retry up to 2 times
+  console.log('[QueryClient] Will retry server/network error');
   return failureCount < 2;
 }
 

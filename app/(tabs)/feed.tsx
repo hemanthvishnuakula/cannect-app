@@ -441,18 +441,26 @@ export default function FeedScreen() {
   const queryClient = useQueryClient();
   useEffect(() => {
     const handleAppStateChange = (nextState: AppStateStatus) => {
+      console.log('[FeedScreen] AppState changed to:', nextState, 'did:', did?.substring(8,20) || 'none');
+      logger.info('nav', 'app_state_change', `State: ${nextState}`, { 
+        state: nextState, 
+        hasDid: !!did,
+        didPrefix: did?.substring(8,20)
+      });
+      
       if (nextState === 'background') {
         // Clear heavy feed caches to free memory before iOS kills the app
+        console.log('[FeedScreen] 🧹 Clearing feed caches (NOT auth)');
         queryClient.setQueryData(['globalFeed'], undefined);
         queryClient.setQueryData(['cannectFeed'], undefined);
         queryClient.setQueryData(['timeline'], undefined);
-        console.log('[Memory] Cleared feed caches on background');
+        logger.info('nav', 'cache_clear', 'Cleared feed caches on background');
       }
     };
     
     const subscription = AppState.addEventListener('change', handleAppStateChange);
     return () => subscription.remove();
-  }, [queryClient]);
+  }, [queryClient, did]);
   
   // Repost menu state
   const [repostMenuVisible, setRepostMenuVisible] = useState(false);

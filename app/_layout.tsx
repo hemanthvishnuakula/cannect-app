@@ -70,24 +70,36 @@ function AppContent() {
     let lastHidden = 0;
 
     const handleVisibilityChange = async () => {
-      if (document.visibilityState === "hidden") {
+      const state = document.visibilityState;
+      console.log('[App] Visibility changed to:', state);
+      logger.info('nav', 'visibility_change', `Visibility: ${state}`);
+      
+      if (state === "hidden") {
         lastHidden = Date.now();
-      } else if (document.visibilityState === "visible") {
-        // If hidden for more than 5 minutes, refresh session first, then data
+        console.log('[App] 📱 App hidden at', new Date().toISOString());
+      } else if (state === "visible") {
         const hiddenDuration = Date.now() - lastHidden;
         const fiveMinutes = 5 * 60 * 1000;
         
+        console.log('[App] 📱 App visible after', Math.round(hiddenDuration/1000), 'seconds');
+        logger.info('nav', 'visibility_visible', `Visible after ${Math.round(hiddenDuration/1000)}s`, {
+          hiddenDurationMs: hiddenDuration
+        });
+        
         if (lastHidden > 0 && hiddenDuration > fiveMinutes) {
-          console.log('[App] Woke from background after 5+ mins, refreshing session...');
+          console.log('[App] ⏰ Hidden for 5+ mins, refreshing session...');
+          logger.info('auth', 'session_refresh_start', 'Refreshing session after long background');
           
           try {
             // Try to refresh the session before invalidating queries
             // This ensures the access token is valid before making API calls
             await atproto.refreshSession();
-            console.log('[App] Session refreshed, now refreshing data');
+            console.log('[App] ✅ Session refreshed, now refreshing data');
+            logger.info('auth', 'session_refresh_success', 'Session refreshed after background');
             queryClient.invalidateQueries();
-          } catch (err) {
-            console.warn('[App] Session refresh failed:', err);
+          } catch (err: any) {
+            console.warn('[App] ❌ Session refresh failed:', err?.message || err);
+            logger.error('auth', 'session_refresh_fail', err?.message || 'Unknown error');
             // Session refresh failed - queries will trigger auth error handling
             queryClient.invalidateQueries();
           }
@@ -173,16 +185,21 @@ export default function RootLayout() {
   useEffect(() => {
     // Initialize AT Protocol agent and restore session
     async function initAuth() {
+      console.log('[RootLayout] 🚀 Starting auth initialization...');
       try {
         const agent = await atproto.initializeAgent();
+        console.log('[RootLayout] Agent ready, session:', agent.session ? `did:${agent.session.did?.substring(8,20)}` : 'none');
+        
         if (agent.session) {
+          console.log('[RootLayout] ✅ Session found, setting in store');
           setSession(agent.session);
           logger.auth.sessionRestore(agent.session.did);
         } else {
+          console.log('[RootLayout] ⚠️ No session found');
           setLoading(false);
         }
       } catch (err: any) {
-        console.error("[RootLayout] Failed to initialize auth:", err);
+        console.error("[RootLayout] ❌ Failed to initialize auth:", err?.message || err);
         logger.auth.sessionRestoreError(err?.message || 'Unknown error');
         setLoading(false);
       } finally {
