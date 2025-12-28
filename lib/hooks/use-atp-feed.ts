@@ -678,6 +678,9 @@ export function useSuggestedPosts() {
 export function useLocalFeed() {
   const { isAuthenticated } = useAuthStore();
   
+  // Bluesky AppView for feed hydration (PDS doesn't serve app.bsky.feed.* endpoints)
+  const BSKY_APPVIEW = 'https://public.api.bsky.app';
+  
   return useInfiniteQuery({
     queryKey: ['localFeed'],
     queryFn: async ({ pageParam }) => {
@@ -687,18 +690,16 @@ export function useLocalFeed() {
         return { feed: [], cursor: undefined };
       }
       
-      const bskyAgent = atproto.getAgent();
-      
-      // Fetch recent posts from all users in parallel
+      // Fetch recent posts from all users in parallel via Bluesky AppView
       const results = await Promise.all(
         dids.map(async (did) => {
           try {
-            const feed = await bskyAgent.getAuthorFeed({ 
-              actor: did, 
-              limit: 10,
-              filter: 'posts_no_replies'
-            });
-            return feed.data.feed;
+            const res = await fetch(
+              `${BSKY_APPVIEW}/xrpc/app.bsky.feed.getAuthorFeed?actor=${encodeURIComponent(did)}&limit=10&filter=posts_no_replies`
+            );
+            if (!res.ok) return [];
+            const data = await res.json();
+            return data.feed || [];
           } catch {
             return [];
           }
@@ -709,9 +710,9 @@ export function useLocalFeed() {
       const allPosts = results.flat();
       
       // Sort by createdAt (newest first)
-      const sorted = allPosts.sort((a, b) => {
-        const aDate = (a.post.record as any)?.createdAt || a.post.indexedAt;
-        const bDate = (b.post.record as any)?.createdAt || b.post.indexedAt;
+      const sorted = allPosts.sort((a: any, b: any) => {
+        const aDate = a.post?.record?.createdAt || a.post?.indexedAt;
+        const bDate = b.post?.record?.createdAt || b.post?.indexedAt;
         return new Date(bDate).getTime() - new Date(aDate).getTime();
       });
       
