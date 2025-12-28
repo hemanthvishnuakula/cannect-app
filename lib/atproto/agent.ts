@@ -859,25 +859,4 @@ export async function reportAccount(
   });
 }
 
-/**
- * List all repository DIDs from the Cannect PDS
- * Used for building the local feed directly from our PDS
- */
-export async function listPdsRepos(limit: number = 100): Promise<string[]> {
-  try {
-    const response = await fetch(`${PDS_SERVICE}/xrpc/com.atproto.sync.listRepos?limit=${limit}`);
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
-    }
-    const data = await response.json();
-    // Each repo has { did, head, rev, active, status }
-    return (data.repos || [])
-      .filter((repo: any) => repo.active !== false)
-      .map((repo: any) => repo.did);
-  } catch (err) {
-    console.error('[Agent] listPdsRepos error:', err);
-    return [];
-  }
-}
-
 export { RichText };
