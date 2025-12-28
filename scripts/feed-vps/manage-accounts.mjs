@@ -5,6 +5,8 @@
  *   node manage-accounts.mjs add <handle>      - Add and verify a new account
  *   node manage-accounts.mjs review            - Review all current accounts
  *   node manage-accounts.mjs discover          - Discover new accounts from follows
+ *   node manage-accounts.mjs search            - Search for cannabis posts, add authors to pending
+ *   node manage-accounts.mjs pending           - Review pending accounts from search
  *   node manage-accounts.mjs export            - Export verified accounts as JS array
  */
 
@@ -276,6 +278,287 @@ function exportAccounts() {
   console.log('];');
 }
 
+// Search for cannabis posts and add authors to pending
+async function searchCannabis() {
+  const data = loadAccounts();
+  
+  console.log(`\n🔍 Discovering cannabis accounts via multiple methods...\n`);
+  
+  const foundAuthors = new Map(); // did -> { handle, displayName, postCount, examples, source }
+  
+  // Method 1: Get more follows from verified accounts (deeper crawl)
+  console.log('📡 Method 1: Deep crawl of verified account follows...\n');
+  
+  const verifiedHandles = data.verified.map(a => a.handle);
+  
+  for (const handle of verifiedHandles.slice(0, 15)) {
+    console.log(`  Fetching follows for ${handle}...`);
+    
+    try {
+      let cursor = null;
+      let followCount = 0;
+      
+      // Get up to 200 follows per account
+      for (let i = 0; i < 2; i++) {
+        const url = `https://public.api.bsky.app/xrpc/app.bsky.graph.getFollows?actor=${handle}&limit=100${cursor ? `&cursor=${cursor}` : ''}`;
+        const res = await fetch(url);
+        if (!res.ok) break;
+        
+        const { follows, cursor: nextCursor } = await res.json();
+        
+        for (const follow of follows) {
+          // Skip already known
+          if (data.verified.find(a => a.handle === follow.handle)) continue;
+          if (data.rejected.find(a => a.handle === follow.handle)) continue;
+          if (data.pending?.find(a => a.handle === follow.handle)) continue;
+          
+          const existing = foundAuthors.get(follow.did) || {
+            handle: follow.handle,
+            did: follow.did,
+            displayName: follow.displayName || follow.handle,
+            bio: follow.description || '',
+            followedBy: [],
+            bioMatch: false,
+            source: 'follows'
+          };
+          
+          existing.followedBy.push(handle);
+          
+          // Check if bio mentions cannabis
+          if (countCannabisKeywords(follow.description || '') > 0) {
+            existing.bioMatch = true;
+          }
+          
+          foundAuthors.set(follow.did, existing);
+          followCount++;
+        }
+        
+        cursor = nextCursor;
+        if (!cursor) break;
+        await new Promise(r => setTimeout(r, 100));
+      }
+      
+      console.log(`    Found ${followCount} follows`);
+      await new Promise(r => setTimeout(r, 150));
+    } catch (e) {
+      console.log(`    Error: ${e.message}`);
+    }
+  }
+  
+  // Method 2: Check who interacts with verified accounts (likes their posts)
+  console.log('\n📡 Method 2: Checking who likes verified accounts\' posts...\n');
+  
+  for (const handle of verifiedHandles.slice(0, 8)) {
+    console.log(`  Checking likers for ${handle}...`);
+    
+    try {
+      // Get recent posts
+      const feedRes = await fetch(`https://public.api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed?actor=${handle}&limit=5`);
+      if (!feedRes.ok) continue;
+      
+      const { feed } = await feedRes.json();
+      
+      for (const item of feed.slice(0, 3)) {
+        const postUri = item.post.uri;
+        
+        // Get likes for this post
+        const likesRes = await fetch(`https://public.api.bsky.app/xrpc/app.bsky.feed.getLikes?uri=${encodeURIComponent(postUri)}&limit=50`);
+        if (!likesRes.ok) continue;
+        
+        const { likes } = await likesRes.json();
+        
+        for (const like of likes || []) {
+          const actor = like.actor;
+          
+          // Skip already known
+          if (data.verified.find(a => a.handle === actor.handle)) continue;
+          if (data.rejected.find(a => a.handle === actor.handle)) continue;
+          if (data.pending?.find(a => a.handle === actor.handle)) continue;
+          
+          const existing = foundAuthors.get(actor.did) || {
+            handle: actor.handle,
+            did: actor.did,
+            displayName: actor.displayName || actor.handle,
+            bio: actor.description || '',
+            followedBy: [],
+            likedPosts: 0,
+            bioMatch: false,
+            source: 'likes'
+          };
+          
+          existing.likedPosts = (existing.likedPosts || 0) + 1;
+          
+          if (countCannabisKeywords(actor.description || '') > 0) {
+            existing.bioMatch = true;
+          }
+          
+          foundAuthors.set(actor.did, existing);
+        }
+        
+        await new Promise(r => setTimeout(r, 100));
+      }
+    } catch (e) {
+      console.log(`    Error: ${e.message}`);
+    }
+    
+    await new Promise(r => setTimeout(r, 200));
+  }
+  
+  // Score and filter candidates
+  const candidates = [];
+  
+  for (const [did, author] of foundAuthors) {
+    let score = 0;
+    const reasons = [];
+    
+    // Followed by multiple verified accounts
+    if (author.followedBy?.length >= 3) {
+      score += author.followedBy.length * 2;
+      reasons.push(`followed by ${author.followedBy.length} verified`);
+    } else if (author.followedBy?.length >= 2) {
+      score += author.followedBy.length;
+      reasons.push(`followed by ${author.followedBy.length} verified`);
+    }
+    
+    // Liked multiple cannabis posts
+    if (author.likedPosts >= 3) {
+      score += author.likedPosts;
+      reasons.push(`liked ${author.likedPosts} cannabis posts`);
+    }
+    
+    // Bio mentions cannabis
+    if (author.bioMatch) {
+      score += 5;
+      reasons.push('cannabis in bio');
+    }
+    
+    // Handle contains cannabis terms
+    const handleLower = author.handle.toLowerCase();
+    if (CANNABIS_KEYWORDS.some(t => handleLower.includes(t))) {
+      score += 3;
+      reasons.push('handle match');
+    }
+    
+    if (score >= 3) {
+      candidates.push({
+        ...author,
+        score,
+        reasons
+      });
+    }
+  }
+  
+  // Sort by score
+  candidates.sort((a, b) => b.score - a.score);
+  
+  console.log(`\n${'═'.repeat(60)}`);
+  console.log(`\n📊 Found ${candidates.length} potential accounts\n`);
+  
+  // Show top candidates
+  for (const c of candidates.slice(0, 25)) {
+    console.log(`\nScore ${c.score} │ ${c.handle}`);
+    console.log(`  ${c.displayName}`);
+    console.log(`  ${c.reasons.join(', ')}`);
+    if (c.bio) {
+      console.log(`  Bio: "${c.bio.slice(0, 60)}${c.bio.length > 60 ? '...' : ''}"`);
+    }
+  }
+  
+  // Add to pending
+  if (!data.pending) data.pending = [];
+  
+  let added = 0;
+  for (const c of candidates) {
+    if (!data.pending.find(p => p.handle === c.handle)) {
+      data.pending.push({
+        handle: c.handle,
+        did: c.did,
+        displayName: c.displayName,
+        bio: c.bio,
+        score: c.score,
+        reasons: c.reasons,
+        addedAt: new Date().toISOString()
+      });
+      added++;
+    }
+  }
+  
+  saveAccounts(data);
+  
+  console.log(`\n${'═'.repeat(60)}`);
+  console.log(`\n✅ Added ${added} new accounts to pending list`);
+  console.log(`📋 Total pending: ${data.pending.length}`);
+  console.log(`\nRun 'node manage-accounts.mjs pending' to review and verify them`);
+}
+
+// Review pending accounts
+async function reviewPending() {
+  const data = loadAccounts();
+  
+  if (!data.pending || data.pending.length === 0) {
+    console.log('\n📭 No pending accounts to review');
+    console.log('Run "node manage-accounts.mjs search" to find candidates');
+    return;
+  }
+  
+  console.log(`\n📋 Reviewing ${data.pending.length} pending accounts...\n`);
+  
+  const toVerify = [];
+  const toReject = [];
+  
+  for (const pending of data.pending) {
+    const result = await analyzeAccount(pending.handle);
+    
+    if (!result) {
+      toReject.push(pending);
+      continue;
+    }
+    
+    if (result.percentage >= MIN_CANNABIS_PERCENTAGE) {
+      toVerify.push(result);
+      console.log(`  → Will VERIFY`);
+    } else {
+      result.searchPostCount = pending.searchPostCount;
+      result.searchTerms = pending.searchTerms;
+      toReject.push(result);
+      console.log(`  → Will REJECT`);
+    }
+    
+    await new Promise(r => setTimeout(r, 200));
+  }
+  
+  // Move verified
+  for (const v of toVerify) {
+    if (!data.verified.find(a => a.handle === v.handle)) {
+      data.verified.push(v);
+    }
+  }
+  
+  // Move rejected
+  for (const r of toReject) {
+    if (!data.rejected.find(a => a.handle === r.handle)) {
+      data.rejected.push(r);
+    }
+  }
+  
+  // Clear pending
+  data.pending = [];
+  
+  saveAccounts(data);
+  
+  console.log(`\n${'═'.repeat(60)}`);
+  console.log(`\n✅ Verified: ${toVerify.length} accounts added`);
+  console.log(`❌ Rejected: ${toReject.length} accounts`);
+  console.log(`📊 Total verified: ${data.verified.length}`);
+  
+  if (toVerify.length > 0) {
+    console.log(`\nNew verified accounts:`);
+    for (const v of toVerify) {
+      console.log(`  + ${v.handle} (${v.percentage}%)`);
+    }
+  }
+}
+
 // Initialize with current accounts from server.js
 async function initFromServer() {
   const data = loadAccounts();
@@ -348,6 +631,14 @@ switch (command) {
     await discover();
     break;
     
+  case 'search':
+    await searchCannabis();
+    break;
+    
+  case 'pending':
+    await reviewPending();
+    break;
+    
   case 'export':
     exportAccounts();
     break;
@@ -364,12 +655,19 @@ Commands:
   add <handle>   Add and verify a new account
   review         Review all current accounts  
   discover       Discover new accounts from follows
+  search         Search for cannabis posts, add authors to pending
+  pending        Review pending accounts (verify or reject)
   export         Export verified accounts as JS array
   init           Initialize from current server.js accounts
 
+Workflow:
+  1. node manage-accounts.mjs search    # Find accounts posting about cannabis
+  2. node manage-accounts.mjs pending   # Review and verify them
+  3. node manage-accounts.mjs export    # Get updated list for server.js
+
 Examples:
+  node manage-accounts.mjs search
   node manage-accounts.mjs add weedjesus.bsky.social
-  node manage-accounts.mjs discover
   node manage-accounts.mjs review
 `);
 }
