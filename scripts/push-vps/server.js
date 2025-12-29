@@ -2,7 +2,12 @@
  * Cannect Push Notification Server
  *
  * Handles web push notifications for the Cannect PWA.
- * Receives subscription registrations and sends push notifications.
+ * Listens to Jetstream for likes, replies, follows, mentions.
+ *
+ * Features:
+ * - Jetstream WebSocket for real-time event monitoring
+ * - Web push notifications via VAPID
+ * - SQLite for subscription storage
  *
  * Endpoints:
  * - POST /subscribe - Register push subscription
@@ -15,6 +20,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const webpush = require('web-push');
+const WebSocket = require('ws');
 const Database = require('better-sqlite3');
 const path = require('path');
 
@@ -272,10 +278,241 @@ app.post('/broadcast', async (req, res) => {
 });
 
 // ============================================
+// Jetstream - Real-time Notification Triggers
+// ============================================
+
+// Jetstream URL - subscribe to likes, reposts, follows, and posts (for replies/mentions)
+const JETSTREAM_URL =
+  'wss://jetstream2.us-east.bsky.network/subscribe?wantedCollections=app.bsky.feed.like&wantedCollections=app.bsky.feed.repost&wantedCollections=app.bsky.graph.follow&wantedCollections=app.bsky.feed.post';
+
+let ws = null;
+let reconnectAttempts = 0;
+let stats = { processed: 0, notified: 0 };
+
+// Get all subscribed DIDs for quick lookup
+function getSubscribedDIDs() {
+  const rows = db.prepare('SELECT DISTINCT did FROM subscriptions').all();
+  return new Set(rows.map((r) => r.did));
+}
+
+// Send push notification to a user
+async function sendPushToUser(did, title, body, url, tag) {
+  const subscriptions = db.prepare('SELECT * FROM subscriptions WHERE did = ?').all(did);
+
+  if (subscriptions.length === 0) return 0;
+
+  const payload = JSON.stringify({
+    title,
+    body,
+    icon: '/icon-192.png',
+    badge: '/badge-72.png',
+    url: url || '/',
+    tag: tag || 'notification',
+  });
+
+  let sent = 0;
+  for (const sub of subscriptions) {
+    try {
+      await webpush.sendNotification(
+        {
+          endpoint: sub.endpoint,
+          keys: { p256dh: sub.keys_p256dh, auth: sub.keys_auth },
+        },
+        payload
+      );
+      sent++;
+      db.prepare('UPDATE subscriptions SET last_used = CURRENT_TIMESTAMP WHERE id = ?').run(sub.id);
+    } catch (error) {
+      if (error.statusCode === 404 || error.statusCode === 410) {
+        db.prepare('DELETE FROM subscriptions WHERE id = ?').run(sub.id);
+        console.log(`[Push] Removed expired subscription for ${did.substring(0, 20)}...`);
+      }
+    }
+  }
+  return sent;
+}
+
+// Extract DID from AT URI (at://did:plc:xxx/collection/rkey)
+function extractDIDFromURI(uri) {
+  if (!uri || !uri.startsWith('at://')) return null;
+  const parts = uri.split('/');
+  return parts[2] || null;
+}
+
+// Handle Jetstream events
+async function handleJetstreamEvent(event) {
+  if (event.kind !== 'commit') return;
+
+  const { commit, did: actorDid } = event;
+  if (!commit || commit.operation !== 'create') return;
+
+  stats.processed++;
+
+  // Get set of subscribed users (cache could be added for performance)
+  const subscribedDIDs = getSubscribedDIDs();
+
+  // Handle likes
+  if (commit.collection === 'app.bsky.feed.like') {
+    const subjectUri = commit.record?.subject?.uri;
+    const targetDid = extractDIDFromURI(subjectUri);
+
+    // Check if the post author is subscribed
+    if (targetDid && subscribedDIDs.has(targetDid) && targetDid !== actorDid) {
+      const sent = await sendPushToUser(
+        targetDid,
+        '❤️ New Like',
+        'Someone liked your post',
+        `/post/${encodeURIComponent(subjectUri)}`,
+        `like-${actorDid}`
+      );
+      if (sent > 0) {
+        stats.notified++;
+        console.log(`[Push] Like notification sent to ${targetDid.substring(0, 25)}...`);
+      }
+    }
+  }
+
+  // Handle reposts
+  if (commit.collection === 'app.bsky.feed.repost') {
+    const subjectUri = commit.record?.subject?.uri;
+    const targetDid = extractDIDFromURI(subjectUri);
+
+    if (targetDid && subscribedDIDs.has(targetDid) && targetDid !== actorDid) {
+      const sent = await sendPushToUser(
+        targetDid,
+        '🔁 New Repost',
+        'Someone reposted your post',
+        `/post/${encodeURIComponent(subjectUri)}`,
+        `repost-${actorDid}`
+      );
+      if (sent > 0) {
+        stats.notified++;
+        console.log(`[Push] Repost notification sent to ${targetDid.substring(0, 25)}...`);
+      }
+    }
+  }
+
+  // Handle follows
+  if (commit.collection === 'app.bsky.graph.follow') {
+    const targetDid = commit.record?.subject;
+
+    if (targetDid && subscribedDIDs.has(targetDid) && targetDid !== actorDid) {
+      const sent = await sendPushToUser(
+        targetDid,
+        '👤 New Follower',
+        'Someone started following you',
+        '/notifications',
+        `follow-${actorDid}`
+      );
+      if (sent > 0) {
+        stats.notified++;
+        console.log(`[Push] Follow notification sent to ${targetDid.substring(0, 25)}...`);
+      }
+    }
+  }
+
+  // Handle replies
+  if (commit.collection === 'app.bsky.feed.post') {
+    const record = commit.record;
+
+    // Check if this is a reply
+    if (record?.reply?.parent?.uri) {
+      const parentUri = record.reply.parent.uri;
+      const targetDid = extractDIDFromURI(parentUri);
+
+      if (targetDid && subscribedDIDs.has(targetDid) && targetDid !== actorDid) {
+        const postUri = `at://${actorDid}/${commit.collection}/${commit.rkey}`;
+        const sent = await sendPushToUser(
+          targetDid,
+          '💬 New Reply',
+          record.text?.substring(0, 100) || 'Someone replied to your post',
+          `/post/${encodeURIComponent(postUri)}`,
+          `reply-${actorDid}-${commit.rkey}`
+        );
+        if (sent > 0) {
+          stats.notified++;
+          console.log(`[Push] Reply notification sent to ${targetDid.substring(0, 25)}...`);
+        }
+      }
+    }
+
+    // Check for mentions in facets
+    if (record?.facets) {
+      for (const facet of record.facets) {
+        for (const feature of facet.features || []) {
+          if (feature.$type === 'app.bsky.richtext.facet#mention') {
+            const mentionedDid = feature.did;
+
+            if (mentionedDid && subscribedDIDs.has(mentionedDid) && mentionedDid !== actorDid) {
+              const postUri = `at://${actorDid}/${commit.collection}/${commit.rkey}`;
+              const sent = await sendPushToUser(
+                mentionedDid,
+                '📣 You were mentioned',
+                record.text?.substring(0, 100) || 'Someone mentioned you',
+                `/post/${encodeURIComponent(postUri)}`,
+                `mention-${actorDid}-${commit.rkey}`
+              );
+              if (sent > 0) {
+                stats.notified++;
+                console.log(`[Push] Mention notification sent to ${mentionedDid.substring(0, 25)}...`);
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // Log stats periodically
+  if (stats.processed % 10000 === 0) {
+    console.log(`[Stats] Processed: ${stats.processed}, Notified: ${stats.notified}`);
+  }
+}
+
+function connectJetstream() {
+  console.log('[Jetstream] Connecting...');
+
+  ws = new WebSocket(JETSTREAM_URL);
+
+  ws.on('open', () => {
+    console.log('[Jetstream] Connected!');
+    reconnectAttempts = 0;
+  });
+
+  ws.on('message', (data) => {
+    try {
+      const event = JSON.parse(data.toString());
+      handleJetstreamEvent(event);
+    } catch (err) {
+      // Ignore parse errors
+    }
+  });
+
+  ws.on('close', () => {
+    console.log('[Jetstream] Connection closed, reconnecting...');
+    scheduleReconnect();
+  });
+
+  ws.on('error', (err) => {
+    console.error('[Jetstream] Error:', err.message);
+  });
+}
+
+function scheduleReconnect() {
+  reconnectAttempts++;
+  const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000);
+  console.log(`[Jetstream] Reconnecting in ${delay}ms...`);
+  setTimeout(connectJetstream, delay);
+}
+
+// ============================================
 // Start Server
 // ============================================
 
 app.listen(PORT, () => {
   console.log(`[Server] Push server running on port ${PORT}`);
   console.log(`[Server] VAPID public key: ${VAPID_PUBLIC_KEY.substring(0, 20)}...`);
+
+  // Start Jetstream connection
+  connectJetstream();
 });
