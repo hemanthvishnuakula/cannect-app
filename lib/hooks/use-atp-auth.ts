@@ -7,6 +7,7 @@
 
 import { useEffect, useCallback } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import * as Sentry from '@sentry/react-native';
 import { useAuthStore } from '@/lib/stores/auth-store-atp';
 import * as atproto from '@/lib/atproto/agent';
 import { queryKeys } from '@/lib/query-client';
@@ -102,6 +103,12 @@ export function useAuth() {
         followsCount: profileData.followsCount,
         postsCount: profileData.postsCount,
       });
+      
+      // 🔐 Set Sentry user context for error tracking
+      Sentry.setUser({
+        id: profileData.did,
+        username: profileData.handle,
+      });
     }
   }, [profileData, setProfile]);
 
@@ -109,6 +116,8 @@ export function useAuth() {
     await atproto.logout();
     clear();
     queryClient.clear();
+    // 🔐 Clear Sentry user context on logout
+    Sentry.setUser(null);
   }, [clear, queryClient]);
 
   return {

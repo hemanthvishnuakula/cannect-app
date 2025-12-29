@@ -5,6 +5,21 @@ import { LogBox, Platform, View, ActivityIndicator } from "react-native";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { QueryClientProvider } from "@tanstack/react-query";
+import * as Sentry from "@sentry/react-native";
+
+// 🔒 Initialize Sentry for error tracking (before any other code runs)
+Sentry.init({
+  dsn: "https://1db8f227056f21591f183ff12ff39da0@o4510392298766336.ingest.us.sentry.io/4510616490606592",
+  enabled: !__DEV__, // Only track errors in production
+  environment: __DEV__ ? "development" : "production",
+  // Performance monitoring (sample 20% of transactions)
+  tracesSampleRate: 0.2,
+  // Attach user info when available
+  beforeSend(event) {
+    // Scrub sensitive data if needed
+    return event;
+  },
+});
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import * as SplashScreen from "expo-splash-screen";

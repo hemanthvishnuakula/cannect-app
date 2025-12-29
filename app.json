@@ -17,7 +17,9 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.cannect.app",
       "infoPlist": {
-        "UIBackgroundModes": ["remote-notification"]
+        "UIBackgroundModes": [
+          "remote-notification"
+        ]
       }
     },
     "android": {
@@ -26,7 +28,10 @@
         "backgroundColor": "#0A0A0A"
       },
       "package": "com.cannect.app",
-      "permissions": ["RECEIVE_BOOT_COMPLETED", "VIBRATE"]
+      "permissions": [
+        "RECEIVE_BOOT_COMPLETED",
+        "VIBRATE"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -51,7 +56,8 @@
         {
           "color": "#10B981"
         }
-      ]
+      ],
+      "@sentry/react-native"
     ],
     "experiments": {
       "typedRoutes": true
