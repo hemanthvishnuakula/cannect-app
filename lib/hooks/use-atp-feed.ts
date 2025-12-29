@@ -2,10 +2,14 @@
  * AT Protocol Feed & Posts Hooks
  *
  * Pure AT Protocol - no Supabase.
- * All data comes directly from the PDS.
+ * All data comes directly from the PDS and Feed Generators.
  *
- * Global feed uses curated cannabis accounts fetched via AT Protocol
- * to ensure proper viewer state for optimistic updates.
+ * Feed Architecture:
+ * - Global: Cannabis Community feed from feed.cannect.space (curated accounts)
+ * - Local: Cannect Network feed from feed.cannect.space (PDS users)
+ * - Following: Bluesky's official getTimeline API
+ *
+ * All feeds use Bluesky's hydration layer for proper viewer state.
  */
 
 import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
@@ -18,33 +22,6 @@ import type { AppBskyFeedDefs } from '@atproto/api';
 export type FeedViewPost = AppBskyFeedDefs.FeedViewPost;
 export type PostView = AppBskyFeedDefs.PostView;
 export type ThreadViewPost = AppBskyFeedDefs.ThreadViewPost;
-
-// Feed Service URL - still used for discovery/backup
-const FEED_SERVICE_URL = 'https://feed.cannect.space';
-
-/**
- * Top cannabis accounts for Global feed
- * These are the most active accounts, fetched in parallel for efficiency
- * Full list: 137 accounts in verified-accounts.json
- */
-const GLOBAL_FEED_ACCOUNTS = [
-  // High confidence, active accounts (100% cannabis posts)
-  'normlorg.bsky.social',
-  'weedjesus.bsky.social',
-  'potculturemagazine.com',
-  'mimjnews.bsky.social',
-  'headynj.bsky.social',
-  'mpp.org',
-  'weednews.bsky.social',
-  'cannabistech.com',
-  'chrisgoldstein.bsky.social',
-  'dannydanko.bsky.social',
-  'grinspoon.bsky.social',
-  'oaksterdam.bsky.social',
-  'cacannabisdept.bsky.social',
-  'canorml.bsky.social',
-  'realjohnnygreen.bsky.social',
-];
 
 /**
  * Content moderation - filter out NSFW/harmful content
@@ -221,71 +198,12 @@ export function useTimeline() {
 }
 
 /**
- * Helper: Fetch from Feed Service and convert to FeedViewPost format
- * The Feed Service returns a simplified format, we wrap it for compatibility
- */
-async function fetchFromFeedService(
-  endpoint: 'local' | 'global',
-  cursor?: string,
-  limit: number = 50
-): Promise<{ feed: FeedViewPost[]; cursor: string | undefined }> {
-  const url = new URL(`${FEED_SERVICE_URL}/feed/${endpoint}`);
-  url.searchParams.set('limit', String(limit));
-  if (cursor) {
-    url.searchParams.set('cursor', cursor);
-  }
-
-  try {
-    const response = await fetch(url.toString());
-
-    if (!response.ok) {
-      throw new Error(`Feed service error: ${response.status}`);
-    }
-
-    const data = await response.json();
-
-    // Convert Feed Service format to FeedViewPost format expected by the app
-    const feed: FeedViewPost[] = data.posts.map((post: any) => ({
-      post: {
-        uri: post.uri,
-        cid: post.cid,
-        author: {
-          did: post.author.did,
-          handle: post.author.handle,
-          displayName: post.author.displayName || post.author.handle,
-          avatar: post.author.avatar,
-          labels: [],
-        },
-        record: {
-          $type: 'app.bsky.feed.post',
-          text: post.record.text,
-          createdAt: post.record.createdAt,
-        },
-        embed: post.embed,
-        likeCount: post.likeCount || 0,
-        repostCount: post.repostCount || 0,
-        replyCount: post.replyCount || 0,
-        indexedAt: post.indexedAt,
-        labels: [],
-      },
-      // No reply context from feed service (yet)
-      reply: undefined,
-    }));
-
-    return {
-      feed,
-      cursor: data.cursor,
-    };
-  } catch (error: any) {
-    throw error;
-  }
-}
-
-/**
- * Get Global feed - aggregated cannabis content from curated accounts
+ * Get Global feed - Cannabis Community content from Feed Generator
  *
- * Fetches from top 15 cannabis accounts in parallel via AT Protocol.
- * Returns proper viewer state (like/repost) for optimistic updates.
+ * Uses our feed generator at feed.cannect.space which:
+ * - Indexes posts from 100+ curated cannabis accounts via Jetstream
+ * - Returns proper viewer state (like/repost) through Bluesky's hydration
+ * - Single API call - Bluesky handles everything
  */
 export function useGlobalFeed() {
   const { isAuthenticated } = useAuthStore();
@@ -293,73 +211,22 @@ export function useGlobalFeed() {
   return useInfiniteQuery({
     queryKey: ['globalFeed'],
     queryFn: async ({ pageParam }) => {
-      // Parse cursor: "accountIndex:postCursor" or undefined for fresh load
-      let startIndex = 0;
-      let accountCursor: string | undefined;
-      
-      if (pageParam) {
-        const [indexStr, cursor] = pageParam.split(':');
-        startIndex = parseInt(indexStr, 10) || 0;
-        accountCursor = cursor || undefined;
-      }
-
-      // Fetch from multiple accounts in parallel (5 at a time for efficiency)
-      const batchSize = 5;
-      const postsPerAccount = 10;
-      const accountsToFetch = GLOBAL_FEED_ACCOUNTS.slice(startIndex, startIndex + batchSize);
-      
-      if (accountsToFetch.length === 0) {
-        return { feed: [], cursor: undefined };
-      }
-
-      const feedPromises = accountsToFetch.map(async (handle) => {
-        try {
-          const result = await atproto.getAuthorFeed(handle, undefined, postsPerAccount, 'posts_no_replies');
-          return result.data.feed;
-        } catch (error) {
-          console.warn(`[GlobalFeed] Failed to fetch ${handle}:`, error);
-          return [];
-        }
-      });
-
-      const feeds = await Promise.all(feedPromises);
-      
-      // Flatten and merge all posts
-      const allPosts = feeds.flat();
-      
-      // Sort by time (newest first)
-      allPosts.sort((a, b) => {
-        const timeA = new Date((a.post.record as any).createdAt).getTime();
-        const timeB = new Date((b.post.record as any).createdAt).getTime();
-        return timeB - timeA;
-      });
+      // Use AT Protocol feed generator - includes viewer state!
+      const result = await atproto.getCannabisFeed(pageParam, 50);
 
       // Apply content moderation filter
-      const moderated = filterFeedForModeration(allPosts);
-
-      // Dedupe by URI (in case of reposts)
-      const seen = new Set<string>();
-      const deduped = moderated.filter((item) => {
-        if (seen.has(item.post.uri)) return false;
-        seen.add(item.post.uri);
-        return true;
-      });
-
-      // Build next cursor if there are more accounts to fetch
-      const nextIndex = startIndex + batchSize;
-      const hasMore = nextIndex < GLOBAL_FEED_ACCOUNTS.length;
-      const nextCursor = hasMore ? `${nextIndex}:` : undefined;
+      const moderated = filterFeedForModeration(result.data.feed);
 
       return {
-        feed: deduped,
-        cursor: nextCursor,
+        feed: moderated,
+        cursor: result.data.cursor,
       };
     },
     getNextPageParam: (lastPage) => lastPage.cursor,
     initialPageParam: undefined as string | undefined,
-    maxPages: 4, // 4 pages × 5 accounts × 10 posts = ~200 posts max
+    maxPages: 8, // 8 pages × 50 posts = 400 posts max
     enabled: isAuthenticated,
-    staleTime: 1000 * 60 * 2, // 2 minutes
+    staleTime: 1000 * 60, // 1 minute
   });
 }
 

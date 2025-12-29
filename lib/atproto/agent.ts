@@ -690,20 +690,54 @@ export async function getUnreadCount() {
 }
 
 /**
- * Cannect Feed Generator URI
- * This is the official Cannect cannabis feed hosted at feed.cannect.space
- * Only accessible to *.cannect.space users
+ * Feed Generator URIs
+ * These are official Cannect feeds hosted at feed.cannect.space
  */
 const CANNECT_FEED_URI = 'at://did:plc:ubkp6dfvxif7rmexyat5np6e/app.bsky.feed.generator/cannect';
+const CANNABIS_FEED_URI = 'at://did:plc:ubkp6dfvxif7rmexyat5np6e/app.bsky.feed.generator/cannabis';
 const CANNECT_FOLLOWING_URI =
   'at://did:plc:ubkp6dfvxif7rmexyat5np6e/app.bsky.feed.generator/following';
 
 /**
- * Get the Cannect feed from our feed generator
+ * Get the Cannabis Community feed (Global)
+ *
+ * Uses the Cannect Feed Generator which:
+ * - Indexes posts from 100+ curated cannabis accounts
+ * - Returns proper viewer state via Bluesky's hydration
+ */
+export async function getCannabisFeed(cursor?: string, limit = 50) {
+  const bskyAgent = getAgent();
+
+  try {
+    const result = await bskyAgent.app.bsky.feed.getFeed({
+      feed: CANNABIS_FEED_URI,
+      cursor,
+      limit,
+    });
+
+    return {
+      data: {
+        feed: result.data.feed,
+        cursor: result.data.cursor,
+      },
+    };
+  } catch (error: any) {
+    console.error('[Cannabis Feed] Failed to load feed:', error?.message || error);
+    return {
+      data: {
+        feed: [],
+        cursor: undefined,
+      },
+    };
+  }
+}
+
+/**
+ * Get the Cannect feed (Local) from our feed generator
  *
  * Uses the Cannect Feed Generator at feed.cannect.space which:
- * - Indexes cannabis-related posts from the entire AT Protocol network
- * - Only accessible to cannect.space users
+ * - Indexes posts from Cannect PDS users
+ * - Returns proper viewer state via Bluesky's hydration
  */
 export async function getCannectFeed(cursor?: string, limit = 30) {
   const bskyAgent = getAgent();
