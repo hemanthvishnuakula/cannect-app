@@ -1,12 +1,12 @@
 /**
  * AT Protocol Feed & Posts Hooks
  *
- * Pure AT Protocol - no Supabase.
- * All data comes directly from the PDS and Feed Generators.
+ * Pure AT Protocol - no Supabase, no custom VPS.
+ * All data comes directly from the PDS and Bluesky Feed Creator.
  *
  * Feed Architecture:
- * - Global: Cannabis Community feed from feed.cannect.space (curated accounts)
- * - Local: Cannect Network feed from feed.cannect.space (PDS users)
+ * - Global: Cannabis Community feed via Bluesky Feed Creator
+ * - Local: Cannect Network feed via Bluesky Feed Creator
  * - Following: Bluesky's official getTimeline API
  *
  * All feeds use Bluesky's hydration layer for proper viewer state.
@@ -198,10 +198,10 @@ export function useTimeline() {
 }
 
 /**
- * Get Global feed - Cannabis Community content from Feed Generator
+ * Get Global feed - Cannabis Community content from Bluesky Feed Creator
  *
- * Uses our feed generator at feed.cannect.space which:
- * - Indexes posts from 100+ curated cannabis accounts via Jetstream
+ * Uses Bluesky Feed Creator hosted feed which:
+ * - Indexes posts containing cannabis-related keywords
  * - Returns proper viewer state (like/repost) through Bluesky's hydration
  * - Single API call - Bluesky handles everything
  */
@@ -231,10 +231,10 @@ export function useGlobalFeed() {
 }
 
 /**
- * Get Cannect feed - posts from Cannect users via AT Protocol Feed Generator
+ * Get Cannect feed - posts from Cannect users via Bluesky Feed Creator
  *
- * Uses our feed generator at feed.cannect.space which:
- * - Indexes all Cannect PDS user posts via Jetstream
+ * Uses Bluesky Feed Creator which:
+ * - Indexes all Cannect PDS user posts
  * - Returns proper viewer state (like/repost) through Bluesky's hydration
  * - Supports optimistic updates because viewer state is accurate
  */
@@ -561,62 +561,31 @@ export function useSuggestedPosts() {
 }
 
 /**
- * Local Feed - Direct from Cannect PDS
- * Fetches posts from all users on cannect.space directly
- * No middleman VPS needed!
+ * Local Feed - Cannect users via Bluesky Feed Creator
+ * Fetches posts from Cannect PDS users
+ * Uses AT Protocol - no VPS needed!
  */
 export function useLocalFeed() {
   const { isAuthenticated } = useAuthStore();
 
-  // Use the VPS which hydrates posts with full profile data
-  const FEED_SERVICE_URL = 'https://feed.cannect.space';
-
   return useInfiniteQuery({
     queryKey: ['localFeed'],
     queryFn: async ({ pageParam }) => {
-      // First page or subsequent pages
-      const url = pageParam
-        ? `${FEED_SERVICE_URL}/feed/local/more`
-        : `${FEED_SERVICE_URL}/feed/local`;
+      // Use AT Protocol feed - once user creates the local feed in Bluesky Feed Creator,
+      // update CANNECT_FEED_URI in agent.ts to point to it
+      const result = await atproto.getCannectFeed(pageParam, 50);
 
-      const res = await fetch(url, {
-        method: pageParam ? 'POST' : 'GET',
-        headers: pageParam
-          ? {
-              'Content-Type': 'application/json',
-              'X-Session': pageParam,
-            }
-          : undefined,
-      });
-
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status}`);
-      }
-
-      const data = await res.json();
-
-      // Convert VPS format to FeedViewPost format
-      const feed = (data.posts || []).map((p: any) => ({
-        post: {
-          uri: p.uri,
-          cid: p.cid,
-          author: p.author,
-          record: p.record,
-          embed: p.embed,
-          likeCount: p.likeCount || 0,
-          repostCount: p.repostCount || 0,
-          replyCount: p.replyCount || 0,
-          indexedAt: p.indexedAt,
-        },
-      }));
+      // Apply content moderation filter
+      const moderated = filterFeedForModeration(result.data.feed);
 
       return {
-        feed,
-        cursor: data.hasMore ? data.session : undefined,
+        feed: moderated,
+        cursor: result.data.cursor,
       };
     },
     getNextPageParam: (lastPage) => lastPage.cursor,
-    initialPageParam: null as string | null,
+    initialPageParam: undefined as string | undefined,
+    maxPages: 8,
     enabled: isAuthenticated,
     staleTime: 1000 * 60, // 1 minute
     maxPages: 5, // Limit pages to prevent memory issues

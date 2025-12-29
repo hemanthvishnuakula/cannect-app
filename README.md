@@ -30,9 +30,9 @@ A decentralized cannabis social network built on the AT Protocol (Bluesky).
   - Post storage (AT Protocol records)
   - Media blob storage
   - Federation with Bluesky network
-- **Feed Generator** - `feed.cannect.space`
+- **Feed Generator** - Bluesky Feed Creator (hosted)
   - Curated cannabis content feed
-  - Aggregates posts from cannect.space users
+  - No self-hosted VPS needed
 - **AppView** - `api.bsky.app` (Bluesky infrastructure)
   - Global search & discovery
   - Notification routing
@@ -114,7 +114,7 @@ cannect/
 │   ├── manifest.json
 │   └── sw.js              # Service worker
 ├── scripts/
-│   └── feed-generator/    # Bluesky Feed Generator (VPS)
+│   └── push-vps/          # Web push notification server
 └── tailwind.config.js     # NativeWind theme
 ```
 
@@ -204,4 +204,4 @@ MIT License - feel free to use this for your own projects!
 
 Built with 💚 on the AT Protocol
 
-**Version:** 1.1.0 | **PDS:** cannect.space | **Feed:** feed.cannect.space
+**Version:** 2.0.0 | **PDS:** cannect.space | **Feeds:** Bluesky Feed Creator

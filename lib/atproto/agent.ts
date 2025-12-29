@@ -732,9 +732,9 @@ export async function getCannabisFeed(cursor?: string, limit = 50) {
 }
 
 /**
- * Get the Cannect feed (Local) from our feed generator
+ * Get the Cannect feed (Local) from Bluesky Feed Creator
  *
- * Uses the Cannect Feed Generator at feed.cannect.space which:
+ * Uses Bluesky Feed Creator which:
  * - Indexes posts from Cannect PDS users
  * - Returns proper viewer state via Bluesky's hydration
  */
