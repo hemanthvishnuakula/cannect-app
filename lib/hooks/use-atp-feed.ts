@@ -4,8 +4,8 @@
  * Pure AT Protocol - no Supabase.
  * All data comes directly from the PDS.
  *
- * Feed aggregation is done server-side by the Cannect Feed Service
- * (feed.cannect.space) to reduce API calls from 100+ to just 1-2.
+ * Global feed uses curated cannabis accounts fetched via AT Protocol
+ * to ensure proper viewer state for optimistic updates.
  */
 
 import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
@@ -19,8 +19,32 @@ export type FeedViewPost = AppBskyFeedDefs.FeedViewPost;
 export type PostView = AppBskyFeedDefs.PostView;
 export type ThreadViewPost = AppBskyFeedDefs.ThreadViewPost;
 
-// Feed Service URL - aggregates feeds server-side to reduce API calls
+// Feed Service URL - still used for discovery/backup
 const FEED_SERVICE_URL = 'https://feed.cannect.space';
+
+/**
+ * Top cannabis accounts for Global feed
+ * These are the most active accounts, fetched in parallel for efficiency
+ * Full list: 137 accounts in verified-accounts.json
+ */
+const GLOBAL_FEED_ACCOUNTS = [
+  // High confidence, active accounts (100% cannabis posts)
+  'normlorg.bsky.social',
+  'weedjesus.bsky.social',
+  'potculturemagazine.com',
+  'mimjnews.bsky.social',
+  'headynj.bsky.social',
+  'mpp.org',
+  'weednews.bsky.social',
+  'cannabistech.com',
+  'chrisgoldstein.bsky.social',
+  'dannydanko.bsky.social',
+  'grinspoon.bsky.social',
+  'oaksterdam.bsky.social',
+  'cacannabisdept.bsky.social',
+  'canorml.bsky.social',
+  'realjohnnygreen.bsky.social',
+];
 
 /**
  * Content moderation - filter out NSFW/harmful content
@@ -258,10 +282,10 @@ async function fetchFromFeedService(
 }
 
 /**
- * Get Global feed - aggregated cannabis content from Cannect Feed Service
+ * Get Global feed - aggregated cannabis content from curated accounts
  *
- * This is now a SINGLE API call instead of 14+ parallel feed requests.
- * The Feed Service aggregates content from curated cannabis accounts.
+ * Fetches from top 15 cannabis accounts in parallel via AT Protocol.
+ * Returns proper viewer state (like/repost) for optimistic updates.
  */
 export function useGlobalFeed() {
   const { isAuthenticated } = useAuthStore();
@@ -269,20 +293,71 @@ export function useGlobalFeed() {
   return useInfiniteQuery({
     queryKey: ['globalFeed'],
     queryFn: async ({ pageParam }) => {
-      // Single API call to Feed Service
-      const result = await fetchFromFeedService('global', pageParam, 50);
+      // Parse cursor: "accountIndex:postCursor" or undefined for fresh load
+      let startIndex = 0;
+      let accountCursor: string | undefined;
+      
+      if (pageParam) {
+        const [indexStr, cursor] = pageParam.split(':');
+        startIndex = parseInt(indexStr, 10) || 0;
+        accountCursor = cursor || undefined;
+      }
 
-      // Apply content moderation filter (in case of any slipped through)
-      const moderated = filterFeedForModeration(result.feed);
+      // Fetch from multiple accounts in parallel (5 at a time for efficiency)
+      const batchSize = 5;
+      const postsPerAccount = 10;
+      const accountsToFetch = GLOBAL_FEED_ACCOUNTS.slice(startIndex, startIndex + batchSize);
+      
+      if (accountsToFetch.length === 0) {
+        return { feed: [], cursor: undefined };
+      }
+
+      const feedPromises = accountsToFetch.map(async (handle) => {
+        try {
+          const result = await atproto.getAuthorFeed(handle, undefined, postsPerAccount, 'posts_no_replies');
+          return result.data.feed;
+        } catch (error) {
+          console.warn(`[GlobalFeed] Failed to fetch ${handle}:`, error);
+          return [];
+        }
+      });
+
+      const feeds = await Promise.all(feedPromises);
+      
+      // Flatten and merge all posts
+      const allPosts = feeds.flat();
+      
+      // Sort by time (newest first)
+      allPosts.sort((a, b) => {
+        const timeA = new Date((a.post.record as any).createdAt).getTime();
+        const timeB = new Date((b.post.record as any).createdAt).getTime();
+        return timeB - timeA;
+      });
+
+      // Apply content moderation filter
+      const moderated = filterFeedForModeration(allPosts);
+
+      // Dedupe by URI (in case of reposts)
+      const seen = new Set<string>();
+      const deduped = moderated.filter((item) => {
+        if (seen.has(item.post.uri)) return false;
+        seen.add(item.post.uri);
+        return true;
+      });
+
+      // Build next cursor if there are more accounts to fetch
+      const nextIndex = startIndex + batchSize;
+      const hasMore = nextIndex < GLOBAL_FEED_ACCOUNTS.length;
+      const nextCursor = hasMore ? `${nextIndex}:` : undefined;
 
       return {
-        feed: moderated,
-        cursor: result.cursor,
+        feed: deduped,
+        cursor: nextCursor,
       };
     },
     getNextPageParam: (lastPage) => lastPage.cursor,
     initialPageParam: undefined as string | undefined,
-    maxPages: 8, // Memory optimization: keep max 8 pages (400 posts) to prevent iOS PWA crashes
+    maxPages: 4, // 4 pages × 5 accounts × 10 posts = ~200 posts max
     enabled: isAuthenticated,
     staleTime: 1000 * 60 * 2, // 2 minutes
   });
