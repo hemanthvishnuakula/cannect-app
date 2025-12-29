@@ -27,19 +27,15 @@ export const FEED_KEYS = {
   thread: 'thread',
 } as const;
 
-// Keys that use setQueriesData (multiple queries with same prefix, or have variable parts)
-// timeline is here because query key is ['timeline', did]
-const MULTI_QUERY_KEYS = ['timeline', 'authorFeed', 'actorLikes', 'thread'];
-
-// Keys that use setQueryData (single query, no variable parts)
-const SINGLE_QUERY_KEYS = ['cannectFeed', 'globalFeed', 'localFeed'];
+// All infinite query feeds - use setQueriesData for partial matching
+const ALL_FEED_KEYS = ['timeline', 'cannectFeed', 'globalFeed', 'localFeed', 'authorFeed', 'actorLikes', 'thread'];
 
 /**
  * Cancel all outgoing queries to prevent race conditions
  */
 export async function cancelFeedQueries(
   queryClient: QueryClient,
-  keys: string[] = [...SINGLE_QUERY_KEYS, ...MULTI_QUERY_KEYS]
+  keys: string[] = ALL_FEED_KEYS
 ) {
   await Promise.all(keys.map((key) => queryClient.cancelQueries({ queryKey: [key] })));
 }
@@ -49,17 +45,13 @@ export async function cancelFeedQueries(
  */
 export function snapshotFeedState(
   queryClient: QueryClient,
-  keys: string[] = [...SINGLE_QUERY_KEYS, ...MULTI_QUERY_KEYS]
+  keys: string[] = ALL_FEED_KEYS
 ): Record<string, any> {
   const snapshots: Record<string, any> = {};
 
   keys.forEach((key) => {
-    if (MULTI_QUERY_KEYS.includes(key)) {
-      // Get all queries matching the prefix
-      snapshots[key] = queryClient.getQueriesData({ queryKey: [key] });
-    } else {
-      snapshots[key] = queryClient.getQueryData([key]);
-    }
+    // Use getQueriesData for all - handles both single and parameterized queries
+    snapshots[key] = queryClient.getQueriesData({ queryKey: [key] });
   });
 
   return snapshots;
@@ -70,13 +62,13 @@ export function snapshotFeedState(
  */
 export function restoreFeedState(queryClient: QueryClient, snapshots: Record<string, any>) {
   Object.entries(snapshots).forEach(([key, data]) => {
-    if (MULTI_QUERY_KEYS.includes(key) && Array.isArray(data)) {
-      // Restore multi-query data
+    if (Array.isArray(data)) {
+      // Restore all matching queries
       data.forEach(([queryKey, queryData]: [any, any]) => {
-        queryClient.setQueryData(queryKey, queryData);
+        if (queryData) {
+          queryClient.setQueryData(queryKey, queryData);
+        }
       });
-    } else if (data) {
-      queryClient.setQueryData([key], data);
     }
   });
 }
@@ -95,7 +87,7 @@ export function updatePostInFeeds(
 ) {
   const { removeFromLikes = false, skipKeys = [] } = options || {};
 
-  // Generic feed updater
+  // Generic feed updater for infinite queries
   const updateFeed = (old: any) => {
     if (!old?.pages) return old;
     return {
@@ -112,20 +104,13 @@ export function updatePostInFeeds(
     };
   };
 
-  // Update single-query feeds
-  SINGLE_QUERY_KEYS.filter((key) => !skipKeys.includes(key)).forEach((key) => {
-    queryClient.setQueryData([key], updateFeed);
-  });
-
-  // Update timeline (query key is ['timeline', did])
-  if (!skipKeys.includes('timeline')) {
-    queryClient.setQueriesData({ queryKey: ['timeline'] }, updateFeed);
-  }
-
-  // Update authorFeed (all user profile feeds)
-  if (!skipKeys.includes('authorFeed')) {
-    queryClient.setQueriesData({ queryKey: ['authorFeed'] }, updateFeed);
-  }
+  // Update all standard feeds using setQueriesData (handles infinite queries properly)
+  const feedKeysToUpdate = ['cannectFeed', 'globalFeed', 'localFeed', 'timeline', 'authorFeed'];
+  feedKeysToUpdate
+    .filter((key) => !skipKeys.includes(key))
+    .forEach((key) => {
+      queryClient.setQueriesData({ queryKey: [key] }, updateFeed);
+    });
 
   // Handle actorLikes - either update or remove
   if (!skipKeys.includes('actorLikes')) {
@@ -179,25 +164,13 @@ export function removePostFromFeeds(
     };
   };
 
-  // Remove from single-query feeds
-  SINGLE_QUERY_KEYS.filter((key) => !skipKeys.includes(key)).forEach((key) => {
-    queryClient.setQueryData([key], removeFromFeed);
-  });
-
-  // Remove from timeline (query key is ['timeline', did])
-  if (!skipKeys.includes('timeline')) {
-    queryClient.setQueriesData({ queryKey: ['timeline'] }, removeFromFeed);
-  }
-
-  // Remove from all authorFeed queries
-  if (!skipKeys.includes('authorFeed')) {
-    queryClient.setQueriesData({ queryKey: ['authorFeed'] }, removeFromFeed);
-  }
-
-  // Remove from actorLikes
-  if (!skipKeys.includes('actorLikes')) {
-    queryClient.setQueriesData({ queryKey: ['actorLikes'] }, removeFromFeed);
-  }
+  // Remove from all feeds using setQueriesData
+  const feedKeysToUpdate = ['cannectFeed', 'globalFeed', 'localFeed', 'timeline', 'authorFeed', 'actorLikes'];
+  feedKeysToUpdate
+    .filter((key) => !skipKeys.includes(key))
+    .forEach((key) => {
+      queryClient.setQueriesData({ queryKey: [key] }, removeFromFeed);
+    });
 }
 
 /**
@@ -213,7 +186,7 @@ export function invalidateFeeds(
 ) {
   const { exclude = [], only } = options || {};
 
-  const keysToInvalidate = only || [...SINGLE_QUERY_KEYS, 'authorFeed', 'thread'];
+  const keysToInvalidate = only || ALL_FEED_KEYS;
 
   keysToInvalidate
     .filter((key) => !exclude.includes(key))
