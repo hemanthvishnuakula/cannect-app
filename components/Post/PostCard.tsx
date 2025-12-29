@@ -4,6 +4,11 @@
  * Uses expo-image for fast cached images
  * Handles all embed types via PostEmbeds
  *
+ * Fixed height approach:
+ * - Text truncated to 4 lines max with "Show more" button
+ * - Minimum height of 120px to prevent layout collapse
+ * - Consistent sizing for FlashList virtualization
+ *
  * Used in:
  * - Feed tabs (Global, Local, Following)
  * - Profile tabs (Posts, Reposts, Replies, Likes)
@@ -11,6 +16,7 @@
  * - Thread replies
  */
 
+import { useState, useCallback } from 'react';
 import { View, Text, Pressable } from 'react-native';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
@@ -23,6 +29,11 @@ import type { AppBskyFeedDefs, AppBskyFeedPost } from '@atproto/api';
 
 type FeedViewPost = AppBskyFeedDefs.FeedViewPost;
 type PostView = AppBskyFeedDefs.PostView;
+
+// Maximum lines of text before truncation
+const MAX_TEXT_LINES = 4;
+// Approximate characters that fit in 4 lines (conservative estimate)
+const TRUNCATION_THRESHOLD = 200;
 
 interface PostCardProps {
   /** The feed item (includes reason for reposts) - preferred */
@@ -61,6 +72,7 @@ export function PostCard({
   showBorder = true,
 }: PostCardProps) {
   const router = useRouter();
+  const [isExpanded, setIsExpanded] = useState(false);
 
   // Support both FeedViewPost (item) and raw PostView (post)
   const post = item?.post ?? rawPost;
@@ -73,6 +85,17 @@ export function PostCard({
 
   const record = post.record as AppBskyFeedPost.Record;
   const author = post.author;
+
+  // Check if text needs truncation (simple heuristic based on length)
+  const textLength = record.text?.length || 0;
+  const needsTruncation = textLength > TRUNCATION_THRESHOLD;
+  const shouldTruncate = needsTruncation && !isExpanded;
+
+  // Handle "Show more" tap
+  const handleShowMore = useCallback((e: any) => {
+    e.stopPropagation();
+    setIsExpanded(true);
+  }, []);
 
   // Check if this is a repost (only possible with FeedViewPost)
   const isRepost = !!item?.reason && item.reason.$type === 'app.bsky.feed.defs#reasonRepost';
@@ -98,6 +121,7 @@ export function PostCard({
   return (
     <Pressable
       onPress={handlePress}
+      style={{ minHeight: 120 }}
       className={`px-4 py-3 active:bg-surface-elevated/50 ${showBorder ? 'border-b border-border' : ''}`}
     >
       {/* Repost indicator */}
@@ -166,7 +190,19 @@ export function PostCard({
           </Pressable>
 
           {/* Post text with facets (mentions, links, hashtags) */}
-          <RichText text={record.text} facets={record.facets} className="mt-1" />
+          <RichText 
+            text={record.text} 
+            facets={record.facets} 
+            className="mt-1" 
+            numberOfLines={shouldTruncate ? MAX_TEXT_LINES : undefined}
+          />
+          
+          {/* Show more button for truncated text */}
+          {shouldTruncate && (
+            <Pressable onPress={handleShowMore} className="mt-1">
+              <Text className="text-primary font-medium">Show more</Text>
+            </Pressable>
+          )}
 
           {/* Embeds (images, video, link preview, quote) */}
           <PostEmbeds embed={post.embed} onImagePress={onImagePress} />
