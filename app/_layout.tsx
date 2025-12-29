@@ -1,12 +1,19 @@
 import "../global.css";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { LogBox, Platform, View, ActivityIndicator } from "react-native";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { QueryClientProvider } from "@tanstack/react-query";
 import * as Sentry from "@sentry/react-native";
-import { PostHogProvider } from 'posthog-react-native';
+
+// 📊 PostHog - Only import on client side to avoid SSR issues
+// posthog-react-native uses window and React Navigation hooks that don't exist during static rendering
+let PostHogProvider: React.ComponentType<{ apiKey: string; options: any; children: ReactNode }> | null = null;
+if (typeof window !== 'undefined') {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  PostHogProvider = require('posthog-react-native').PostHogProvider;
+}
 
 // 🔒 Initialize Sentry for error tracking (before any other code runs)
 Sentry.init({
@@ -212,22 +219,32 @@ export default Sentry.wrap(function RootLayout() {
     initAuth();
   }, [setSession, setLoading]);
 
-  return (
-    <PostHogProvider 
-      apiKey="phx_13pBobfwQwjDordNHORfTp1p2SVNjnbSK0MddbSQRT8NXBSH"
-      options={{
-        host: 'https://us.i.posthog.com',
-        enableSessionReplay: true,
-        disabled: __DEV__, // Only track in production
-      }}
-    >
-      <ErrorBoundary>
-        <QueryClientProvider client={queryClient}>
-          <GestureHandlerRootView style={{ flex: 1 }}>
-            <AppContent />
-          </GestureHandlerRootView>
-        </QueryClientProvider>
-      </ErrorBoundary>
-    </PostHogProvider>
+  // 📊 PostHog Provider - Only wrap on client side (SSR-safe)
+  const content = (
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <GestureHandlerRootView style={{ flex: 1 }}>
+          <AppContent />
+        </GestureHandlerRootView>
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
+
+  // Wrap with PostHog only on client side (window exists)
+  if (PostHogProvider) {
+    return (
+      <PostHogProvider 
+        apiKey="phx_13pBobfwQwjDordNHORfTp1p2SVNjnbSK0MddbSQRT8NXBSH"
+        options={{
+          host: 'https://us.i.posthog.com',
+          enableSessionReplay: true,
+          disabled: __DEV__, // Only track in production
+        }}
+      >
+        {content}
+      </PostHogProvider>
+    );
+  }
+
+  return content;
 });

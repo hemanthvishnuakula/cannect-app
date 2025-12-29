@@ -3,10 +3,23 @@
  * 
  * Centralized analytics for tracking user behavior.
  * Uses PostHog for product analytics.
+ * 
+ * Note: This hook is SSR-safe - it gracefully handles server-side rendering
+ * where PostHog is not available.
  */
 
 import { useCallback } from 'react';
-import { usePostHog } from 'posthog-react-native';
+
+// SSR-safe import - usePostHog only available on client
+let usePostHog: () => { capture: (event: string, properties?: Record<string, any>) => void } | null = () => null;
+if (typeof window !== 'undefined') {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    usePostHog = require('posthog-react-native').usePostHog;
+  } catch {
+    // PostHog not available
+  }
+}
 
 /**
  * Analytics events we track
@@ -48,6 +61,8 @@ export function useAnalytics() {
   const posthog = usePostHog();
 
   const track = useCallback((event: AnalyticsEvent, properties?: Record<string, any>) => {
+    // Skip if PostHog not available (SSR or not initialized)
+    if (!posthog) return;
     posthog.capture(event, properties);
   }, [posthog]);
 

@@ -8,10 +8,20 @@
 import { useEffect, useCallback } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as Sentry from '@sentry/react-native';
-import { usePostHog } from 'posthog-react-native';
 import { useAuthStore } from '@/lib/stores/auth-store-atp';
 import * as atproto from '@/lib/atproto/agent';
 import { queryKeys } from '@/lib/query-client';
+
+// SSR-safe import - usePostHog only available on client
+let usePostHog: () => { identify: (id: string, props?: Record<string, any>) => void; reset: () => void } | null = () => null;
+if (typeof window !== 'undefined') {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    usePostHog = require('posthog-react-native').usePostHog;
+  } catch {
+    // PostHog not available
+  }
+}
 
 /**
  * Main auth hook - handles session initialization and auth state
@@ -113,7 +123,7 @@ export function useAuth() {
       });
       
       // 📊 Identify user in PostHog for analytics
-      posthog.identify(profileData.did, {
+      posthog?.identify(profileData.did, {
         handle: profileData.handle,
         displayName: profileData.displayName,
       });
@@ -127,7 +137,7 @@ export function useAuth() {
     // 🔐 Clear Sentry user context on logout
     Sentry.setUser(null);
     // 📊 Reset PostHog user on logout
-    posthog.reset();
+    posthog?.reset();
   }, [clear, queryClient, posthog]);
 
   return {
