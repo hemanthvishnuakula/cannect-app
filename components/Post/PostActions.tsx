@@ -67,6 +67,12 @@ const triggerHaptic = (style: Haptics.ImpactFeedbackStyle = Haptics.ImpactFeedba
   }
 };
 
+// Stop event propagation helper (works on web and native)
+const stopEvent = (e: any) => {
+  e?.stopPropagation?.();
+  e?.preventDefault?.();
+};
+
 // Check if web share API is available
 const canShare = () => {
   if (Platform.OS !== 'web') return false;
@@ -350,7 +356,7 @@ export const PostActions = memo(function PostActions({
         {/* Reply */}
         <Pressable
           onPress={(e) => {
-            e.stopPropagation();
+            stopEvent(e);
             handleReply();
           }}
           className="flex-row items-center py-1"
@@ -365,7 +371,7 @@ export const PostActions = memo(function PostActions({
         {/* Repost */}
         <Pressable
           onPress={(e) => {
-            e.stopPropagation();
+            stopEvent(e);
             handleRepostPress();
           }}
           className="flex-row items-center py-1"
@@ -383,7 +389,7 @@ export const PostActions = memo(function PostActions({
         {/* Like */}
         <Pressable
           onPress={(e) => {
-            e.stopPropagation();
+            stopEvent(e);
             handleLike();
           }}
           className="flex-row items-center py-1"
@@ -401,7 +407,7 @@ export const PostActions = memo(function PostActions({
         {/* Share */}
         <Pressable
           onPress={(e) => {
-            e.stopPropagation();
+            stopEvent(e);
             handleShare();
           }}
           className="flex-row items-center py-1"
@@ -414,7 +420,7 @@ export const PostActions = memo(function PostActions({
         {!hideOptions && (
           <Pressable
             onPress={(e) => {
-              e.stopPropagation();
+              stopEvent(e);
               handleOptionsPress();
             }}
             className="flex-row items-center py-1"

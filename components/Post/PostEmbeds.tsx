@@ -21,6 +21,12 @@ import type {
   AppBskyEmbedRecordWithMedia,
 } from '@atproto/api';
 
+// Stop event propagation helper (works on web and native)
+const stopEvent = (e: any) => {
+  e?.stopPropagation?.();
+  e?.preventDefault?.();
+};
+
 interface PostEmbedsProps {
   embed: any; // The post.embed object
   onImagePress?: (images: string[], index: number) => void;
@@ -84,7 +90,7 @@ function ImageGrid({
     return (
       <Pressable
         onPress={(e) => {
-          e.stopPropagation();
+          stopEvent(e);
           onImagePress?.(imageUrls, 0);
         }}
         className="mt-2 rounded-xl overflow-hidden"
@@ -107,7 +113,7 @@ function ImageGrid({
         <Pressable
           key={idx}
           onPress={(e) => {
-            e.stopPropagation();
+            stopEvent(e);
             onImagePress?.(imageUrls, idx);
           }}
           className="w-[48%]"
@@ -141,7 +147,7 @@ function LinkPreview({ external }: { external: AppBskyEmbedExternal.ViewExternal
   return (
     <Pressable
       onPress={(e) => {
-        e.stopPropagation();
+        stopEvent(e);
         handlePress();
       }}
       className="mt-2 border border-border rounded-xl overflow-hidden"

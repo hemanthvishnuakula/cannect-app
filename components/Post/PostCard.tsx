@@ -91,11 +91,17 @@ export function PostCard({
   const needsTruncation = textLength > TRUNCATION_THRESHOLD;
   const shouldTruncate = needsTruncation && !isExpanded;
 
+  // Stop event propagation helper (works on web and native)
+  const stopEvent = useCallback((e: any) => {
+    e?.stopPropagation?.();
+    e?.preventDefault?.();
+  }, []);
+
   // Handle "Show more" tap
   const handleShowMore = useCallback((e: any) => {
-    e.stopPropagation();
+    stopEvent(e);
     setIsExpanded(true);
-  }, []);
+  }, [stopEvent]);
 
   // Check if this is a repost (only possible with FeedViewPost)
   const isRepost = !!item?.reason && item.reason.$type === 'app.bsky.feed.defs#reasonRepost';
@@ -138,7 +144,7 @@ export function PostCard({
         {/* Avatar - using expo-image for caching */}
         <Pressable
           onPress={(e) => {
-            e.stopPropagation();
+            stopEvent(e);
             handleAuthorPress();
           }}
           className="self-start"
@@ -164,7 +170,7 @@ export function PostCard({
           {/* Header - Row 1: Name and Time */}
           <Pressable
             onPress={(e) => {
-              e.stopPropagation();
+              stopEvent(e);
               handleAuthorPress();
             }}
             className="flex-row items-center flex-wrap self-start"
@@ -179,7 +185,7 @@ export function PostCard({
           {/* Header - Row 2: Handle */}
           <Pressable
             onPress={(e) => {
-              e.stopPropagation();
+              stopEvent(e);
               handleAuthorPress();
             }}
             className="self-start"
