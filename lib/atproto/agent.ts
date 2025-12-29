@@ -487,6 +487,15 @@ export async function getPostThread(uri: string, depth = 6, parentHeight = 80) {
 }
 
 /**
+ * Get a single post (minimal thread fetch for quote preview)
+ */
+export async function getPost(uri: string) {
+  const bskyAgent = getAgent();
+  const result = await bskyAgent.getPostThread({ uri, depth: 0, parentHeight: 0 });
+  return { data: { thread: result.data.thread } };
+}
+
+/**
  * Get profile
  */
 export async function getProfile(actor: string) {

@@ -2,7 +2,7 @@
  * Compose Screen - Pure AT Protocol
  */
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -12,9 +12,10 @@ import {
   KeyboardAvoidingView,
   Platform,
   Image,
+  ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { X, Image as ImageIcon, Video as VideoIcon } from 'lucide-react-native';
+import { X, Image as ImageIcon, Video as VideoIcon, Quote } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -25,24 +26,69 @@ import * as atproto from '@/lib/atproto/agent';
 
 const MAX_LENGTH = 300; // Bluesky character limit
 
+// Quoted post preview data
+interface QuotedPost {
+  uri: string;
+  cid: string;
+  author: {
+    handle: string;
+    displayName?: string;
+    avatar?: string;
+  };
+  text: string;
+}
+
 export default function ComposeScreen() {
-  const { replyToUri, replyToCid, rootUri, rootCid } = useLocalSearchParams<{
+  const { replyToUri, replyToCid, rootUri, rootCid, quoteUri, quoteCid } = useLocalSearchParams<{
     replyToUri?: string;
     replyToCid?: string;
     rootUri?: string;
     rootCid?: string;
+    quoteUri?: string;
+    quoteCid?: string;
   }>();
 
   const isReply = !!(replyToUri && replyToCid);
+  const isQuote = !!(quoteUri && quoteCid);
 
   const [content, setContent] = useState('');
   const [images, setImages] = useState<{ uri: string; mimeType: string }[]>([]);
   const [video, setVideo] = useState<{ uri: string; mimeType: string } | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [quotedPost, setQuotedPost] = useState<QuotedPost | null>(null);
+  const [isLoadingQuote, setIsLoadingQuote] = useState(false);
 
   const createPostMutation = useCreatePost();
   const { isAuthenticated, profile, handle } = useAuthStore();
+
+  // Fetch quoted post data for preview
+  useEffect(() => {
+    if (isQuote && quoteUri && quoteCid) {
+      setIsLoadingQuote(true);
+      atproto
+        .getPost(quoteUri)
+        .then((result) => {
+          const post = result.data.thread.post as any;
+          setQuotedPost({
+            uri: quoteUri,
+            cid: quoteCid,
+            author: {
+              handle: post.author.handle,
+              displayName: post.author.displayName,
+              avatar: post.author.avatar,
+            },
+            text: post.record?.text || '',
+          });
+        })
+        .catch((err) => {
+          console.error('[Compose] Failed to fetch quoted post:', err);
+        })
+        .finally(() => {
+          setIsLoadingQuote(false);
+        });
+    }
+  }, [isQuote, quoteUri, quoteCid]);
 
   // Use RichText for accurate grapheme counting (matches AT Protocol's 300 grapheme limit)
   const graphemeLength = useMemo(() => {
@@ -168,6 +214,28 @@ export default function ComposeScreen() {
         };
       }
 
+      // Handle quote post embed
+      if (isQuote && quotedPost) {
+        const quoteEmbed = {
+          $type: 'app.bsky.embed.record',
+          record: {
+            uri: quotedPost.uri,
+            cid: quotedPost.cid,
+          },
+        };
+
+        // If we have media + quote, use recordWithMedia
+        if (embed) {
+          embed = {
+            $type: 'app.bsky.embed.recordWithMedia',
+            record: quoteEmbed,
+            media: embed,
+          };
+        } else {
+          embed = quoteEmbed;
+        }
+      }
+
       setIsUploading(false);
 
       // Build reply reference if this is a reply
@@ -209,6 +277,8 @@ export default function ComposeScreen() {
     video,
     isAuthenticated,
     isReply,
+    isQuote,
+    quotedPost,
     replyToUri,
     replyToCid,
     rootUri,
@@ -245,7 +315,7 @@ export default function ComposeScreen() {
               <ActivityIndicator size="small" color="#fff" />
             ) : (
               <Text className={`font-semibold ${canPost ? 'text-white' : 'text-text-muted'}`}>
-                {isReply ? 'Reply' : 'Post'}
+                {isReply ? 'Reply' : isQuote ? 'Quote' : 'Post'}
               </Text>
             )}
           </Pressable>
@@ -276,7 +346,7 @@ export default function ComposeScreen() {
             <TextInput
               value={content}
               onChangeText={setContent}
-              placeholder={isReply ? 'Write your reply...' : "What's happening?"}
+              placeholder={isReply ? 'Write your reply...' : isQuote ? 'Add your comment...' : "What's happening?"}
               placeholderTextColor="#6B7280"
               multiline
               autoFocus
@@ -319,6 +389,52 @@ export default function ComposeScreen() {
               >
                 <X size={14} color="#fff" />
               </Pressable>
+            </View>
+          )}
+
+          {/* Quote Post Preview */}
+          {isQuote && (
+            <View className="mt-4 ml-13">
+              {isLoadingQuote ? (
+                <View className="bg-surface-elevated rounded-xl p-4 border border-border flex-row items-center">
+                  <ActivityIndicator size="small" color="#10B981" />
+                  <Text className="text-text-muted ml-3">Loading quoted post...</Text>
+                </View>
+              ) : quotedPost ? (
+                <View className="bg-surface-elevated rounded-xl p-3 border border-border">
+                  <View className="flex-row items-center mb-2">
+                    <Quote size={14} color="#8B5CF6" />
+                    <Text className="text-text-muted text-xs ml-1">Quoting</Text>
+                  </View>
+                  <View className="flex-row items-center">
+                    {quotedPost.author.avatar ? (
+                      <Image
+                        source={{ uri: quotedPost.author.avatar }}
+                        className="w-5 h-5 rounded-full"
+                      />
+                    ) : (
+                      <View className="w-5 h-5 rounded-full bg-primary/20 items-center justify-center">
+                        <Text className="text-primary text-xs">
+                          {quotedPost.author.handle[0].toUpperCase()}
+                        </Text>
+                      </View>
+                    )}
+                    <Text className="text-text-primary font-medium ml-2 text-sm">
+                      {quotedPost.author.displayName || quotedPost.author.handle}
+                    </Text>
+                    <Text className="text-text-muted text-xs ml-1">
+                      @{quotedPost.author.handle}
+                    </Text>
+                  </View>
+                  <Text className="text-text-secondary text-sm mt-2" numberOfLines={3}>
+                    {quotedPost.text}
+                  </Text>
+                </View>
+              ) : (
+                <View className="bg-surface-elevated rounded-xl p-4 border border-border">
+                  <Text className="text-text-muted text-sm">Failed to load quoted post</Text>
+                </View>
+              )}
             </View>
           )}
         </View>
