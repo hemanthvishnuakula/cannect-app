@@ -17,6 +17,7 @@ import {
   Platform,
   Pressable,
   useWindowDimensions,
+  ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { FlashList } from '@shopify/flash-list';
@@ -374,7 +375,75 @@ export default function FeedScreen() {
       {/* Loading skeleton */}
       {isLoading ? (
         <FeedSkeleton />
+      ) : Platform.OS === 'web' ? (
+        /* Web: Use ScrollView for smooth rendering without FlashList measurement issues */
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{ paddingBottom: 20 }}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={handleRefresh}
+              tintColor="#10B981"
+              colors={['#10B981']}
+            />
+          }
+          onScroll={(e) => {
+            const y = e.nativeEvent.contentOffset.y;
+            scrollOffsets.current[activeFeed] = y;
+            setShowRefreshHint(y <= 0);
+            
+            // Infinite scroll for web
+            const { layoutMeasurement, contentOffset, contentSize } = e.nativeEvent;
+            const isNearEnd = layoutMeasurement.height + contentOffset.y >= contentSize.height - 500;
+            if (isNearEnd && !isLoadingMoreRef.current) {
+              handleLoadMore();
+            }
+          }}
+          scrollEventThrottle={16}
+        >
+          {/* Refresh hint for web */}
+          {showRefreshHint && (
+            <Pressable onPress={handleRefresh} className="py-3 items-center border-b border-border">
+              <Text className="text-text-muted text-sm">Pull to refresh</Text>
+            </Pressable>
+          )}
+          
+          {/* Posts */}
+          {posts.length === 0 ? (
+            <View className="flex-1 items-center justify-center py-20">
+              <Text className="text-text-muted text-center">
+                {activeFeed === 'global'
+                  ? 'No cannabis content found.\nCheck back later!'
+                  : activeFeed === 'local'
+                    ? 'No posts from Cannect users yet.\nBe the first to post!'
+                    : 'Your timeline is empty.\nFollow some people to see their posts!'}
+              </Text>
+            </View>
+          ) : (
+            posts.map((item, index) => (
+              <PostCard
+                key={`${activeFeed}-${item.post.uri}-${index}`}
+                item={item}
+                onPress={() => handlePostPress(item.post)}
+                onImagePress={handleImagePress}
+              />
+            ))
+          )}
+          
+          {/* Footer */}
+          {hasMore && posts.length > 0 ? (
+            <View className="py-4 items-center">
+              <ActivityIndicator size="small" color="#10B981" />
+            </View>
+          ) : posts.length > 0 ? (
+            <View className="py-4 items-center">
+              <Text className="text-text-muted text-sm">You've reached the end!</Text>
+            </View>
+          ) : null}
+        </ScrollView>
       ) : (
+        /* Native: Use FlashList for performance */
         <View style={{ flex: 1, height: height - 150 }} className="flex-1">
           <FlashList
             ref={listRef}
@@ -389,33 +458,12 @@ export default function FeedScreen() {
             )}
             estimatedItemSize={280}
             overrideItemLayout={(layout) => {
-              layout.size = 280; // Consistent height hint
+              layout.size = 280;
             }}
             drawDistance={300}
-            ListHeaderComponent={
-              Platform.OS === 'web' && (showRefreshHint || isRefreshing) ? (
-                <Pressable
-                  onPress={handleRefresh}
-                  className="py-3 items-center border-b border-border"
-                >
-                  {isRefreshing ? (
-                    <ActivityIndicator size="small" color="#10B981" />
-                  ) : (
-                    <View className="flex-row items-center">
-                      <Text className="text-text-muted text-sm">Tap to refresh</Text>
-                    </View>
-                  )}
-                </Pressable>
-              ) : null
-            }
             onScroll={(e) => {
               const y = e.nativeEvent.contentOffset.y;
-              // Save scroll position for restoration
               scrollOffsets.current[activeFeed] = y;
-              // Web refresh hint
-              if (Platform.OS === 'web') {
-                setShowRefreshHint(y <= 0);
-              }
             }}
             scrollEventThrottle={16}
             refreshControl={
