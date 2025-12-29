@@ -26,6 +26,43 @@ const { shouldIncludePost, getPostText } = require('./feed-logic');
 const PORT = process.env.FEEDGEN_PORT || 3000;
 const HOSTNAME = process.env.FEEDGEN_HOSTNAME || 'feed.cannect.space';
 const PUBLISHER_DID = process.env.FEEDGEN_PUBLISHER_DID;
+const CANNECT_PDS_URL = 'https://cannect.space';
+
+// =============================================================================
+// Cannect.space User DID Cache
+// =============================================================================
+
+// Set of DIDs that belong to cannect.space users
+const cannectUserDIDs = new Set();
+
+async function refreshCannectUsers() {
+  try {
+    console.log('[Users] Fetching cannect.space users...');
+    const response = await fetch(`${CANNECT_PDS_URL}/xrpc/com.atproto.sync.listRepos?limit=1000`);
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    const data = await response.json();
+    
+    const oldCount = cannectUserDIDs.size;
+    cannectUserDIDs.clear();
+    
+    for (const repo of data.repos || []) {
+      if (repo.did) {
+        cannectUserDIDs.add(repo.did);
+      }
+    }
+    
+    console.log(`[Users] Loaded ${cannectUserDIDs.size} cannect.space users (was ${oldCount})`);
+  } catch (err) {
+    console.error('[Users] Failed to fetch cannect.space users:', err.message);
+  }
+}
+
+// Check if a DID belongs to a cannect.space user
+function isCannectUser(did) {
+  return cannectUserDIDs.has(did);
+}
 
 // Feed URI - this is what the app uses
 const FEED_URI = `at://${PUBLISHER_DID}/app.bsky.feed.generator/cannect`;
@@ -39,6 +76,7 @@ const JETSTREAM_URL =
 // =============================================================================
 
 const app = express();
+app.use(express.json()); // Parse JSON bodies
 
 // Health check
 app.get('/health', (req, res) => {
@@ -46,9 +84,54 @@ app.get('/health', (req, res) => {
   res.json({
     status: 'ok',
     posts: count,
+    cannectUsers: cannectUserDIDs.size,
     uptime: process.uptime(),
     timestamp: new Date().toISOString(),
   });
+});
+
+// =============================================================================
+// Notify Endpoint - Instant post inclusion for Cannect App
+// =============================================================================
+
+app.post('/api/notify-post', async (req, res) => {
+  try {
+    const { uri, cid, authorDid } = req.body;
+
+    // Validate required fields
+    if (!uri || !authorDid) {
+      return res.status(400).json({ error: 'Missing uri or authorDid' });
+    }
+
+    // Validate URI format
+    if (!uri.startsWith('at://')) {
+      return res.status(400).json({ error: 'Invalid URI format' });
+    }
+
+    // Only accept posts from cannect.space users
+    if (!isCannectUser(authorDid)) {
+      // Refresh user list and try again (in case they just signed up)
+      await refreshCannectUsers();
+      
+      if (!isCannectUser(authorDid)) {
+        return res.status(403).json({ error: 'Not a cannect.space user' });
+      }
+    }
+
+    // Add to database
+    const indexedAt = new Date().toISOString();
+    const success = db.addPost(uri, cid || '', authorDid, 'cannect.space', indexedAt);
+
+    if (success) {
+      console.log(`[Notify] Added post from cannect user: ${uri.substring(0, 60)}...`);
+      return res.json({ success: true, message: 'Post added to feed' });
+    } else {
+      return res.status(500).json({ error: 'Failed to add post' });
+    }
+  } catch (err) {
+    console.error('[Notify] Error:', err.message);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
 });
 
 // DID document for feed generator
@@ -186,13 +269,12 @@ function handleNewPost(did, commit) {
   // Get post text
   const text = getPostText(record);
 
-  // Get author handle (may not be in event, default to DID check)
-  // For cannect.space detection, we'll check the DID format or handle if available
-  const handle = record.$handle || '';
+  // Check if this is a cannect.space user (by DID lookup)
+  const isCannectSpaceUser = isCannectUser(did);
 
   // Check if post should be included
-  // Note: We can't reliably get handle from Jetstream, so we check if DID
-  // belongs to cannect.space by making a resolution call (cached)
+  // Pass a fake handle for cannect.space users so shouldIncludePost works
+  const handle = isCannectSpaceUser ? 'user.cannect.space' : '';
   const result = shouldIncludePost(handle, text);
 
   if (result.include) {
@@ -203,6 +285,10 @@ function handleNewPost(did, commit) {
     db.addPost(uri, cid, did, handle, indexedAt);
     stats.indexed++;
 
+    if (result.reason === 'cannect_user') {
+      console.log(`[Indexer] Cannect user post: ${uri.substring(0, 60)}...`);
+    }
+
     if (stats.indexed % 100 === 0) {
       console.log(`[Indexer] Stats: ${stats.indexed} indexed, ${stats.processed} processed`);
     }
@@ -210,18 +296,18 @@ function handleNewPost(did, commit) {
 }
 
 // =============================================================================
-// Maintenance - Cleanup old posts
+// Maintenance - Cleanup DISABLED (posts kept forever)
 // =============================================================================
 
-function runCleanup() {
-  const deleted = db.cleanup(7 * 24 * 60 * 60); // 7 days
-  if (deleted > 0) {
-    console.log(`[Cleanup] Removed ${deleted} old posts`);
-  }
-}
-
-// Run cleanup every hour
-setInterval(runCleanup, 60 * 60 * 1000);
+// Cleanup is disabled - posts are kept indefinitely
+// To manually clean old posts, use: db.cleanup(days * 24 * 60 * 60)
+// function runCleanup() {
+//   const deleted = db.cleanup(7 * 24 * 60 * 60); // 7 days
+//   if (deleted > 0) {
+//     console.log(`[Cleanup] Removed ${deleted} old posts`);
+//   }
+// }
+// setInterval(runCleanup, 60 * 60 * 1000);
 
 // =============================================================================
 // Stats logging
@@ -238,7 +324,7 @@ setInterval(() => {
 // Start Server
 // =============================================================================
 
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   console.log('='.repeat(60));
   console.log('Cannect Feed Generator');
   console.log('='.repeat(60));
@@ -248,11 +334,14 @@ app.listen(PORT, () => {
   console.log(`Posts:     ${db.getCount()}`);
   console.log('='.repeat(60));
 
+  // Fetch cannect.space users first
+  await refreshCannectUsers();
+  
+  // Refresh user list every 5 minutes
+  setInterval(refreshCannectUsers, 5 * 60 * 1000);
+
   // Connect to Jetstream
   connectJetstream();
-
-  // Initial cleanup
-  runCleanup();
 });
 
 // Graceful shutdown

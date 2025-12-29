@@ -352,7 +352,37 @@ export async function createPost(
   }
 
   const result = await bskyAgent.post(record);
+
+  // Notify feed generator to include this post immediately
+  notifyFeedGenerator(result.uri, result.cid, bskyAgent.session?.did || '');
+
   return result;
+}
+
+/**
+ * Notify the Cannect feed generator about a new post
+ * This allows the post to appear immediately in the feed without waiting for Jetstream
+ */
+async function notifyFeedGenerator(uri: string, cid: string, authorDid: string): Promise<void> {
+  try {
+    const response = await fetch('https://feed.cannect.space/api/notify-post', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ uri, cid, authorDid }),
+    });
+
+    if (response.ok) {
+      console.log('[Feed] Post notified to feed generator');
+    } else {
+      const error = await response.json().catch(() => ({}));
+      console.warn('[Feed] Failed to notify feed generator:', error);
+    }
+  } catch (err) {
+    // Don't throw - this is a best-effort notification
+    console.warn('[Feed] Error notifying feed generator:', err);
+  }
 }
 
 /**
