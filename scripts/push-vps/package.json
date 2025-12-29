@@ -1,0 +1,16 @@
+{
+  "name": "cannect-push-server",
+  "version": "1.0.0",
+  "description": "Web Push Notification Server for Cannect PWA",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "generate-vapid": "npx web-push generate-vapid-keys"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.0.0",
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "web-push": "^3.6.7"
+  }
+}
