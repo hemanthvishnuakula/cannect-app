@@ -7,10 +7,10 @@ export default function Root({ children }: { children: React.ReactNode }) {
         <meta charSet="utf-8" />
         <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
         <title>Cannect - Cannabis Social Network</title>
-        {/* 💎 Viewport: allow user scaling for accessibility (Lighthouse requires max-scale >= 5) */}
+        {/* Viewport: disable zoom for native app feel */}
         <meta
           name="viewport"
-          content="width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes, viewport-fit=cover"
+          content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
         />
 
         {/* ================================
