@@ -12,7 +12,7 @@ Indexes posts that match:
 ## Quick Deploy
 
 ```bash
-# On VPS (72.62.132.157)
+# On your VPS
 
 # 1. Install Node.js 20
 curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
@@ -23,7 +23,7 @@ mkdir -p /root/feed-generator
 cd /root/feed-generator
 
 # 3. Copy files (from local machine)
-# scp -i ~/.ssh/id_ed25519_cannect -r scripts/feed-vps/* root@72.62.132.157:/root/feed-generator/
+# scp -r scripts/feed-vps/* root@<your-vps-ip>:/root/feed-generator/
 
 # 4. Create .env
 cp .env.example .env
