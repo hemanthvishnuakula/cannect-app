@@ -161,29 +161,84 @@ function filterFeedForModeration(feed: FeedViewPost[]): FeedViewPost[] {
 }
 
 /**
+ * Check if user is on cannect.space PDS (handle ends with .cannect.space)
+ */
+function isCannectSpaceUser(handle: string | null): boolean {
+  return handle?.endsWith('.cannect.space') ?? false;
+}
+
+/**
+ * Fetch following timeline from our custom API (for cannect.space users)
+ * This aggregates posts from followed users since Bluesky's getTimeline
+ * doesn't work properly for third-party PDS users.
+ */
+async function fetchCannectFollowingTimeline(
+  actor: string,
+  cursor?: string,
+  limit: number = 50
+): Promise<{ feed: FeedViewPost[]; cursor?: string }> {
+  const params = new URLSearchParams({
+    actor,
+    limit: String(limit),
+  });
+  if (cursor) {
+    params.append('cursor', cursor);
+  }
+
+  const response = await fetch(
+    `https://feed.cannect.space/api/following?${params.toString()}`
+  );
+
+  if (!response.ok) {
+    throw new Error(`Following API error: ${response.status}`);
+  }
+
+  const data = await response.json();
+  return {
+    feed: data.feed || [],
+    cursor: data.cursor,
+  };
+}
+
+/**
  * Get Timeline (Following feed) - posts from users the current user follows
- * Uses Bluesky's official getTimeline API (1 call vs N×getAuthorFeed)
+ * 
+ * For cannect.space users: Uses our custom Following Timeline API
+ * For other users: Uses Bluesky's official getTimeline API
  */
 export function useTimeline() {
-  const { isAuthenticated, did } = useAuthStore();
+  const { isAuthenticated, did, handle } = useAuthStore();
+  const isCannectUser = isCannectSpaceUser(handle);
 
   return useInfiniteQuery({
-    queryKey: ['timeline', did],
+    queryKey: ['timeline', did, isCannectUser],
     queryFn: async ({ pageParam }) => {
       if (!did) {
         return { feed: [], cursor: undefined };
       }
 
       try {
-        // Use official Bluesky getTimeline API - single call!
-        const result = await atproto.getTimeline(pageParam, 50);
+        let feed: FeedViewPost[];
+        let cursor: string | undefined;
+
+        if (isCannectUser) {
+          // cannect.space users: Use our custom Following Timeline API
+          const result = await fetchCannectFollowingTimeline(did, pageParam, 50);
+          feed = result.feed;
+          cursor = result.cursor;
+        } else {
+          // Other users: Use official Bluesky getTimeline API
+          const result = await atproto.getTimeline(pageParam, 50);
+          feed = result.data.feed;
+          cursor = result.data.cursor;
+        }
 
         // Apply content moderation filter
-        const moderated = filterFeedForModeration(result.data.feed);
+        const moderated = filterFeedForModeration(feed);
 
         return {
           feed: moderated,
-          cursor: result.data.cursor,
+          cursor,
         };
       } catch (error: any) {
         throw error;
