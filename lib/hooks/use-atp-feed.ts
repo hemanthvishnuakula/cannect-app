@@ -7,9 +7,12 @@
  * Feed Architecture:
  * - Global: Cannabis Community feed via Bluesky Feed Creator
  * - Local: Cannect Network feed via Bluesky Feed Creator
- * - Following: Bluesky's official getTimeline API
+ * - Following: Custom Following Timeline API for cannect.space users,
+ *              Bluesky's getTimeline API for others
  *
  * All feeds use Bluesky's hydration layer for proper viewer state.
+ * 
+ * @updated 2024-12-30 - Added Following Timeline service for cannect.space PDS
  */
 
 import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
