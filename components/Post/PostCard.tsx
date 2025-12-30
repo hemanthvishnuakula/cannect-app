@@ -131,7 +131,7 @@ export function PostCard({
     <Pressable
       onPress={handlePress}
       style={{ minHeight: 140 }}
-      className={`px-4 py-3 min-h-[140px] active:bg-surface-elevated/50 ${showBorder ? 'border-b border-border' : ''}`}
+      className={`px-4 py-3 min-h-[140px] ${showBorder ? 'border-b border-border' : ''}`}
     >
       {/* Repost indicator */}
       {isRepost && repostBy && (
