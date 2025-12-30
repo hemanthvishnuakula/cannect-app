@@ -183,9 +183,15 @@ app.post('/unsubscribe', strictLimiter, (req, res) => {
   }
 });
 
-// Send notification to a user (internal endpoint)
+// Send notification to a user (internal endpoint - localhost only)
 app.post('/send', async (req, res) => {
   try {
+    // Only allow internal calls (Jetstream handler on same server)
+    const ip = req.ip || req.connection.remoteAddress;
+    if (ip !== '127.0.0.1' && ip !== '::1' && ip !== '::ffff:127.0.0.1') {
+      return res.status(403).json({ error: 'Internal only' });
+    }
+
     const { did, title, body, icon, url, tag } = req.body;
 
     if (!did) {
