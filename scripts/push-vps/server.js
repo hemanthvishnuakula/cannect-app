@@ -75,9 +75,12 @@ const app = express();
 app.use(
   cors({
     origin: [
-      'https://cannect.app',
+      'https://cannect.net',
+      'https://www.cannect.net',
+      'https://cannect.nexus',
+      'https://www.cannect.nexus',
+      'https://cannect-app.vercel.app',
       'https://cannect.space',
-      'https://cannect-pwa.vercel.app',
       'http://localhost:8081',
       'http://localhost:19006',
     ],
