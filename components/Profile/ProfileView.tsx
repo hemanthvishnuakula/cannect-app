@@ -14,7 +14,7 @@ import { View, Text, Pressable, ActivityIndicator, RefreshControl, Platform } fr
 import { Image } from 'expo-image';
 import { FlashList } from '@shopify/flash-list';
 import { useRouter } from 'expo-router';
-import { LogOut, Edit3, MoreHorizontal } from 'lucide-react-native';
+import { LogOut, Edit3 } from 'lucide-react-native';
 import { useState, useMemo, useCallback } from 'react';
 import * as Haptics from 'expo-haptics';
 import { useAuthorFeed, useActorLikes } from '@/lib/hooks';
@@ -167,12 +167,7 @@ export function ProfileView({
                     </Pressable>
                   </>
                 ) : (
-                  <>
-                    <Pressable className="p-2 rounded-full border border-border bg-surface-elevated active:opacity-70">
-                      <MoreHorizontal size={18} color="#6B7280" />
-                    </Pressable>
-                    <FollowButton profile={profileData} size="large" />
-                  </>
+                  <FollowButton profile={profileData} size="large" />
                 )}
               </View>
 
