@@ -20,7 +20,7 @@ app.use(cors({
     'https://www.cannect.net',
     'https://cannect.nexus',
     'https://www.cannect.nexus',
-    'https://cannect-pwa.vercel.app',
+    'https://cannect-app.vercel.app',
     'https://cannect.space',
     'http://localhost:8081',
     'http://localhost:19006'
