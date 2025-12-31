@@ -135,17 +135,40 @@ export function updatePostInFeeds(
     }
   }
 
-  // Update thread views
+  // Update thread views - ThreadViewPost has { post, parent, replies } directly
   if (!skipKeys.includes('thread')) {
     queryClient.setQueriesData({ queryKey: ['thread'] }, (old: any) => {
-      if (!old?.thread?.post) return old;
-      if (old.thread.post.uri === postUri) {
-        return {
-          ...old,
-          thread: { ...old.thread, post: updater(old.thread.post) },
+      if (!old?.post) return old;
+      
+      let updated = old;
+      
+      // Update main post if it matches
+      if (old.post.uri === postUri) {
+        updated = { ...updated, post: updater(old.post) };
+      }
+      
+      // Update in replies if present
+      if (old.replies?.length) {
+        updated = {
+          ...updated,
+          replies: old.replies.map((reply: any) => {
+            if (reply?.post?.uri === postUri) {
+              return { ...reply, post: updater(reply.post) };
+            }
+            return reply;
+          }),
         };
       }
-      return old;
+      
+      // Update in parent chain if present
+      if (old.parent?.post?.uri === postUri) {
+        updated = {
+          ...updated,
+          parent: { ...old.parent, post: updater(old.parent.post) },
+        };
+      }
+      
+      return updated;
     });
   }
 }
