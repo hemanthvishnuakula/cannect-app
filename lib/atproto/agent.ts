@@ -496,11 +496,80 @@ export async function getPost(uri: string) {
 }
 
 /**
+ * Check if a handle/DID belongs to a Cannect PDS user
+ */
+function isCannectUser(actor: string): boolean {
+  // Check if it's a .cannect.space handle
+  if (actor.includes('.cannect.space')) {
+    return true;
+  }
+  // DIDs will be checked by fetching from PDS
+  return actor.startsWith('did:');
+}
+
+/**
+ * Fetch profile record directly from PDS for Cannect users
+ * This ensures users see their own profile updates immediately
+ * even if the Bluesky relay hasn't synced yet
+ */
+async function getProfileFromPds(did: string): Promise<{
+  displayName?: string;
+  description?: string;
+  avatar?: { ref: { $link: string }; mimeType: string };
+  banner?: { ref: { $link: string }; mimeType: string };
+} | null> {
+  try {
+    const response = await fetch(
+      `${PDS_SERVICE}/xrpc/com.atproto.repo.getRecord?repo=${encodeURIComponent(did)}&collection=app.bsky.actor.profile&rkey=self`
+    );
+    
+    if (!response.ok) {
+      // User might not have a profile record yet, or not on this PDS
+      return null;
+    }
+    
+    const data = await response.json();
+    return data.value || null;
+  } catch (error) {
+    console.log('[getProfileFromPds] Failed to fetch from PDS:', error);
+    return null;
+  }
+}
+
+/**
  * Get profile
+ * For Cannect users, merges profile data from PDS to ensure
+ * users see their own updates immediately (Read Your Own Writes pattern)
  */
 export async function getProfile(actor: string) {
   const bskyAgent = getAgent();
   const result = await bskyAgent.getProfile({ actor });
+  
+  // If this might be a Cannect user, try to get fresh data from PDS
+  if (isCannectUser(actor)) {
+    const did = result.data.did;
+    const pdsProfile = await getProfileFromPds(did);
+    
+    if (pdsProfile) {
+      // Merge PDS data into the result, preferring PDS values for profile fields
+      // This ensures displayName/description from PDS override stale AppView data
+      if (pdsProfile.displayName !== undefined) {
+        result.data.displayName = pdsProfile.displayName;
+      }
+      if (pdsProfile.description !== undefined) {
+        result.data.description = pdsProfile.description;
+      }
+      // For avatar/banner, construct the blob URL from PDS
+      if (pdsProfile.avatar?.ref?.$link) {
+        result.data.avatar = `${PDS_SERVICE}/xrpc/com.atproto.sync.getBlob?did=${encodeURIComponent(did)}&cid=${pdsProfile.avatar.ref.$link}`;
+      }
+      if (pdsProfile.banner?.ref?.$link) {
+        result.data.banner = `${PDS_SERVICE}/xrpc/com.atproto.sync.getBlob?did=${encodeURIComponent(did)}&cid=${pdsProfile.banner.ref.$link}`;
+      }
+      console.log('[getProfile] Merged PDS data for Cannect user:', did.substring(0, 20));
+    }
+  }
+  
   return result;
 }
 
@@ -562,6 +631,7 @@ export async function listPdsRepos(limit = 100): Promise<string[]> {
 /**
  * Get profiles for multiple DIDs
  * Falls back to individual getProfile calls if batch fails
+ * Applies Read Your Own Writes pattern for Cannect users
  */
 export async function getProfiles(dids: string[]) {
   const bskyAgent = getAgent();
@@ -578,14 +648,40 @@ export async function getProfiles(dids: string[]) {
 
     const profiles = results.flatMap((r) => r.data.profiles);
     console.log('[getProfiles] Got', profiles.length, 'profiles from batch');
-    return profiles;
+    
+    // Apply Read Your Own Writes pattern for Cannect users
+    const enhancedProfiles = await Promise.all(
+      profiles.map(async (profile) => {
+        if (isCannectUser(profile.handle || profile.did)) {
+          const pdsProfile = await getProfileFromPds(profile.did);
+          if (pdsProfile) {
+            // Merge PDS data
+            if (pdsProfile.displayName !== undefined) {
+              profile.displayName = pdsProfile.displayName;
+            }
+            if (pdsProfile.description !== undefined) {
+              profile.description = pdsProfile.description;
+            }
+            if (pdsProfile.avatar?.ref?.$link) {
+              profile.avatar = `${PDS_SERVICE}/xrpc/com.atproto.sync.getBlob?did=${encodeURIComponent(profile.did)}&cid=${pdsProfile.avatar.ref.$link}`;
+            }
+            if (pdsProfile.banner?.ref?.$link) {
+              profile.banner = `${PDS_SERVICE}/xrpc/com.atproto.sync.getBlob?did=${encodeURIComponent(profile.did)}&cid=${pdsProfile.banner.ref.$link}`;
+            }
+          }
+        }
+        return profile;
+      })
+    );
+    
+    return enhancedProfiles;
   } catch (error) {
     console.error('[getProfiles] Batch failed, trying individual:', error);
-    // Fallback: fetch profiles individually
+    // Fallback: fetch profiles individually using our enhanced getProfile
     const profiles = [];
     for (const did of dids) {
       try {
-        const result = await bskyAgent.getProfile({ actor: did });
+        const result = await getProfile(did);
         if (result.data) {
           profiles.push(result.data);
         }
