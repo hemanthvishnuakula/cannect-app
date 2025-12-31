@@ -171,7 +171,7 @@ export function PostCard({
 
         {/* Content */}
         <View className="flex-1 ml-3">
-          {/* Header - Row 1: Name and Time */}
+          {/* Header - Name, Badge, and Time */}
           <Pressable
             onPressIn={stopEvent}
             onPress={(e) => {
@@ -183,22 +183,18 @@ export function PostCard({
             <Text className="font-semibold text-text-primary flex-shrink" numberOfLines={1}>
               {author.displayName || author.handle}
             </Text>
+            {/* Network badge - cannect (green) or global */}
+            {author.handle.endsWith('.cannect.space') ? (
+              <View className="ml-2 px-2 py-0.5 rounded-full bg-primary/20">
+                <Text className="text-primary text-xs font-medium">cannect</Text>
+              </View>
+            ) : (
+              <View className="ml-2 px-2 py-0.5 rounded-full bg-surface-elevated">
+                <Text className="text-text-muted text-xs font-medium">global</Text>
+              </View>
+            )}
             <Text className="text-text-muted mx-1">·</Text>
             <Text className="text-text-muted flex-shrink-0">{formatTime(record.createdAt)}</Text>
-          </Pressable>
-
-          {/* Header - Row 2: Handle */}
-          <Pressable
-            onPressIn={stopEvent}
-            onPress={(e) => {
-              stopEvent(e);
-              handleAuthorPress();
-            }}
-            className="self-start"
-          >
-            <Text className="text-text-muted text-sm" numberOfLines={1}>
-              @{author.handle}
-            </Text>
           </Pressable>
 
           {/* Post text with facets (mentions, links, hashtags) */}
