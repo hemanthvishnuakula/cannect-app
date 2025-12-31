@@ -4,10 +4,7 @@
  * Uses expo-image for fast cached images
  * Handles all embed types via PostEmbeds
  *
- * Fixed height approach:
- * - Text truncated to 4 lines max with "Show more" button
- * - Minimum height of 120px to prevent layout collapse
- * - Consistent sizing for FlashList virtualization
+ * Variable height - text truncated to 4 lines max with "Show more" button
  *
  * Used in:
  * - Feed tabs (Global, Local, Following)
@@ -130,8 +127,7 @@ export function PostCard({
   return (
     <Pressable
       onPress={handlePress}
-      style={{ minHeight: 160 }}
-      className={`px-4 py-4 min-h-[160px] ${showBorder ? 'border-b border-border' : ''}`}
+      className={`px-4 py-4 ${showBorder ? 'border-b border-border' : ''}`}
     >
       {/* Repost indicator */}
       {isRepost && repostBy && (
