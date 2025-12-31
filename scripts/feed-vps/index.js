@@ -328,7 +328,9 @@ function handleNewPost(did, commit) {
   if (result.include) {
     const uri = `at://${did}/${commit.collection}/${commit.rkey}`;
     const cid = commit.cid;
-    const indexedAt = record.createdAt || new Date().toISOString();
+    // Always use server UTC time for consistent sorting
+    // (record.createdAt can have timezone offsets that break string sorting)
+    const indexedAt = new Date().toISOString();
 
     db.addPost(uri, cid, did, handle, indexedAt);
     stats.indexed++;
