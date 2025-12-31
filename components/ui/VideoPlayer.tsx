@@ -173,11 +173,15 @@ export function VideoPlayer({
     );
   }
 
+  // Stop event propagation to prevent parent PostCard from intercepting taps
+  const stopEvent = (e: { stopPropagation: () => void }) => e.stopPropagation();
+
   // Show thumbnail with play button until user taps (lazy loading to save resources)
   if (!isVideoLoaded) {
     return (
       <Pressable
         onPress={handleLoadVideo}
+        onPressIn={stopEvent}
         className="relative rounded-xl overflow-hidden bg-black items-center justify-center"
         style={{ aspectRatio }}
       >
@@ -200,6 +204,7 @@ export function VideoPlayer({
   return (
     <Pressable
       onPress={handlePress}
+      onPressIn={stopEvent}
       className="relative rounded-xl overflow-hidden bg-black"
       style={{ aspectRatio }}
     >
