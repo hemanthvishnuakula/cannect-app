@@ -403,7 +403,7 @@ export const PostActions = memo(function PostActions({
       </View>
     ) : (
       // Expanded layout (for ThreadPost detail view) - with counts like compact
-      <View className="flex-row justify-around py-2 border-b border-border mb-4 h-[44px]">
+      <View className="flex-row justify-around py-2 border-b border-border mb-4 h-[42px]">
         {/* Reply */}
         <Pressable
           onPressIn={stopEvent}
@@ -413,7 +413,7 @@ export const PostActions = memo(function PostActions({
           style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
         >
           <MessageCircle size={iconSize} color={mutedColor} />
-          <Text className="text-text-muted text-sm ml-1.5">
+          <Text className="text-text-muted text-sm ml-1.5 min-w-[16px]">
             {replyCount > 0 ? replyCount : ''}
           </Text>
         </Pressable>
@@ -428,7 +428,7 @@ export const PostActions = memo(function PostActions({
           style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
         >
           <Repeat2 size={iconSize} color={repostColor} />
-          <Text className={`text-sm ml-1.5 ${isReposted ? 'text-green-500' : 'text-text-muted'}`}>
+          <Text className={`text-sm ml-1.5 min-w-[16px] ${isReposted ? 'text-green-500' : 'text-text-muted'}`}>
             {repostCount > 0 ? repostCount : ''}
           </Text>
         </Pressable>
@@ -442,8 +442,8 @@ export const PostActions = memo(function PostActions({
           hitSlop={12}
           style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
         >
-          <Heart size={iconSize} color={likeColor} fill={isLiked ? '#EF4444' : 'transparent'} />
-          <Text className={`text-sm ml-1.5 ${isLiked ? 'text-red-500' : 'text-text-muted'}`}>
+          <Heart size={iconSize} color={likeColor} fill={isLiked ? '#EF4444' : 'none'} />
+          <Text className={`text-sm ml-1.5 min-w-[16px] ${isLiked ? 'text-red-500' : 'text-text-muted'}`}>
             {likeCount > 0 ? likeCount : ''}
           </Text>
         </Pressable>
