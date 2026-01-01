@@ -402,7 +402,7 @@ export const PostActions = memo(function PostActions({
         )}
       </View>
     ) : (
-      // Expanded layout (for ThreadPost detail view)
+      // Expanded layout (for ThreadPost detail view) - with counts like compact
       <View className="flex-row justify-around py-2 border-b border-border mb-4 h-[44px]">
         {/* Reply */}
         <Pressable
@@ -413,6 +413,9 @@ export const PostActions = memo(function PostActions({
           style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
         >
           <MessageCircle size={iconSize} color={mutedColor} />
+          <Text className="text-text-muted text-sm ml-1.5">
+            {replyCount > 0 ? replyCount : ''}
+          </Text>
         </Pressable>
 
         {/* Repost */}
@@ -425,6 +428,9 @@ export const PostActions = memo(function PostActions({
           style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
         >
           <Repeat2 size={iconSize} color={repostColor} />
+          <Text className={`text-sm ml-1.5 ${isReposted ? 'text-green-500' : 'text-text-muted'}`}>
+            {repostCount > 0 ? repostCount : ''}
+          </Text>
         </Pressable>
 
         {/* Like */}
@@ -437,6 +443,9 @@ export const PostActions = memo(function PostActions({
           style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
         >
           <Heart size={iconSize} color={likeColor} fill={isLiked ? '#EF4444' : 'transparent'} />
+          <Text className={`text-sm ml-1.5 ${isLiked ? 'text-red-500' : 'text-text-muted'}`}>
+            {likeCount > 0 ? likeCount : ''}
+          </Text>
         </Pressable>
 
         {/* Options (includes Share, Copy Link, Delete, Report) */}
