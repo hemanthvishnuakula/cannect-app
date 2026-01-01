@@ -116,11 +116,11 @@ export function ThreadPost({ post, onImagePress }: ThreadPostProps) {
       <Text className="text-text-muted text-sm mt-4 mb-4">{formattedDate}</Text>
 
       {/* Stats row - order matches action buttons: Reply, Repost, Like */}
-      <View className="flex-row border-t border-b border-border py-3 mb-4">
-        <Text className="text-text-secondary mr-4">
+      <View className="flex-row justify-around border-t border-b border-border py-3 mb-4">
+        <Text className="text-text-secondary">
           <Text className="text-text-primary font-semibold">{post.replyCount || 0}</Text> Replies
         </Text>
-        <Text className="text-text-secondary mr-4">
+        <Text className="text-text-secondary">
           <Text className="text-text-primary font-semibold">{post.repostCount || 0}</Text> Reposts
         </Text>
         <Text className="text-text-secondary">
