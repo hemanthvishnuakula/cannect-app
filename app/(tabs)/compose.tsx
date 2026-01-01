@@ -13,9 +13,10 @@ import {
   Platform,
   Image,
   ScrollView,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { X, Image as ImageIcon, Video as VideoIcon, Quote } from 'lucide-react-native';
+import { X, Image as ImageIcon, Video as VideoIcon, Quote, Trash2 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -63,6 +64,7 @@ export default function ComposeScreen() {
   const [error, setError] = useState<string | null>(null);
   const [quotedPost, setQuotedPost] = useState<QuotedPost | null>(null);
   const [isLoadingQuote, setIsLoadingQuote] = useState(false);
+  const [discardMenuVisible, setDiscardMenuVisible] = useState(false);
 
   const createPostMutation = useCreatePost();
   const { isAuthenticated, profile, handle } = useAuthStore();
@@ -298,10 +300,22 @@ export default function ComposeScreen() {
     canPost,
   ]);
 
+  const hasDraft = content.trim() || images.length > 0 || video;
+
   const handleClose = () => {
-    if (content.trim() || images.length > 0 || video) {
-      // Could show confirmation dialog here
+    if (hasDraft) {
+      setDiscardMenuVisible(true);
+    } else {
+      router.back();
     }
+  };
+
+  const handleDiscard = () => {
+    setContent('');
+    setImages([]);
+    setVideo(null);
+    setQuotedPost(null);
+    setDiscardMenuVisible(false);
     router.back();
   };
 
@@ -483,6 +497,47 @@ export default function ComposeScreen() {
           )}
         </View>
       </KeyboardAvoidingView>
+
+      {/* Discard Draft Confirmation */}
+      <Modal
+        visible={discardMenuVisible}
+        animationType="slide"
+        transparent
+        statusBarTranslucent
+        onRequestClose={() => setDiscardMenuVisible(false)}
+      >
+        <Pressable className="flex-1 bg-black/50" onPress={() => setDiscardMenuVisible(false)} />
+
+        <View className="bg-surface-elevated rounded-t-3xl pb-8 pt-2">
+          <View className="items-center py-3">
+            <View className="w-10 h-1 bg-zinc-600 rounded-full" />
+          </View>
+
+          <View className="px-4 pb-4">
+            <Pressable
+              onPress={handleDiscard}
+              className="flex-row items-center gap-4 py-4 px-4 rounded-xl active:bg-zinc-800/50"
+            >
+              <View className="w-11 h-11 rounded-full bg-red-500/20 items-center justify-center">
+                <Trash2 size={22} color="#EF4444" />
+              </View>
+              <View className="flex-1">
+                <Text className="text-red-500 text-lg font-semibold">Discard Draft</Text>
+                <Text className="text-text-muted text-sm">Your text and media will be deleted</Text>
+              </View>
+            </Pressable>
+          </View>
+
+          <View className="px-4">
+            <Pressable
+              onPress={() => setDiscardMenuVisible(false)}
+              className="py-4 rounded-xl bg-zinc-800 items-center active:bg-zinc-700"
+            >
+              <Text className="text-text-primary font-semibold text-base">Keep Draft</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
