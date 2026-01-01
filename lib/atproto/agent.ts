@@ -665,7 +665,11 @@ export async function getProfiles(dids: string[]) {
     // Apply Read Your Own Writes pattern for Cannect users
     const enhancedProfiles = await Promise.all(
       profiles.map(async (profile) => {
-        if (isCannectUser(profile.handle || profile.did)) {
+        // Only fetch from PDS if:
+        // 1. User has a .cannect.space handle (confirmed Cannect user)
+        // 2. Profile has an avatar/banner already (likely has profile record)
+        // Skip users without handles or avatars - they likely haven't set up profiles yet
+        if (profile.handle && isCannectUser(profile.handle) && (profile.avatar || profile.banner || profile.displayName)) {
           const pdsProfile = await getProfileFromPds(profile.did);
           if (pdsProfile) {
             // Merge PDS data
