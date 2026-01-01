@@ -206,6 +206,35 @@ export function removePostFromFeeds(
     .forEach((key) => {
       queryClient.setQueriesData({ queryKey: [key] }, removeFromFeed);
     });
+
+  // Remove from thread caches (replies have different structure)
+  if (!skipKeys.includes('thread')) {
+    queryClient.setQueriesData({ queryKey: ['thread'] }, (old: any) => {
+      if (!old?.post) return old;
+
+      // Helper to recursively remove reply from nested replies
+      const removeReplyRecursive = (replies: any[]): any[] => {
+        return replies
+          .filter((reply: any) => reply?.post?.uri !== postUri)
+          .map((reply: any) => {
+            if (reply?.replies?.length) {
+              return { ...reply, replies: removeReplyRecursive(reply.replies) };
+            }
+            return reply;
+          });
+      };
+
+      // Remove from replies if present
+      if (old.replies?.length) {
+        return {
+          ...old,
+          replies: removeReplyRecursive(old.replies),
+        };
+      }
+
+      return old;
+    });
+  }
 }
 
 /**
