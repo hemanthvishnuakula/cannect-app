@@ -206,17 +206,17 @@ function QuotePost({ record }: { record: any }) {
         {author?.avatar && (
           <Image
             source={{ uri: author.avatar }}
-            className="w-5 h-5 rounded-full mr-2 bg-surface-elevated"
+            className="w-5 h-5 rounded-full mr-2 bg-surface-elevated flex-shrink-0"
             contentFit="cover"
             transition={150}
             cachePolicy="memory-disk"
             recyclingKey={author.avatar}
           />
         )}
-        <Text className="text-text-primary font-medium text-sm">
+        <Text className="text-text-primary font-medium text-sm flex-shrink" numberOfLines={1}>
           {author?.displayName || author?.handle}
         </Text>
-        <Text className="text-text-muted text-sm ml-1">@{author?.handle}</Text>
+        <Text className="text-text-muted text-sm ml-1 flex-shrink-0">@{author?.handle?.slice(0, 15)}{author?.handle?.length > 15 ? '…' : ''}</Text>
       </View>
       <Text className="text-text-primary text-sm" numberOfLines={3}>
         {text}
