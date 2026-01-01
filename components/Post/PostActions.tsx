@@ -403,7 +403,7 @@ export const PostActions = memo(function PostActions({
       </View>
     ) : (
       // Expanded layout (for ThreadPost detail view) - with counts like compact
-      <View className="flex-row justify-around py-2 border-b border-border mb-4 h-[42px]">
+      <View className="flex-row justify-around py-2 h-[42px]">
         {/* Reply */}
         <Pressable
           onPressIn={stopEvent}
