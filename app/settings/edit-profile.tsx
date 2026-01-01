@@ -181,7 +181,9 @@ function PushNotificationToggle() {
 async function compressImage(
   uri: string,
   maxSize: number = MAX_IMAGE_SIZE_BYTES,
-  isAvatar: boolean = false
+  isAvatar: boolean = false,
+  originalWidth?: number,
+  originalHeight?: number
 ): Promise<{ uri: string; mimeType: string }> {
   // Start with reasonable dimensions
   const maxDimension = isAvatar ? 800 : 1500; // Avatar smaller, banner wider
@@ -191,18 +193,13 @@ async function compressImage(
   const actions: ImageManipulator.Action[] = [];
 
   // For avatars, we need to center-crop to square first
-  if (isAvatar) {
-    // Get original image dimensions
-    const { width, height } = await new Promise<{ width: number; height: number }>((resolve) => {
-      Image.getSize(uri, (w, h) => resolve({ width: w, height: h }));
-    });
-
+  if (isAvatar && originalWidth && originalHeight) {
     // Calculate center square crop
-    const size = Math.min(width, height);
-    const originX = Math.floor((width - size) / 2);
-    const originY = Math.floor((height - size) / 2);
+    const size = Math.min(originalWidth, originalHeight);
+    const originX = Math.floor((originalWidth - size) / 2);
+    const originY = Math.floor((originalHeight - size) / 2);
 
-    console.log(`[Compress] Original: ${width}x${height}, cropping to ${size}x${size} square`);
+    console.log(`[Compress] Original: ${originalWidth}x${originalHeight}, cropping to ${size}x${size} square`);
 
     // Add crop action first
     actions.push({
@@ -285,7 +282,14 @@ export default function EditProfileScreen() {
     if (!result.canceled && result.assets[0]) {
       setIsCompressing(true);
       try {
-        const compressed = await compressImage(result.assets[0].uri, MAX_IMAGE_SIZE_BYTES, true);
+        const asset = result.assets[0];
+        const compressed = await compressImage(
+          asset.uri,
+          MAX_IMAGE_SIZE_BYTES,
+          true,
+          asset.width,
+          asset.height
+        );
         setAvatar(compressed);
       } catch (err) {
         console.error('Failed to compress avatar:', err);
@@ -424,8 +428,9 @@ export default function EditProfileScreen() {
             ) : (
               <View className="w-full h-32 bg-primary/20" />
             )}
-            <View className="absolute inset-0 items-center justify-center bg-black/30">
-              <Camera size={24} color="#fff" />
+            {/* Camera badge - bottom right corner */}
+            <View className="absolute bottom-2 right-2 w-8 h-8 rounded-full bg-primary items-center justify-center border-2 border-background">
+              <Camera size={16} color="#fff" />
             </View>
           </Pressable>
 
