@@ -30,6 +30,7 @@ import * as Haptics from 'expo-haptics';
 import { ThreadPost, PostCard } from '@/components/Post';
 import { usePostThread, useCreatePost } from '@/lib/hooks';
 import { useAuthStore } from '@/lib/stores';
+import { getOptimizedAvatarUrl } from '@/lib/utils/avatar';
 import type { AppBskyFeedDefs, AppBskyFeedPost } from '@atproto/api';
 
 type PostView = AppBskyFeedDefs.PostView;
@@ -281,7 +282,7 @@ export default function PostDetailsScreen() {
           {/* User Avatar */}
           {profile?.avatar ? (
             <Image
-              source={{ uri: profile.avatar }}
+              source={{ uri: getOptimizedAvatarUrl(profile.avatar, 32) }}
               className="w-8 h-8 rounded-full"
               contentFit="cover"
             />

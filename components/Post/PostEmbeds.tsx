@@ -13,6 +13,7 @@ import { View, Text, Pressable, Linking } from 'react-native';
 import { Image } from 'expo-image';
 import { ExternalLink } from 'lucide-react-native';
 import { VideoPlayer } from '@/components/ui/VideoPlayer';
+import { getOptimizedAvatarUrl } from '@/lib/utils/avatar';
 import type {
   AppBskyEmbedImages,
   AppBskyEmbedExternal,
@@ -205,7 +206,7 @@ function QuotePost({ record }: { record: any }) {
       <View className="flex-row items-center mb-1">
         {author?.avatar && (
           <Image
-            source={{ uri: author.avatar }}
+            source={{ uri: getOptimizedAvatarUrl(author.avatar, 20) }}
             className="w-5 h-5 rounded-full mr-2 bg-surface-elevated flex-shrink-0"
             contentFit="cover"
             transition={150}

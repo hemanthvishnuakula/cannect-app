@@ -16,6 +16,7 @@ import { View, Text, Pressable } from 'react-native';
 import { Image } from 'expo-image';
 import { FollowButton, FollowingBadge } from '@/components/ui/FollowButton';
 import { useAuthStore } from '@/lib/stores/auth-store-atp';
+import { getOptimizedAvatarUrl } from '@/lib/utils/avatar';
 import type { AppBskyActorDefs } from '@atproto/api';
 
 type ProfileView = AppBskyActorDefs.ProfileView;
@@ -64,7 +65,7 @@ export function UserRow({
       {/* Avatar */}
       {user.avatar ? (
         <Image
-          source={{ uri: user.avatar }}
+          source={{ uri: getOptimizedAvatarUrl(user.avatar, 48) }}
           className="w-12 h-12 rounded-full"
           contentFit="cover"
         />

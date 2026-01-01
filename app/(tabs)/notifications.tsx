@@ -10,8 +10,8 @@ import {
   RefreshControl,
   ActivityIndicator,
   Platform,
-  Image,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   Bell,
@@ -23,6 +23,7 @@ import {
   RefreshCw,
 } from 'lucide-react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
+import { getOptimizedAvatarUrl } from '@/lib/utils/avatar';
 import { useCallback } from 'react';
 import * as Haptics from 'expo-haptics';
 import { useNotifications, useMarkNotificationsRead } from '@/lib/hooks';
@@ -114,7 +115,7 @@ function NotificationItem({ notification }: { notification: Notification }) {
       <View className="flex-1 ml-2">
         <View className="flex-row items-center">
           {author.avatar ? (
-            <Image source={{ uri: author.avatar }} className="w-8 h-8 rounded-full" />
+            <Image source={{ uri: getOptimizedAvatarUrl(author.avatar, 32) }} className="w-8 h-8 rounded-full" />
           ) : (
             <View className="w-8 h-8 rounded-full bg-surface-elevated items-center justify-center">
               <Text className="text-text-muted">{author.handle[0].toUpperCase()}</Text>
