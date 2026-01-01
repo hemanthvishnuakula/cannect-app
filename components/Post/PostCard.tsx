@@ -167,7 +167,7 @@ export function PostCard({
 
         {/* Content */}
         <View className="flex-1 ml-3">
-          {/* Header - Name, Badge, and Time (single line, name truncates) */}
+          {/* Header - Name, Badge, and Time (single line, name truncates only if needed) */}
           <Pressable
             onPressIn={stopEvent}
             onPress={(e) => {
@@ -176,7 +176,7 @@ export function PostCard({
             }}
             className="flex-row items-center self-start"
           >
-            <Text className="font-semibold text-text-primary flex-shrink" numberOfLines={1} style={{ maxWidth: '50%' }}>
+            <Text className="font-semibold text-text-primary flex-1" numberOfLines={1}>
               {author.displayName || author.handle}
             </Text>
             {/* Network badge - cannect (green) or global */}
