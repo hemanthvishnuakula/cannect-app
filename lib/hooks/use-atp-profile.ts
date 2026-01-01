@@ -153,10 +153,40 @@ export function useFollowing(actor: string | undefined) {
 
 /**
  * Follow a user with optimistic update
+ * Updates profile cache AND user list caches (suggested users, search results)
  */
 export function useFollow() {
   const queryClient = useQueryClient();
   const { did: myDid } = useAuthStore();
+
+  // Helper to update a user in any list cache
+  const updateUserInLists = (targetDid: string, followUri: string | undefined) => {
+    // Update suggested users cache
+    queryClient.setQueriesData({ queryKey: ['suggestedUsers'] }, (old: any) => {
+      if (!old || !Array.isArray(old)) return old;
+      return old.map((user: any) =>
+        user.did === targetDid
+          ? { ...user, viewer: { ...user.viewer, following: followUri } }
+          : user
+      );
+    });
+
+    // Update search users cache (infinite query format)
+    queryClient.setQueriesData({ queryKey: ['searchUsers'] }, (old: any) => {
+      if (!old?.pages) return old;
+      return {
+        ...old,
+        pages: old.pages.map((page: any) => ({
+          ...page,
+          actors: page.actors?.map((user: any) =>
+            user.did === targetDid
+              ? { ...user, viewer: { ...user.viewer, following: followUri } }
+              : user
+          ),
+        })),
+      };
+    });
+  };
 
   return useMutation({
     mutationFn: async (targetDid: string) => {
@@ -166,9 +196,13 @@ export function useFollow() {
     onMutate: async (targetDid: string) => {
       // Cancel outgoing queries to prevent race conditions
       await queryClient.cancelQueries({ queryKey: ['profile', targetDid] });
+      await queryClient.cancelQueries({ queryKey: ['suggestedUsers'] });
+      await queryClient.cancelQueries({ queryKey: ['searchUsers'] });
 
       // Snapshot current state for rollback
       const previousProfile = queryClient.getQueryData(['profile', targetDid]);
+      const previousSuggested = queryClient.getQueriesData({ queryKey: ['suggestedUsers'] });
+      const previousSearch = queryClient.getQueriesData({ queryKey: ['searchUsers'] });
 
       // Optimistically update the profile
       queryClient.setQueryData(['profile', targetDid], (old: any) => {
@@ -180,7 +214,10 @@ export function useFollow() {
         };
       });
 
-      return { previousProfile, targetDid };
+      // Optimistically update user lists
+      updateUserInLists(targetDid, 'pending');
+
+      return { previousProfile, previousSuggested, previousSearch, targetDid };
     },
     onSuccess: (result, _, context) => {
       // Update with actual follow URI from server
@@ -192,12 +229,29 @@ export function useFollow() {
             viewer: { ...old.viewer, following: result.uri },
           };
         });
+
+        // Update lists with actual URI
+        updateUserInLists(context.targetDid, result.uri);
       }
     },
     onError: (err, targetDid, context) => {
-      // Rollback on error
+      // Rollback profile
       if (context?.previousProfile) {
         queryClient.setQueryData(['profile', targetDid], context.previousProfile);
+      }
+
+      // Rollback suggested users
+      if (context?.previousSuggested) {
+        context.previousSuggested.forEach(([queryKey, data]) => {
+          queryClient.setQueryData(queryKey, data);
+        });
+      }
+
+      // Rollback search users
+      if (context?.previousSearch) {
+        context.previousSearch.forEach(([queryKey, data]) => {
+          queryClient.setQueryData(queryKey, data);
+        });
       }
     },
     onSettled: (_, __, targetDid) => {
@@ -213,10 +267,40 @@ export function useFollow() {
 
 /**
  * Unfollow a user with optimistic update
+ * Updates profile cache AND user list caches (suggested users, search results)
  */
 export function useUnfollow() {
   const queryClient = useQueryClient();
   const { did: myDid } = useAuthStore();
+
+  // Helper to update a user in any list cache
+  const updateUserInLists = (targetDid: string, followUri: string | undefined) => {
+    // Update suggested users cache
+    queryClient.setQueriesData({ queryKey: ['suggestedUsers'] }, (old: any) => {
+      if (!old || !Array.isArray(old)) return old;
+      return old.map((user: any) =>
+        user.did === targetDid
+          ? { ...user, viewer: { ...user.viewer, following: followUri } }
+          : user
+      );
+    });
+
+    // Update search users cache (infinite query format)
+    queryClient.setQueriesData({ queryKey: ['searchUsers'] }, (old: any) => {
+      if (!old?.pages) return old;
+      return {
+        ...old,
+        pages: old.pages.map((page: any) => ({
+          ...page,
+          actors: page.actors?.map((user: any) =>
+            user.did === targetDid
+              ? { ...user, viewer: { ...user.viewer, following: followUri } }
+              : user
+          ),
+        })),
+      };
+    });
+  };
 
   return useMutation({
     mutationFn: async ({ followUri, targetDid }: { followUri: string; targetDid: string }) => {
@@ -230,9 +314,13 @@ export function useUnfollow() {
     onMutate: async ({ targetDid }) => {
       // Cancel outgoing queries to prevent race conditions
       await queryClient.cancelQueries({ queryKey: ['profile', targetDid] });
+      await queryClient.cancelQueries({ queryKey: ['suggestedUsers'] });
+      await queryClient.cancelQueries({ queryKey: ['searchUsers'] });
 
       // Snapshot current state for rollback
       const previousProfile = queryClient.getQueryData(['profile', targetDid]);
+      const previousSuggested = queryClient.getQueriesData({ queryKey: ['suggestedUsers'] });
+      const previousSearch = queryClient.getQueriesData({ queryKey: ['searchUsers'] });
 
       // Optimistically update the profile
       queryClient.setQueryData(['profile', targetDid], (old: any) => {
@@ -244,12 +332,29 @@ export function useUnfollow() {
         };
       });
 
-      return { previousProfile, targetDid };
+      // Optimistically update user lists
+      updateUserInLists(targetDid, undefined);
+
+      return { previousProfile, previousSuggested, previousSearch, targetDid };
     },
     onError: (err, variables, context) => {
-      // Rollback on error
+      // Rollback profile
       if (context?.previousProfile) {
         queryClient.setQueryData(['profile', context.targetDid], context.previousProfile);
+      }
+
+      // Rollback suggested users
+      if (context?.previousSuggested) {
+        context.previousSuggested.forEach(([queryKey, data]) => {
+          queryClient.setQueryData(queryKey, data);
+        });
+      }
+
+      // Rollback search users
+      if (context?.previousSearch) {
+        context.previousSearch.forEach(([queryKey, data]) => {
+          queryClient.setQueryData(queryKey, data);
+        });
       }
     },
     onSettled: (_, __, { targetDid }) => {
