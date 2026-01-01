@@ -17,14 +17,28 @@ export type ProfileViewDetailed = AppBskyActorDefs.ProfileViewDetailed;
 /**
  * Get a user's profile by DID or handle
  * Uses Bluesky's official API
+ * Caches under BOTH DID and handle for consistency
  */
 export function useProfile(actor: string | undefined) {
+  const queryClient = useQueryClient();
+
   return useQuery({
     queryKey: ['profile', actor],
     queryFn: async () => {
       if (!actor) throw new Error('Actor required');
       const result = await atproto.getProfile(actor);
-      return result.data;
+      const profile = result.data;
+
+      // Also cache under the alternate key (DID or handle)
+      // This ensures follow state is consistent regardless of how profile was accessed
+      if (actor !== profile.did) {
+        queryClient.setQueryData(['profile', profile.did], profile);
+      }
+      if (actor !== profile.handle) {
+        queryClient.setQueryData(['profile', profile.handle], profile);
+      }
+
+      return profile;
     },
     enabled: !!actor,
     staleTime: 1000 * 30, // 30 seconds - profile counts change often
@@ -159,8 +173,18 @@ export function useFollow() {
   const queryClient = useQueryClient();
   const { did: myDid } = useAuthStore();
 
-  // Helper to update a user in any list cache
-  const updateUserInLists = (targetDid: string, followUri: string | undefined) => {
+  // Helper to update a user in any list cache AND all profile caches for that user
+  const updateUserInLists = (targetDid: string, followUri: string | undefined, followersDelta: number) => {
+    // Update ALL profile caches that match this DID (could be cached by handle or DID)
+    queryClient.setQueriesData({ queryKey: ['profile'] }, (old: any) => {
+      if (!old || old.did !== targetDid) return old;
+      return {
+        ...old,
+        followersCount: Math.max((old.followersCount || 0) + followersDelta, 0),
+        viewer: { ...old.viewer, following: followUri },
+      };
+    });
+
     // Update suggested users cache
     queryClient.setQueriesData({ queryKey: ['suggestedUsers'] }, (old: any) => {
       if (!old || !Array.isArray(old)) return old;
@@ -195,49 +219,32 @@ export function useFollow() {
     },
     onMutate: async (targetDid: string) => {
       // Cancel outgoing queries to prevent race conditions
-      await queryClient.cancelQueries({ queryKey: ['profile', targetDid] });
+      await queryClient.cancelQueries({ queryKey: ['profile'] });
       await queryClient.cancelQueries({ queryKey: ['suggestedUsers'] });
       await queryClient.cancelQueries({ queryKey: ['searchUsers'] });
 
       // Snapshot current state for rollback
-      const previousProfile = queryClient.getQueryData(['profile', targetDid]);
+      const previousProfiles = queryClient.getQueriesData({ queryKey: ['profile'] });
       const previousSuggested = queryClient.getQueriesData({ queryKey: ['suggestedUsers'] });
       const previousSearch = queryClient.getQueriesData({ queryKey: ['searchUsers'] });
 
-      // Optimistically update the profile
-      queryClient.setQueryData(['profile', targetDid], (old: any) => {
-        if (!old) return old;
-        return {
-          ...old,
-          followersCount: (old.followersCount || 0) + 1,
-          viewer: { ...old.viewer, following: 'pending' },
-        };
-      });
+      // Optimistically update ALL caches (profile by DID, by handle, and lists)
+      updateUserInLists(targetDid, 'pending', 1);
 
-      // Optimistically update user lists
-      updateUserInLists(targetDid, 'pending');
-
-      return { previousProfile, previousSuggested, previousSearch, targetDid };
+      return { previousProfiles, previousSuggested, previousSearch, targetDid };
     },
     onSuccess: (result, _, context) => {
-      // Update with actual follow URI from server
+      // Update with actual follow URI from server (0 delta since already updated)
       if (context?.targetDid) {
-        queryClient.setQueryData(['profile', context.targetDid], (old: any) => {
-          if (!old) return old;
-          return {
-            ...old,
-            viewer: { ...old.viewer, following: result.uri },
-          };
-        });
-
-        // Update lists with actual URI
-        updateUserInLists(context.targetDid, result.uri);
+        updateUserInLists(context.targetDid, result.uri, 0);
       }
     },
     onError: (err, targetDid, context) => {
-      // Rollback profile
-      if (context?.previousProfile) {
-        queryClient.setQueryData(['profile', targetDid], context.previousProfile);
+      // Rollback all profile caches
+      if (context?.previousProfiles) {
+        context.previousProfiles.forEach(([queryKey, data]) => {
+          queryClient.setQueryData(queryKey, data);
+        });
       }
 
       // Rollback suggested users
@@ -273,8 +280,18 @@ export function useUnfollow() {
   const queryClient = useQueryClient();
   const { did: myDid } = useAuthStore();
 
-  // Helper to update a user in any list cache
-  const updateUserInLists = (targetDid: string, followUri: string | undefined) => {
+  // Helper to update a user in any list cache AND all profile caches for that user
+  const updateUserInLists = (targetDid: string, followUri: string | undefined, followersDelta: number) => {
+    // Update ALL profile caches that match this DID (could be cached by handle or DID)
+    queryClient.setQueriesData({ queryKey: ['profile'] }, (old: any) => {
+      if (!old || old.did !== targetDid) return old;
+      return {
+        ...old,
+        followersCount: Math.max((old.followersCount || 0) + followersDelta, 0),
+        viewer: { ...old.viewer, following: followUri },
+      };
+    });
+
     // Update suggested users cache
     queryClient.setQueriesData({ queryKey: ['suggestedUsers'] }, (old: any) => {
       if (!old || !Array.isArray(old)) return old;
@@ -313,34 +330,26 @@ export function useUnfollow() {
     },
     onMutate: async ({ targetDid }) => {
       // Cancel outgoing queries to prevent race conditions
-      await queryClient.cancelQueries({ queryKey: ['profile', targetDid] });
+      await queryClient.cancelQueries({ queryKey: ['profile'] });
       await queryClient.cancelQueries({ queryKey: ['suggestedUsers'] });
       await queryClient.cancelQueries({ queryKey: ['searchUsers'] });
 
       // Snapshot current state for rollback
-      const previousProfile = queryClient.getQueryData(['profile', targetDid]);
+      const previousProfiles = queryClient.getQueriesData({ queryKey: ['profile'] });
       const previousSuggested = queryClient.getQueriesData({ queryKey: ['suggestedUsers'] });
       const previousSearch = queryClient.getQueriesData({ queryKey: ['searchUsers'] });
 
-      // Optimistically update the profile
-      queryClient.setQueryData(['profile', targetDid], (old: any) => {
-        if (!old) return old;
-        return {
-          ...old,
-          followersCount: Math.max((old.followersCount || 1) - 1, 0),
-          viewer: { ...old.viewer, following: undefined },
-        };
-      });
+      // Optimistically update ALL caches
+      updateUserInLists(targetDid, undefined, -1);
 
-      // Optimistically update user lists
-      updateUserInLists(targetDid, undefined);
-
-      return { previousProfile, previousSuggested, previousSearch, targetDid };
+      return { previousProfiles, previousSuggested, previousSearch, targetDid };
     },
     onError: (err, variables, context) => {
-      // Rollback profile
-      if (context?.previousProfile) {
-        queryClient.setQueryData(['profile', context.targetDid], context.previousProfile);
+      // Rollback all profile caches
+      if (context?.previousProfiles) {
+        context.previousProfiles.forEach(([queryKey, data]) => {
+          queryClient.setQueryData(queryKey, data);
+        });
       }
 
       // Rollback suggested users
