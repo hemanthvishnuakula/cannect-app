@@ -53,7 +53,6 @@ export function UserRow({
   const isFollowing = !!user.viewer?.following;
   const isSelf = user.did === currentUserDid;
   const isBlocked = !!user.viewer?.blocking || !!user.viewer?.blockedBy;
-  const isCannectUser = user.handle.endsWith('.cannect.space');
 
   return (
     <Pressable
@@ -77,21 +76,9 @@ export function UserRow({
 
       {/* User Info */}
       <View className="flex-1 ml-3">
-        <View className="flex-row items-center">
-          <Text className="font-semibold text-text-primary flex-shrink" numberOfLines={1}>
-            {user.displayName || user.handle}
-          </Text>
-          {/* Network badge - cannect (green) or global */}
-          {isCannectUser ? (
-            <View className="ml-2 px-2 py-0.5 rounded-full bg-primary/20 flex-shrink-0">
-              <Text className="text-primary text-xs font-medium">cannect</Text>
-            </View>
-          ) : (
-            <View className="ml-2 px-2 py-0.5 rounded-full bg-surface-elevated flex-shrink-0">
-              <Text className="text-text-muted text-xs font-medium">global</Text>
-            </View>
-          )}
-        </View>
+        <Text className="font-semibold text-text-primary" numberOfLines={1}>
+          {user.displayName || user.handle}
+        </Text>
         <Text className="text-text-muted" numberOfLines={1}>
           @{user.handle}
         </Text>
