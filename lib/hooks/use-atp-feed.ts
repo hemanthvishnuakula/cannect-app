@@ -121,6 +121,51 @@ function containsBlockedKeywords(text: string): boolean {
 }
 
 /**
+ * Extract labels from embed objects (images, videos, record with media)
+ * Bluesky's AI moderation labels images/videos at upload time
+ */
+function getEmbedLabels(embed: any): string[] {
+  if (!embed) return [];
+
+  const labels: string[] = [];
+  const embedType = embed.$type;
+
+  // Images - each image can have its own labels
+  if (embedType === 'app.bsky.embed.images#view') {
+    for (const img of embed.images || []) {
+      if (img.labels && Array.isArray(img.labels)) {
+        labels.push(...img.labels.map((l: any) => l.val));
+      }
+    }
+  }
+
+  // Video - video embed can have labels
+  if (embedType === 'app.bsky.embed.video#view') {
+    if (embed.labels && Array.isArray(embed.labels)) {
+      labels.push(...embed.labels.map((l: any) => l.val));
+    }
+  }
+
+  // Record with media - check the nested media embed
+  if (embedType === 'app.bsky.embed.recordWithMedia#view') {
+    if (embed.media) {
+      labels.push(...getEmbedLabels(embed.media));
+    }
+  }
+
+  // Also check alt text for blocked keywords (some users hide explicit content in alt text)
+  if (embedType === 'app.bsky.embed.images#view') {
+    for (const img of embed.images || []) {
+      if (img.alt && containsBlockedKeywords(img.alt)) {
+        labels.push('blocked-keyword-in-alt');
+      }
+    }
+  }
+
+  return labels;
+}
+
+/**
  * Check if a post should be filtered based on its labels
  */
 function shouldFilterPost(post: PostView): boolean {
@@ -137,6 +182,16 @@ function shouldFilterPost(post: PostView): boolean {
   if (post.author?.labels && post.author.labels.length > 0) {
     for (const label of post.author.labels) {
       if (BLOCKED_LABELS.has(label.val.toLowerCase())) {
+        return true;
+      }
+    }
+  }
+
+  // Check embed labels (images/videos can have NSFW labels from Bluesky's AI)
+  if (post.embed) {
+    const embedLabels = getEmbedLabels(post.embed);
+    for (const label of embedLabels) {
+      if (BLOCKED_LABELS.has(label.toLowerCase()) || label === 'blocked-keyword-in-alt') {
         return true;
       }
     }
