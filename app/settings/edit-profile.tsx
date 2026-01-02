@@ -18,14 +18,11 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft, Camera, Bell, BellOff } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
-import * as ImageManipulator from 'expo-image-manipulator';
 import { triggerNotification } from '@/lib/utils/haptics';
+import { compressAvatar, compressBanner } from '@/lib/utils/media-compression';
 import { router } from 'expo-router';
 import { useMyProfile, useUpdateProfile, useWebPush } from '@/lib/hooks';
 import { useAuthStore } from '@/lib/stores';
-
-// AT Protocol max blob size is ~1MB, aim for 900KB to be safe
-const MAX_IMAGE_SIZE_BYTES = 900 * 1024;
 
 /**
  * Push Notification Toggle Component (Web only)
@@ -174,82 +171,8 @@ function PushNotificationToggle() {
 }
 
 /**
- * Compress and resize image to fit within size limit
- * For avatars: center-crops to square first, then resizes
- * Uses progressive quality reduction until under limit
+ * Edit Profile Screen Component
  */
-async function compressImage(
-  uri: string,
-  maxSize: number = MAX_IMAGE_SIZE_BYTES,
-  isAvatar: boolean = false,
-  originalWidth?: number,
-  originalHeight?: number
-): Promise<{ uri: string; mimeType: string }> {
-  // Start with reasonable dimensions
-  const maxDimension = isAvatar ? 800 : 1500; // Avatar smaller, banner wider
-  let quality = 0.9;
-
-  // Build the manipulation actions
-  const actions: ImageManipulator.Action[] = [];
-
-  // For avatars, we need to center-crop to square first
-  if (isAvatar && originalWidth && originalHeight) {
-    // Calculate center square crop
-    const size = Math.min(originalWidth, originalHeight);
-    const originX = Math.floor((originalWidth - size) / 2);
-    const originY = Math.floor((originalHeight - size) / 2);
-
-    console.log(`[Compress] Original: ${originalWidth}x${originalHeight}, cropping to ${size}x${size} square`);
-
-    // Add crop action first
-    actions.push({
-      crop: {
-        originX,
-        originY,
-        width: size,
-        height: size,
-      },
-    });
-  }
-
-  // Then resize
-  actions.push({ resize: { width: maxDimension, height: maxDimension } });
-
-  // First manipulation pass
-  let result = await ImageManipulator.manipulateAsync(uri, actions, {
-    compress: quality,
-    format: ImageManipulator.SaveFormat.JPEG,
-  });
-
-  // Check file size and progressively reduce quality if needed
-  let response = await fetch(result.uri);
-  let blob = await response.blob();
-
-  while (blob.size > maxSize && quality > 0.1) {
-    quality -= 0.1;
-    console.log(
-      `[Compress] Size ${(blob.size / 1024).toFixed(0)}KB > ${(maxSize / 1024).toFixed(0)}KB, reducing quality to ${(quality * 100).toFixed(0)}%`
-    );
-
-    result = await ImageManipulator.manipulateAsync(uri, actions, {
-      compress: quality,
-      format: ImageManipulator.SaveFormat.JPEG,
-    });
-
-    response = await fetch(result.uri);
-    blob = await response.blob();
-  }
-
-  console.log(
-    `[Compress] Final size: ${(blob.size / 1024).toFixed(0)}KB at ${(quality * 100).toFixed(0)}% quality`
-  );
-
-  return {
-    uri: result.uri,
-    mimeType: 'image/jpeg',
-  };
-}
-
 export default function EditProfileScreen() {
   const { handle } = useAuthStore();
   const profileQuery = useMyProfile();
@@ -260,7 +183,6 @@ export default function EditProfileScreen() {
   const [avatar, setAvatar] = useState<{ uri: string; mimeType: string } | null>(null);
   const [banner, setBanner] = useState<{ uri: string; mimeType: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [isCompressing, setIsCompressing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   // Initialize form with current profile data
@@ -280,13 +202,10 @@ export default function EditProfileScreen() {
     });
 
     if (!result.canceled && result.assets[0]) {
-      setIsCompressing(true);
       try {
         const asset = result.assets[0];
-        const compressed = await compressImage(
+        const compressed = await compressAvatar(
           asset.uri,
-          MAX_IMAGE_SIZE_BYTES,
-          true,
           asset.width,
           asset.height
         );
@@ -294,8 +213,6 @@ export default function EditProfileScreen() {
       } catch (err) {
         console.error('Failed to compress avatar:', err);
         setError('Failed to process image');
-      } finally {
-        setIsCompressing(false);
       }
     }
   };
@@ -309,15 +226,12 @@ export default function EditProfileScreen() {
     });
 
     if (!result.canceled && result.assets[0]) {
-      setIsCompressing(true);
       try {
-        const compressed = await compressImage(result.assets[0].uri, MAX_IMAGE_SIZE_BYTES, false);
+        const compressed = await compressBanner(result.assets[0].uri);
         setBanner(compressed);
       } catch (err) {
         console.error('Failed to compress banner:', err);
         setError('Failed to process image');
-      } finally {
-        setIsCompressing(false);
       }
     }
   };
@@ -365,17 +279,17 @@ export default function EditProfileScreen() {
     }
   };
 
-  const canSave = !updateProfileMutation.isPending && !isCompressing && !isSaving;
+  const canSave = !updateProfileMutation.isPending && !isSaving;
   const currentAvatar = avatar?.uri || profileQuery.data?.avatar;
   const currentBanner = banner?.uri || profileQuery.data?.banner;
 
-  // Show full-screen loader during initial load, compression, or saving
-  if (profileQuery.isLoading || isCompressing || isSaving) {
+  // Show full-screen loader during initial load or saving
+  if (profileQuery.isLoading || isSaving) {
     return (
       <SafeAreaView className="flex-1 bg-background items-center justify-center">
         <ActivityIndicator size="large" color="#10B981" />
         <Text className="text-text-muted mt-2">
-          {isCompressing ? 'Optimizing image...' : isSaving ? 'Saving...' : 'Loading...'}
+          {isSaving ? 'Saving...' : 'Loading...'}
         </Text>
       </SafeAreaView>
     );

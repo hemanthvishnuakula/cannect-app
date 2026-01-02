@@ -24,6 +24,7 @@ import { RichText } from '@atproto/api';
 import { useCreatePost } from '@/lib/hooks';
 import { useAuthStore } from '@/lib/stores';
 import * as atproto from '@/lib/atproto/agent';
+import { compressImageForPost } from '@/lib/utils/media-compression';
 
 const MAX_LENGTH = 300; // Bluesky character limit
 
@@ -199,14 +200,17 @@ export default function ComposeScreen() {
         const uploadedImages = [];
 
         for (const image of images) {
-          // Fetch the image data
-          const response = await fetch(image.uri);
+          // Compress image to fit AT Protocol limits
+          const compressed = await compressImageForPost(image.uri);
+
+          // Fetch the compressed image data
+          const response = await fetch(compressed.uri);
           const blob = await response.blob();
           const arrayBuffer = await blob.arrayBuffer();
           const uint8Array = new Uint8Array(arrayBuffer);
 
           // Upload to Bluesky
-          const uploadResult = await atproto.uploadBlob(uint8Array, image.mimeType);
+          const uploadResult = await atproto.uploadBlob(uint8Array, compressed.mimeType);
           uploadedImages.push({
             alt: '',
             image: uploadResult.data.blob,
