@@ -31,30 +31,47 @@ const stopEvent = (e: any) => {
 interface PostEmbedsProps {
   embed: any; // The post.embed object
   onImagePress?: (images: string[], index: number) => void;
+  /** Full width mode for card layout */
+  fullWidth?: boolean;
 }
 
-export function PostEmbeds({ embed, onImagePress }: PostEmbedsProps) {
+export function PostEmbeds({ embed, onImagePress, fullWidth = false }: PostEmbedsProps) {
   if (!embed) return null;
 
   const embedType = embed.$type;
 
+  // Wrapper for full-width mode
+  const wrapperClass = fullWidth ? '' : 'mt-3';
+
   // Images
   if (embedType === 'app.bsky.embed.images#view') {
     const images = (embed as AppBskyEmbedImages.View).images;
-    return <ImageGrid images={images} onImagePress={onImagePress} />;
+    return (
+      <View className={wrapperClass}>
+        <ImageGrid images={images} onImagePress={onImagePress} fullWidth={fullWidth} />
+      </View>
+    );
   }
 
   // Link Preview
   if (embedType === 'app.bsky.embed.external#view') {
     const external = (embed as AppBskyEmbedExternal.View).external;
-    return <LinkPreview external={external} />;
+    return (
+      <View className={fullWidth ? 'px-4' : 'mt-3'}>
+        <LinkPreview external={external} />
+      </View>
+    );
   }
 
   // Quote Post
   if (embedType === 'app.bsky.embed.record#view') {
     const record = (embed as AppBskyEmbedRecord.View).record;
     if (record.$type === 'app.bsky.embed.record#viewRecord') {
-      return <QuotePost record={record as any} />;
+      return (
+        <View className={fullWidth ? 'px-4' : 'mt-3'}>
+          <QuotePost record={record as any} />
+        </View>
+      );
     }
     return null;
   }
@@ -62,13 +79,21 @@ export function PostEmbeds({ embed, onImagePress }: PostEmbedsProps) {
   // Video
   if (embedType === 'app.bsky.embed.video#view') {
     const video = embed as AppBskyEmbedVideo.View;
-    return <VideoEmbed video={video} />;
+    return (
+      <View className={wrapperClass}>
+        <VideoEmbed video={video} fullWidth={fullWidth} />
+      </View>
+    );
   }
 
   // Record with Media (Quote + Images/Video)
   if (embedType === 'app.bsky.embed.recordWithMedia#view') {
     const rwm = embed as AppBskyEmbedRecordWithMedia.View;
-    return <RecordWithMedia data={rwm} onImagePress={onImagePress} />;
+    return (
+      <View className={wrapperClass}>
+        <RecordWithMedia data={rwm} onImagePress={onImagePress} fullWidth={fullWidth} />
+      </View>
+    );
   }
 
   return null;
@@ -81,11 +106,16 @@ export function PostEmbeds({ embed, onImagePress }: PostEmbedsProps) {
 function ImageGrid({
   images,
   onImagePress,
+  fullWidth = false,
 }: {
   images: AppBskyEmbedImages.ViewImage[];
   onImagePress?: (images: string[], index: number) => void;
+  fullWidth?: boolean;
 }) {
   const imageUrls = images.map((img) => img.fullsize || img.thumb);
+  
+  // Border radius: none for full-width mode
+  const borderClass = fullWidth ? '' : 'rounded-xl';
 
   if (images.length === 1) {
     const img = images[0];
@@ -105,13 +135,13 @@ function ImageGrid({
           stopEvent(e);
           onImagePress?.(imageUrls, 0);
         }}
-        className="mt-2 rounded-xl overflow-hidden"
+        className={`overflow-hidden ${borderClass}`}
       >
         <View style={{ width: '100%', maxHeight, minHeight }}>
           <Image
             source={{ uri: img.thumb }}
             style={{ width: '100%', aspectRatio, maxHeight, minHeight }}
-            className="rounded-xl bg-surface-elevated"
+            className={`bg-surface-elevated ${borderClass}`}
             contentFit="cover"
             transition={200}
             cachePolicy="memory-disk"
@@ -123,7 +153,7 @@ function ImageGrid({
   }
 
   return (
-    <View className="mt-2 flex-row flex-wrap gap-1 rounded-xl overflow-hidden">
+    <View className={`flex-row flex-wrap gap-1 overflow-hidden ${fullWidth ? 'px-4' : borderClass}`}>
       {images.slice(0, 4).map((img, idx) => (
         <Pressable
           key={idx}
@@ -226,14 +256,16 @@ function QuotePost({ record }: { record: any }) {
   );
 }
 
-function VideoEmbed({ video }: { video: AppBskyEmbedVideo.View }) {
+function VideoEmbed({ video, fullWidth = false }: { video: AppBskyEmbedVideo.View; fullWidth?: boolean }) {
   const aspectRatio =
     video.aspectRatio?.width && video.aspectRatio?.height
       ? video.aspectRatio.width / video.aspectRatio.height
       : 16 / 9;
 
+  const borderClass = fullWidth ? '' : 'rounded-xl';
+
   return (
-    <View className="mt-2 rounded-xl overflow-hidden">
+    <View className={`overflow-hidden ${borderClass}`}>
       <VideoPlayer
         url={video.playlist}
         thumbnailUrl={video.thumbnail}
@@ -248,9 +280,11 @@ function VideoEmbed({ video }: { video: AppBskyEmbedVideo.View }) {
 function RecordWithMedia({
   data,
   onImagePress,
+  fullWidth = false,
 }: {
   data: AppBskyEmbedRecordWithMedia.View;
   onImagePress?: (images: string[], index: number) => void;
+  fullWidth?: boolean;
 }) {
   const media = data.media;
   const record = data.record?.record;
@@ -259,13 +293,15 @@ function RecordWithMedia({
     <>
       {/* Media part (images or video) */}
       {media.$type === 'app.bsky.embed.images#view' && (
-        <ImageGrid images={(media as any).images} onImagePress={onImagePress} />
+        <ImageGrid images={(media as any).images} onImagePress={onImagePress} fullWidth={fullWidth} />
       )}
-      {media.$type === 'app.bsky.embed.video#view' && <VideoEmbed video={media as any} />}
+      {media.$type === 'app.bsky.embed.video#view' && <VideoEmbed video={media as any} fullWidth={fullWidth} />}
 
       {/* Quote part */}
       {record && record.$type === 'app.bsky.embed.record#viewRecord' && (
-        <QuotePost record={record as any} />
+        <View className={fullWidth ? 'px-4 mt-2' : 'mt-2'}>
+          <QuotePost record={record as any} />
+        </View>
       )}
     </>
   );

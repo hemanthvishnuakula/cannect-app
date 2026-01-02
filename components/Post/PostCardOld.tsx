@@ -1,12 +1,10 @@
 /**
- * PostCard - Modern Card Stack Design
+ * PostCard - Universal post component for all list views
  *
- * Concept 1: Instagram/Pinterest inspired floating cards
- * - Avatar + header at top (not side-by-side)
- * - Text section with breathing room
- * - Full-width media
- * - Actions in bottom row
- * - Gap between cards
+ * Uses expo-image for fast cached images
+ * Handles all embed types via PostEmbeds
+ *
+ * Variable height - text truncated to 4 lines max with "Show more" button
  *
  * Used in:
  * - Feed tabs (Global, Local, Following)
@@ -30,9 +28,9 @@ type FeedViewPost = AppBskyFeedDefs.FeedViewPost;
 type PostView = AppBskyFeedDefs.PostView;
 
 // Maximum lines of text before truncation
-const MAX_TEXT_LINES = 6;
-// Approximate characters that fit in 6 lines
-const TRUNCATION_THRESHOLD = 280;
+const MAX_TEXT_LINES = 4;
+// Approximate characters that fit in 4 lines (conservative estimate)
+const TRUNCATION_THRESHOLD = 200;
 
 interface PostCardProps {
   /** The feed item (includes reason for reposts) - preferred */
@@ -43,8 +41,8 @@ interface PostCardProps {
   onPress?: () => void;
   /** Called when an image is pressed for fullscreen viewing */
   onImagePress?: (images: string[], index: number) => void;
-  /** Show as card with margin (default: true) */
-  showAsCard?: boolean;
+  /** Show border at bottom (default: true) */
+  showBorder?: boolean;
 }
 
 // Format relative time
@@ -68,7 +66,7 @@ export function PostCard({
   post: rawPost,
   onPress,
   onImagePress,
-  showAsCard = true,
+  showBorder = true,
 }: PostCardProps) {
   const router = useRouter();
   const [isExpanded, setIsExpanded] = useState(false);
@@ -85,12 +83,12 @@ export function PostCard({
   const record = post.record as AppBskyFeedPost.Record;
   const author = post.author;
 
-  // Check if text needs truncation
+  // Check if text needs truncation (simple heuristic based on length)
   const textLength = record.text?.length || 0;
   const needsTruncation = textLength > TRUNCATION_THRESHOLD;
   const shouldTruncate = needsTruncation && !isExpanded;
 
-  // Stop event propagation helper
+  // Stop event propagation helper (works on web and native)
   const stopEvent = useCallback((e: any) => {
     e?.stopPropagation?.();
     e?.preventDefault?.();
@@ -105,18 +103,16 @@ export function PostCard({
     [stopEvent]
   );
 
-  // Check if this is a repost
+  // Check if this is a repost (only possible with FeedViewPost)
   const isRepost = !!item?.reason && item.reason.$type === 'app.bsky.feed.defs#reasonRepost';
   const repostBy = isRepost ? (item!.reason as any).by : null;
-
-  // Check if cannect user
-  const isCannectUser = author.handle.endsWith('.cannect.space');
 
   // Default navigation handler
   const handlePress = () => {
     if (onPress) {
       onPress();
     } else {
+      // Default: navigate to post detail
       const uriParts = post.uri.split('/');
       const rkey = uriParts[uriParts.length - 1];
       router.push(`/post/${post.author.did}/${rkey}`);
@@ -128,122 +124,106 @@ export function PostCard({
     router.push(`/user/${author.handle}`);
   };
 
-  // Card wrapper styles
-  const cardStyles = showAsCard
-    ? 'mx-3 my-2 bg-surface rounded-2xl border border-border overflow-hidden'
-    : 'border-b border-border';
-
   return (
-    <Pressable onPress={handlePress} className={cardStyles}>
-      {/* Repost indicator - outside card header */}
+    <Pressable
+      onPress={handlePress}
+      className={`px-4 pt-4 pb-2 ${showBorder ? 'border-b border-border' : ''}`}
+    >
+      {/* Repost indicator */}
       {isRepost && repostBy && (
-        <View className="flex-row items-center px-4 pt-3 pb-1">
+        <View className="flex-row items-center mb-2 pl-10">
           <Repeat2 size={14} color="#6B7280" />
-          <Text className="text-text-muted text-xs ml-2 flex-1" numberOfLines={1}>
+          <Text className="text-text-muted text-xs ml-1 flex-1" numberOfLines={1}>
             Reposted by {repostBy.displayName || repostBy.handle}
           </Text>
         </View>
       )}
 
-      {/* Header Section - Avatar, Name, Handle, Time */}
-      <View className="flex-row items-center px-4 pt-4 pb-2">
-        {/* Avatar */}
+      <View className="flex-row">
+        {/* Avatar - using expo-image for caching */}
         <Pressable
           onPressIn={stopEvent}
           onPress={(e) => {
             stopEvent(e);
             handleAuthorPress();
           }}
+          className="self-start"
           hitSlop={8}
           style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
         >
           {author.avatar ? (
             <Image
-              source={{ uri: getOptimizedAvatarUrl(author.avatar, 48) }}
-              className="w-12 h-12 rounded-full bg-surface-elevated"
+              source={{ uri: getOptimizedAvatarUrl(author.avatar, 44) }}
+              className="w-11 h-11 rounded-full bg-surface-elevated"
               contentFit="cover"
               transition={200}
               cachePolicy="memory-disk"
               recyclingKey={author.avatar}
             />
           ) : (
-            <View className="w-12 h-12 rounded-full bg-surface-elevated items-center justify-center">
-              <Text className="text-text-muted text-xl font-medium">
-                {author.handle[0].toUpperCase()}
-              </Text>
+            <View className="w-11 h-11 rounded-full bg-surface-elevated items-center justify-center">
+              <Text className="text-text-muted text-lg">{author.handle[0].toUpperCase()}</Text>
             </View>
           )}
         </Pressable>
 
-        {/* Name and Handle */}
-        <Pressable
-          onPressIn={stopEvent}
-          onPress={(e) => {
-            stopEvent(e);
-            handleAuthorPress();
-          }}
-          className="flex-1 ml-3"
-          style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
-        >
+        {/* Content */}
+        <View className="flex-1 ml-3">
+          {/* Header - Name, Badge, and Time (single line, name truncates only if needed) */}
           <View className="flex-row items-center">
-            <Text className="font-semibold text-text-primary text-base" numberOfLines={1}>
-              {author.displayName || author.handle}
-            </Text>
-            {/* Network badge */}
-            {isCannectUser ? (
-              <View className="ml-2 px-2 py-0.5 rounded-full bg-primary/20">
-                <Text className="text-primary text-xs font-medium">cannect</Text>
-              </View>
-            ) : (
-              <View className="ml-2 px-2 py-0.5 rounded-full bg-surface-elevated">
-                <Text className="text-text-muted text-xs font-medium">global</Text>
-              </View>
-            )}
+            <Pressable
+              onPressIn={stopEvent}
+              onPress={(e) => {
+                stopEvent(e);
+                handleAuthorPress();
+              }}
+              className="flex-row items-center flex-1 mr-2"
+              style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
+            >
+              <Text className="font-semibold text-text-primary flex-shrink" numberOfLines={1}>
+                {author.displayName || author.handle}
+              </Text>
+              {/* Network badge - cannect (green) or global */}
+              {author.handle.endsWith('.cannect.space') ? (
+                <View className="ml-2 px-2 py-0.5 rounded-full bg-primary/20 flex-shrink-0">
+                  <Text className="text-primary text-xs font-medium">cannect</Text>
+                </View>
+              ) : (
+                <View className="ml-2 px-2 py-0.5 rounded-full bg-surface-elevated flex-shrink-0">
+                  <Text className="text-text-muted text-xs font-medium">global</Text>
+                </View>
+              )}
+            </Pressable>
+            <Text className="text-text-muted flex-shrink-0">{formatTime(record.createdAt)}</Text>
           </View>
-          <Text className="text-text-muted text-sm mt-0.5" numberOfLines={1}>
-            @{author.handle.replace('.bsky.social', '').replace('.cannect.space', '')}
-          </Text>
-        </Pressable>
 
-        {/* Time */}
-        <Text className="text-text-muted text-sm">{formatTime(record.createdAt)}</Text>
-      </View>
-
-      {/* Text Content Section */}
-      {record.text && (
-        <View className="px-4 py-2">
+          {/* Post text with facets (mentions, links, hashtags) */}
           <RichText
             text={record.text}
             facets={record.facets}
+            className="mt-2"
             numberOfLines={shouldTruncate ? MAX_TEXT_LINES : undefined}
-            className="text-base leading-relaxed"
           />
 
-          {/* Show more button */}
+          {/* Show more button for truncated text */}
           {shouldTruncate && (
             <Pressable
               onPressIn={stopEvent}
               onPress={handleShowMore}
-              className="mt-2 self-start"
+              className="mt-2 py-1 self-start"
               hitSlop={8}
               style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
             >
               <Text className="text-primary font-medium">Show more</Text>
             </Pressable>
           )}
-        </View>
-      )}
 
-      {/* Media/Embeds Section - Full width */}
-      {post.embed && (
-        <View className="mt-1">
-          <PostEmbeds embed={post.embed} onImagePress={onImagePress} fullWidth />
-        </View>
-      )}
+          {/* Embeds (images, video, link preview, quote) */}
+          <PostEmbeds embed={post.embed} onImagePress={onImagePress} />
 
-      {/* Actions Section */}
-      <View className="px-2 pb-2">
-        <PostActions post={post} variant="compact" />
+          {/* Action buttons with built-in optimistic mutations */}
+          <PostActions post={post} variant="compact" />
+        </View>
       </View>
     </Pressable>
   );
