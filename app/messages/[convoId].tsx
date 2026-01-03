@@ -224,10 +224,10 @@ export default function ChatScreen() {
           onPress={() => isSelectMode && handleToggleSelect(msg.id)}
           className={`mb-3 ${isOwn ? 'items-end' : 'items-start'}`}
         >
-          <View className={`flex-row items-center gap-2 ${isOwn ? 'flex-row-reverse' : ''}`}>
+          <View className={`flex-row items-center ${isOwn ? 'flex-row-reverse' : ''}`}>
             {/* Checkbox in select mode */}
             {isSelectMode && (
-              <Pressable onPress={() => handleToggleSelect(msg.id)} className="p-1">
+              <Pressable onPress={() => handleToggleSelect(msg.id)} className="p-1 mr-2">
                 {isSelected ? (
                   <CheckSquare size={20} color="#10B981" />
                 ) : (
@@ -243,7 +243,7 @@ export default function ChatScreen() {
                   : 'bg-surface-elevated rounded-2xl rounded-bl-md'
               } ${isSelected ? 'ring-2 ring-primary' : ''}`}
             >
-              <Text className={isOwn ? 'text-white' : 'text-text-primary'}>{msg.text}</Text>
+              <Text className={`${isOwn ? 'text-white' : 'text-text-primary'}`} style={{ flexShrink: 0 }}>{msg.text}</Text>
             </View>
           </View>
           <Text className={`text-text-muted text-xs mt-1 px-1 ${isOwn ? 'text-right' : ''}`}>{time}</Text>
