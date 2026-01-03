@@ -286,11 +286,9 @@ function MessageButton({ did }: { did: string }) {
   // Safely extract canChat as a boolean - never render availability object
   const canChat = availability?.canChat === true;
 
-  // Don't render if we can't message this user (or if check failed, show button anyway)
-  // Must wait for check to complete and have a definitive false result
-  if (!isCheckingAvailability && !isError && availability && !canChat) {
-    return null;
-  }
+  // Determine if we should hide the button
+  // Hide when: not loading, no error, have data, and canChat is false
+  const shouldHide = !isCheckingAvailability && !isError && availability !== undefined && !canChat;
 
   const handlePress = useCallback(() => {
     triggerImpact('light');
@@ -311,6 +309,11 @@ function MessageButton({ did }: { did: string }) {
       },
     });
   }, [did, startConversation, router, showError]);
+
+  // Instead of returning null, return an empty fragment to avoid React re-mount issues
+  if (shouldHide) {
+    return <></>;
+  }
 
   return (
     <Pressable
