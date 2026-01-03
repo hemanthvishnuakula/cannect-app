@@ -210,6 +210,35 @@ export function useFollow() {
         })),
       };
     });
+
+    // Update feed caches (timeline, cannectFeed) - update post.author.viewer.following
+    const feedKeys = ['timeline', 'cannectFeed', 'globalFeed', 'localFeed', 'authorFeed'];
+    feedKeys.forEach((key) => {
+      queryClient.setQueriesData({ queryKey: [key] }, (old: any) => {
+        if (!old?.pages) return old;
+        return {
+          ...old,
+          pages: old.pages.map((page: any) => ({
+            ...page,
+            feed: page.feed?.map((item: any) => {
+              if (item.post?.author?.did === targetDid) {
+                return {
+                  ...item,
+                  post: {
+                    ...item.post,
+                    author: {
+                      ...item.post.author,
+                      viewer: { ...item.post.author.viewer, following: followUri },
+                    },
+                  },
+                };
+              }
+              return item;
+            }),
+          })),
+        };
+      });
+    });
   };
 
   return useMutation({
@@ -222,16 +251,20 @@ export function useFollow() {
       await queryClient.cancelQueries({ queryKey: ['profile'] });
       await queryClient.cancelQueries({ queryKey: ['suggestedUsers'] });
       await queryClient.cancelQueries({ queryKey: ['searchUsers'] });
+      await queryClient.cancelQueries({ queryKey: ['timeline'] });
+      await queryClient.cancelQueries({ queryKey: ['cannectFeed'] });
 
       // Snapshot current state for rollback
       const previousProfiles = queryClient.getQueriesData({ queryKey: ['profile'] });
       const previousSuggested = queryClient.getQueriesData({ queryKey: ['suggestedUsers'] });
       const previousSearch = queryClient.getQueriesData({ queryKey: ['searchUsers'] });
+      const previousTimeline = queryClient.getQueriesData({ queryKey: ['timeline'] });
+      const previousCannectFeed = queryClient.getQueriesData({ queryKey: ['cannectFeed'] });
 
       // Optimistically update ALL caches (profile by DID, by handle, and lists)
       updateUserInLists(targetDid, 'pending', 1);
 
-      return { previousProfiles, previousSuggested, previousSearch, targetDid };
+      return { previousProfiles, previousSuggested, previousSearch, previousTimeline, previousCannectFeed, targetDid };
     },
     onSuccess: (result, _, context) => {
       // Update with actual follow URI from server (0 delta since already updated)
@@ -257,6 +290,18 @@ export function useFollow() {
       // Rollback search users
       if (context?.previousSearch) {
         context.previousSearch.forEach(([queryKey, data]) => {
+          queryClient.setQueryData(queryKey, data);
+        });
+      }
+
+      // Rollback feed caches
+      if (context?.previousTimeline) {
+        context.previousTimeline.forEach(([queryKey, data]) => {
+          queryClient.setQueryData(queryKey, data);
+        });
+      }
+      if (context?.previousCannectFeed) {
+        context.previousCannectFeed.forEach(([queryKey, data]) => {
           queryClient.setQueryData(queryKey, data);
         });
       }
@@ -317,6 +362,35 @@ export function useUnfollow() {
         })),
       };
     });
+
+    // Update feed caches (timeline, cannectFeed) - update post.author.viewer.following
+    const feedKeys = ['timeline', 'cannectFeed', 'globalFeed', 'localFeed', 'authorFeed'];
+    feedKeys.forEach((key) => {
+      queryClient.setQueriesData({ queryKey: [key] }, (old: any) => {
+        if (!old?.pages) return old;
+        return {
+          ...old,
+          pages: old.pages.map((page: any) => ({
+            ...page,
+            feed: page.feed?.map((item: any) => {
+              if (item.post?.author?.did === targetDid) {
+                return {
+                  ...item,
+                  post: {
+                    ...item.post,
+                    author: {
+                      ...item.post.author,
+                      viewer: { ...item.post.author.viewer, following: followUri },
+                    },
+                  },
+                };
+              }
+              return item;
+            }),
+          })),
+        };
+      });
+    });
   };
 
   return useMutation({
@@ -333,16 +407,20 @@ export function useUnfollow() {
       await queryClient.cancelQueries({ queryKey: ['profile'] });
       await queryClient.cancelQueries({ queryKey: ['suggestedUsers'] });
       await queryClient.cancelQueries({ queryKey: ['searchUsers'] });
+      await queryClient.cancelQueries({ queryKey: ['timeline'] });
+      await queryClient.cancelQueries({ queryKey: ['cannectFeed'] });
 
       // Snapshot current state for rollback
       const previousProfiles = queryClient.getQueriesData({ queryKey: ['profile'] });
       const previousSuggested = queryClient.getQueriesData({ queryKey: ['suggestedUsers'] });
       const previousSearch = queryClient.getQueriesData({ queryKey: ['searchUsers'] });
+      const previousTimeline = queryClient.getQueriesData({ queryKey: ['timeline'] });
+      const previousCannectFeed = queryClient.getQueriesData({ queryKey: ['cannectFeed'] });
 
       // Optimistically update ALL caches
       updateUserInLists(targetDid, undefined, -1);
 
-      return { previousProfiles, previousSuggested, previousSearch, targetDid };
+      return { previousProfiles, previousSuggested, previousSearch, previousTimeline, previousCannectFeed, targetDid };
     },
     onError: (err, variables, context) => {
       // Rollback all profile caches
@@ -362,6 +440,18 @@ export function useUnfollow() {
       // Rollback search users
       if (context?.previousSearch) {
         context.previousSearch.forEach(([queryKey, data]) => {
+          queryClient.setQueryData(queryKey, data);
+        });
+      }
+
+      // Rollback feed caches
+      if (context?.previousTimeline) {
+        context.previousTimeline.forEach(([queryKey, data]) => {
+          queryClient.setQueryData(queryKey, data);
+        });
+      }
+      if (context?.previousCannectFeed) {
+        context.previousCannectFeed.forEach(([queryKey, data]) => {
           queryClient.setQueryData(queryKey, data);
         });
       }
