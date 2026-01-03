@@ -101,8 +101,8 @@ export function useMessages(convoId: string | undefined) {
     getNextPageParam: (lastPage: any) => lastPage.cursor,
     initialPageParam: undefined as string | undefined,
     enabled: isAuthenticated && !!convoId,
-    staleTime: 1000 * 5, // 5 seconds
-    refetchInterval: 1000 * 5, // Poll every 5 seconds when in chat
+    staleTime: 1000 * 2, // 2 seconds
+    refetchInterval: 1000 * 2, // Poll every 2 seconds when actively in chat
     refetchOnWindowFocus: true,
     refetchOnMount: true,
   });
