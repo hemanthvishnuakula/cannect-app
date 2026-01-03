@@ -240,9 +240,10 @@ export default function ChatScreen() {
                 borderRadius: 16,
                 borderBottomRightRadius: isOwn ? 4 : 16,
                 borderBottomLeftRadius: isOwn ? 16 : 4,
+                flexShrink: 1,
               }}
             >
-              <Text style={{ color: isOwn ? '#FFFFFF' : '#FAFAFA' }}>{msg.text}</Text>
+              <Text style={{ color: isOwn ? '#FFFFFF' : '#FAFAFA', flexShrink: 1 }}>{msg.text}</Text>
             </View>
 
             {/* Checkbox in select mode - right side for own messages */}
