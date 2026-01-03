@@ -225,11 +225,17 @@ export function useCanMessage(memberDid: string | undefined) {
     queryKey: ['canMessage', memberDid],
     queryFn: async () => {
       if (!memberDid) return { canChat: false };
-      const result = await atproto.getConvoAvailability(memberDid);
-      return { canChat: result.canChat ?? false };
+      try {
+        const result = await atproto.getConvoAvailability(memberDid);
+        return { canChat: Boolean(result?.canChat) };
+      } catch (error) {
+        console.error('[useCanMessage] Error checking availability:', error);
+        // On error, return canChat: true to show button (let the actual message attempt handle errors)
+        return { canChat: true };
+      }
     },
     enabled: isAuthenticated && !!memberDid,
     staleTime: 1000 * 60 * 5, // Cache for 5 minutes
-    retry: false, // Don't retry - if it fails, just hide button
+    retry: false, // Don't retry - if it fails, just show button
   });
 }

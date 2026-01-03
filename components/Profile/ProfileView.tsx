@@ -281,10 +281,10 @@ function MessageButton({ did }: { did: string }) {
   const router = useRouter();
   const { showError } = useToast();
   const { mutate: startConversation, isPending } = useStartConversation();
-  const { data: availability, isLoading: isCheckingAvailability } = useCanMessage(did);
+  const { data: availability, isLoading: isCheckingAvailability, isError } = useCanMessage(did);
 
-  // Don't render if we can't message this user
-  if (!isCheckingAvailability && availability?.canChat === false) {
+  // Don't render if we can't message this user (or if check failed, show button anyway)
+  if (!isCheckingAvailability && !isError && availability?.canChat === false) {
     return null;
   }
 
@@ -298,7 +298,12 @@ function MessageButton({ did }: { did: string }) {
       },
       onError: (error: any) => {
         console.error('[Chat] Failed to start conversation:', error);
-        showError('Could not start conversation. Please try again.');
+        const msg = error?.message || '';
+        if (msg.includes('someone they follow')) {
+          showError('This user only accepts messages from people they follow.');
+        } else {
+          showError('Could not start conversation. Please try again.');
+        }
       },
     });
   }, [did, startConversation, router, showError]);
