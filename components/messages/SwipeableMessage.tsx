@@ -1,8 +1,13 @@
 /**
- * SwipeableMessage - Chat message bubble with swipe to delete
+ * SwipeableMessage - Chat message bubble with delete support
+ * 
+ * Native: Swipe left to delete
+ * Web: Hover to show delete button
  */
 
-import { View, Text } from 'react-native';
+import { useState } from 'react';
+import { View, Text, Pressable, Platform } from 'react-native';
+import { Trash2 } from 'lucide-react-native';
 import { SwipeableDelete } from '@/components/ui';
 import type { ChatMessage } from '@/lib/hooks';
 
@@ -13,6 +18,7 @@ export interface SwipeableMessageProps {
 }
 
 export function SwipeableMessage({ message, currentUserDid, onDelete }: SwipeableMessageProps) {
+  const [isHovered, setIsHovered] = useState(false);
   const isOwn = currentUserDid === message.sender?.did;
 
   const time = new Date(message.sentAt).toLocaleTimeString([], {
@@ -20,27 +26,64 @@ export function SwipeableMessage({ message, currentUserDid, onDelete }: Swipeabl
     minute: '2-digit',
   });
 
+  const handleDelete = (e: any) => {
+    e?.stopPropagation?.();
+    onDelete?.(message.id);
+  };
+
   const bubble = (
-    <View className={`mb-3 ${isOwn ? 'items-end' : 'items-start'}`}>
-      <View
-        className={`max-w-[80%] px-4 py-2.5 ${
-          isOwn
-            ? 'bg-primary rounded-2xl rounded-br-md'
-            : 'bg-surface-elevated rounded-2xl rounded-bl-md'
-        }`}
-      >
-        <Text className={isOwn ? 'text-white' : 'text-text-primary'}>{message.text}</Text>
+    <Pressable
+      onHoverIn={() => setIsHovered(true)}
+      onHoverOut={() => setIsHovered(false)}
+      className={`mb-3 ${isOwn ? 'items-end' : 'items-start'}`}
+    >
+      <View className="flex-row items-center gap-2">
+        {/* Delete button on left for own messages (web) */}
+        {Platform.OS === 'web' && isOwn && onDelete && isHovered && (
+          <Pressable
+            onPress={handleDelete}
+            className="p-1.5 bg-red-500/10 rounded-full hover:bg-red-500/20"
+          >
+            <Trash2 size={14} color="#EF4444" />
+          </Pressable>
+        )}
+        
+        <View
+          className={`max-w-[80%] px-4 py-2.5 ${
+            isOwn
+              ? 'bg-primary rounded-2xl rounded-br-md'
+              : 'bg-surface-elevated rounded-2xl rounded-bl-md'
+          }`}
+        >
+          <Text className={isOwn ? 'text-white' : 'text-text-primary'}>{message.text}</Text>
+        </View>
+
+        {/* Delete button on right for other's messages (web) */}
+        {Platform.OS === 'web' && !isOwn && onDelete && isHovered && (
+          <Pressable
+            onPress={handleDelete}
+            className="p-1.5 bg-red-500/10 rounded-full hover:bg-red-500/20"
+          >
+            <Trash2 size={14} color="#EF4444" />
+          </Pressable>
+        )}
       </View>
       <Text className="text-text-muted text-xs mt-1 px-1">{time}</Text>
-    </View>
+    </Pressable>
   );
 
+  // On web, just return bubble with hover delete
+  if (Platform.OS === 'web') {
+    return bubble;
+  }
+
+  // On native, wrap with swipeable
   if (!onDelete) {
     return bubble;
   }
 
   return (
-    <SwipeableDelete onDelete={() => onDelete(message.id)} iconSize={18} padding="px-4 rounded-xl ml-2">
+    <SwipeableDelete onDelete={() => onDelete(message.id)} iconSize={18} padding="px-4">
       {bubble}
     </SwipeableDelete>
   );

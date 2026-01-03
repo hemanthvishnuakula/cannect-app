@@ -1,16 +1,18 @@
 /**
- * ConversationRow - Swipeable conversation list item
+ * ConversationRow - Conversation list item with delete support
  *
  * Displays a conversation in the messages list with:
  * - Other user's avatar, name, handle
  * - Last message preview
  * - Timestamp
  * - Unread indicator
- * - Swipe left to delete
+ * - Swipe left to delete (native) or delete button (web)
  */
 
-import { View, Text, Pressable } from 'react-native';
+import { useState } from 'react';
+import { View, Text, Pressable, Platform } from 'react-native';
 import { Image } from 'expo-image';
+import { Trash2 } from 'lucide-react-native';
 import { getAvatarWithFallback } from '@/lib/utils/avatar';
 import { formatConversationTime } from '@/lib/utils/date';
 import { SwipeableDelete } from '@/components/ui';
@@ -24,6 +26,7 @@ export interface ConversationRowProps {
 }
 
 export function ConversationRow({ conversation, onPress, onDelete }: ConversationRowProps) {
+  const [isHovered, setIsHovered] = useState(false);
   const session = atproto.getSession();
 
   // Get the OTHER member (not current user)
@@ -36,10 +39,17 @@ export function ConversationRow({ conversation, onPress, onDelete }: Conversatio
   const lastMessage = conversation.lastMessage;
   const hasUnread = conversation.unreadCount > 0;
 
+  const handleDelete = (e: any) => {
+    e?.stopPropagation?.();
+    onDelete?.(conversation.id);
+  };
+
   const content = (
     <View className="border-b border-border">
       <Pressable
         onPress={onPress}
+        onHoverIn={() => setIsHovered(true)}
+        onHoverOut={() => setIsHovered(false)}
         className={`flex-row items-center px-4 py-3 bg-background ${hasUnread ? 'bg-primary/5' : ''}`}
       >
         <Image
@@ -78,10 +88,25 @@ export function ConversationRow({ conversation, onPress, onDelete }: Conversatio
             <Text className="text-white text-xs font-bold">{conversation.unreadCount}</Text>
           </View>
         )}
+        {/* Web: Show delete button on hover */}
+        {Platform.OS === 'web' && onDelete && isHovered && (
+          <Pressable
+            onPress={handleDelete}
+            className="ml-2 p-2 bg-red-500/10 rounded-full hover:bg-red-500/20"
+          >
+            <Trash2 size={18} color="#EF4444" />
+          </Pressable>
+        )}
       </Pressable>
     </View>
   );
 
+  // On web, just return content with hover delete button
+  if (Platform.OS === 'web') {
+    return content;
+  }
+
+  // On native, wrap with swipeable
   if (!onDelete) {
     return content;
   }
