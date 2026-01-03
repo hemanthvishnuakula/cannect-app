@@ -198,6 +198,9 @@ function Header() {
   return (
     <View className="flex-row items-center justify-center px-4 py-3 border-b border-border">
       <Text className="text-xl font-bold text-text-primary">Messages</Text>
+      <View className="ml-2 bg-primary/20 px-2 py-0.5 rounded-full">
+        <Text className="text-primary text-xs font-semibold">Beta</Text>
+      </View>
     </View>
   );
 }
