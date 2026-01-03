@@ -77,6 +77,9 @@ export default function ComposeScreen() {
   const [cursorPosition, setCursorPosition] = useState(0);
   const mentionStartRef = useRef<number>(-1);
 
+  // Video file input ref for web
+  const videoInputRef = useRef<HTMLInputElement | null>(null);
+
   const createPostMutation = useCreatePost();
   const { isAuthenticated, profile, handle } = useAuthStore();
 
@@ -139,52 +142,54 @@ export default function ComposeScreen() {
     }
   };
 
+  // Handle video file selection from web input
+  const handleVideoFileChange = useCallback((e: any) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Check file size (100MB limit)
+    if (file.size > 100 * 1024 * 1024) {
+      setError('Video must be under 100MB');
+      return;
+    }
+    
+    // Create object URL for the video
+    const uri = URL.createObjectURL(file);
+    
+    // Get video dimensions using HTML video element
+    const videoEl = document.createElement('video');
+    videoEl.preload = 'metadata';
+    videoEl.onloadedmetadata = () => {
+      // Check duration (60 second limit)
+      if (videoEl.duration > 60) {
+        setError('Video must be under 60 seconds');
+        URL.revokeObjectURL(uri);
+        return;
+      }
+      
+      setVideo({
+        uri,
+        mimeType: file.type || 'video/mp4',
+        width: videoEl.videoWidth,
+        height: videoEl.videoHeight,
+      });
+    };
+    videoEl.onerror = () => {
+      setError('Failed to load video');
+      URL.revokeObjectURL(uri);
+    };
+    videoEl.src = uri;
+    
+    // Reset input so same file can be selected again
+    e.target.value = '';
+  }, []);
+
   const handlePickVideo = async () => {
     if (images.length > 0 || video) return; // Can't add video if images exist or video already selected
 
-    // On web, use native file input for better iOS Safari/PWA support
-    if (Platform.OS === 'web') {
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.accept = 'video/*';
-      input.onchange = async (e: any) => {
-        const file = e.target.files?.[0];
-        if (file) {
-          // Check file size (100MB limit)
-          if (file.size > 100 * 1024 * 1024) {
-            setError('Video must be under 100MB');
-            return;
-          }
-          
-          // Create object URL for the video
-          const uri = URL.createObjectURL(file);
-          
-          // Get video dimensions using HTML video element
-          const videoEl = document.createElement('video');
-          videoEl.preload = 'metadata';
-          videoEl.onloadedmetadata = () => {
-            // Check duration (60 second limit)
-            if (videoEl.duration > 60) {
-              setError('Video must be under 60 seconds');
-              URL.revokeObjectURL(uri);
-              return;
-            }
-            
-            setVideo({
-              uri,
-              mimeType: file.type || 'video/mp4',
-              width: videoEl.videoWidth,
-              height: videoEl.videoHeight,
-            });
-          };
-          videoEl.onerror = () => {
-            setError('Failed to load video');
-            URL.revokeObjectURL(uri);
-          };
-          videoEl.src = uri;
-        }
-      };
-      input.click();
+    // On web, trigger the hidden file input
+    if (Platform.OS === 'web' && videoInputRef.current) {
+      videoInputRef.current.click();
       return;
     }
 
@@ -459,6 +464,16 @@ export default function ComposeScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={['top']}>
+      {/* Hidden video file input for web */}
+      {Platform.OS === 'web' && (
+        <input
+          ref={videoInputRef as any}
+          type="file"
+          accept="video/*"
+          onChange={handleVideoFileChange}
+          style={{ display: 'none' }}
+        />
+      )}
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         className="flex-1"
