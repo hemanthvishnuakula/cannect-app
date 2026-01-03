@@ -142,6 +142,53 @@ export default function ComposeScreen() {
   const handlePickVideo = async () => {
     if (images.length > 0 || video) return; // Can't add video if images exist or video already selected
 
+    // On web, use native file input for better iOS Safari/PWA support
+    if (Platform.OS === 'web') {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'video/*';
+      input.onchange = async (e: any) => {
+        const file = e.target.files?.[0];
+        if (file) {
+          // Check file size (100MB limit)
+          if (file.size > 100 * 1024 * 1024) {
+            setError('Video must be under 100MB');
+            return;
+          }
+          
+          // Create object URL for the video
+          const uri = URL.createObjectURL(file);
+          
+          // Get video dimensions using HTML video element
+          const videoEl = document.createElement('video');
+          videoEl.preload = 'metadata';
+          videoEl.onloadedmetadata = () => {
+            // Check duration (60 second limit)
+            if (videoEl.duration > 60) {
+              setError('Video must be under 60 seconds');
+              URL.revokeObjectURL(uri);
+              return;
+            }
+            
+            setVideo({
+              uri,
+              mimeType: file.type || 'video/mp4',
+              width: videoEl.videoWidth,
+              height: videoEl.videoHeight,
+            });
+          };
+          videoEl.onerror = () => {
+            setError('Failed to load video');
+            URL.revokeObjectURL(uri);
+          };
+          videoEl.src = uri;
+        }
+      };
+      input.click();
+      return;
+    }
+
+    // Native: use expo-image-picker
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['videos'],
       allowsMultipleSelection: false,
@@ -150,6 +197,13 @@ export default function ComposeScreen() {
 
     if (!result.canceled && result.assets[0]) {
       const asset = result.assets[0];
+      
+      // Check duration if available
+      if (asset.duration && asset.duration > 60000) {
+        setError('Video must be under 60 seconds');
+        return;
+      }
+      
       setVideo({
         uri: asset.uri,
         mimeType: asset.mimeType || 'video/mp4',
