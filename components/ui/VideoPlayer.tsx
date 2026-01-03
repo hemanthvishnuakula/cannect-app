@@ -29,8 +29,6 @@ interface VideoPlayerProps {
   onFullscreen?: () => void;
   /** If true, video loads immediately. If false (default), shows thumbnail until tapped. */
   autoLoad?: boolean;
-  /** Fallback URL to use when primary URL fails (e.g., PDS blob URL for videos not on video.bsky.app) */
-  fallbackUrl?: string;
 }
 
 export function VideoPlayer({
@@ -42,7 +40,6 @@ export function VideoPlayer({
   loop = true,
   onFullscreen,
   autoLoad = false, // Default to NOT loading video until user taps
-  fallbackUrl,
 }: VideoPlayerProps) {
   const videoRef = useRef<Video>(null);
   const [status, setStatus] = useState<AVPlaybackStatus | null>(null);
@@ -52,7 +49,6 @@ export function VideoPlayer({
   const [isMuted, setIsMuted] = useState(initialMuted);
   const [isMounted, setIsMounted] = useState(false);
   const [isVideoLoaded, setIsVideoLoaded] = useState(autoLoad); // Only load video when user taps
-  const [useFallback, setUseFallback] = useState(false); // Use fallback URL when primary fails
 
   // Derived state (moved before hooks that depend on them)
   const isPlaying = status?.isLoaded && status.isPlaying;
@@ -215,9 +211,9 @@ export function VideoPlayer({
       {/* Video - autoplay since user explicitly tapped to load */}
       <Video
         ref={videoRef}
-        source={{ uri: useFallback && fallbackUrl ? fallbackUrl : url }}
+        source={{ uri: url }}
         posterSource={thumbnailUrl ? { uri: thumbnailUrl } : undefined}
-        usePoster={!!thumbnailUrl && !useFallback} // Don't use poster when using fallback (it may also fail)
+        usePoster={!!thumbnailUrl}
         posterStyle={{ resizeMode: 'cover' }}
         style={StyleSheet.absoluteFill}
         resizeMode={ResizeMode.CONTAIN}
@@ -230,14 +226,7 @@ export function VideoPlayer({
         }}
         onError={(error) => {
           console.error('Video error:', error);
-          // If we haven't tried fallback yet and there's a fallback URL, try it
-          if (!useFallback && fallbackUrl) {
-            console.log('[VideoPlayer] Primary URL failed, trying fallback:', fallbackUrl);
-            setUseFallback(true);
-            setIsLoading(true);
-          } else {
-            setHasError(true);
-          }
+          setHasError(true);
         }}
       />
 
