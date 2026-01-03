@@ -50,6 +50,7 @@ export function VideoPlayer({
   const [isMuted, setIsMuted] = useState(initialMuted);
   const [isMounted, setIsMounted] = useState(false);
   const [isVideoLoaded, setIsVideoLoaded] = useState(autoLoad); // Only load video when user taps
+  const hasShownInitialControls = useRef(false); // Track if we've shown controls once
 
   // Derived state (moved before hooks that depend on them)
   const isPlaying = status?.isLoaded && status.isPlaying;
@@ -232,11 +233,14 @@ export function VideoPlayer({
         isLooping={loop}
         onPlaybackStatusUpdate={(s) => {
           setStatus(s);
-          if (s.isLoaded) {
+          if (s.isLoaded && !hasShownInitialControls.current) {
+            hasShownInitialControls.current = true;
             setIsLoading(false);
-            // Show controls briefly then auto-hide
+            // Show controls briefly then auto-hide (only once)
             setShowControls(true);
             setTimeout(() => setShowControls(false), 2000);
+          } else if (s.isLoaded) {
+            setIsLoading(false);
           }
         }}
         onError={(error) => {
