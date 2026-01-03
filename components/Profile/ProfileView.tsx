@@ -16,7 +16,7 @@ import { FlashList } from '@shopify/flash-list';
 import { useRouter } from 'expo-router';
 import { LogOut, Edit3, MessageCircle } from 'lucide-react-native';
 import { useState, useMemo, useCallback } from 'react';
-import { useAuthorFeed, useActorLikes, useStartConversation, useCanMessage } from '@/lib/hooks';
+import { useAuthorFeed, useActorLikes, useStartConversation } from '@/lib/hooks';
 import { PostCard } from '@/components/Post';
 import { FollowButton, useToast } from '@/components/ui';
 import { getOptimizedAvatarUrl } from '@/lib/utils/avatar';
@@ -277,22 +277,23 @@ export function ProfileView({
 // MESSAGE BUTTON
 // ============================================================
 
+/**
+ * MessageButton - Opens a DM conversation with the user
+ * 
+ * Note: We intentionally don't pre-check if the user allows DMs.
+ * The getConvoAvailability API caused React rendering issues.
+ * Instead, we show the button and display a helpful error if DMs are restricted.
+ */
 function MessageButton({ did }: { did: string }) {
   const router = useRouter();
   const { showError } = useToast();
   const { mutate: startConversation, isPending } = useStartConversation();
-  
-  // TEMPORARILY DISABLED: useCanMessage was causing React error #300
-  // const { data: availability, isLoading: isCheckingAvailability, isError } = useCanMessage(did);
-  // const canChat = availability?.canChat === true;
-  // const shouldHide = !isCheckingAvailability && !isError && availability !== undefined && !canChat;
 
   const handlePress = useCallback(() => {
     triggerImpact('light');
 
     startConversation(did, {
       onSuccess: (convo) => {
-        // Navigate to full-screen chat
         router.push(`/messages/${convo.id}` as any);
       },
       onError: (error: any) => {
