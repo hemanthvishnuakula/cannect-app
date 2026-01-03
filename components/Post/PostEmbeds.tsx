@@ -261,6 +261,30 @@ function QuotePost({ record }: { record: any }) {
   );
 }
 
+// Helper to extract DID and CID from video.bsky.app URL
+// URL format: https://video.bsky.app/watch/{encoded_did}/{cid}/playlist.m3u8
+function extractVideoInfo(url: string): { did: string; cid: string } | null {
+  try {
+    const match = url.match(/video\.bsky\.app\/watch\/([^/]+)\/([^/]+)/);
+    if (match) {
+      return {
+        did: decodeURIComponent(match[1]),
+        cid: match[2],
+      };
+    }
+  } catch (e) {
+    console.warn('[VideoEmbed] Failed to parse video URL:', e);
+  }
+  return null;
+}
+
+// Construct PDS blob URL for fallback
+// For Cannect users, videos are stored on cannect.space PDS
+function getPdsBlobUrl(did: string, cid: string): string {
+  // Use cannect.space as the PDS for Cannect users
+  return `https://cannect.space/xrpc/com.atproto.sync.getBlob?did=${encodeURIComponent(did)}&cid=${encodeURIComponent(cid)}`;
+}
+
 function VideoEmbed({
   video,
   fullWidth = false,
@@ -275,6 +299,11 @@ function VideoEmbed({
 
   const borderClass = fullWidth ? '' : 'rounded-xl';
 
+  // Try to construct a fallback URL for videos that might not be on video.bsky.app
+  // This happens when videos are uploaded directly to PDS (not through Bluesky's transcoding service)
+  const videoInfo = extractVideoInfo(video.playlist);
+  const fallbackUrl = videoInfo ? getPdsBlobUrl(videoInfo.did, videoInfo.cid) : undefined;
+
   return (
     <View className={`overflow-hidden ${borderClass}`}>
       <VideoPlayer
@@ -283,6 +312,7 @@ function VideoEmbed({
         aspectRatio={aspectRatio}
         muted={true}
         loop={true}
+        fallbackUrl={fallbackUrl}
       />
     </View>
   );
