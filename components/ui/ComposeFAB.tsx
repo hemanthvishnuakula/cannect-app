@@ -26,8 +26,9 @@ export function ComposeFAB() {
       onPress={handlePress}
       className="absolute right-4 w-12 h-12 bg-primary rounded-full items-center justify-center active:scale-95 active:opacity-90"
       style={{
-        // Position just above the tab bar (tab bar is ~80px)
-        bottom: 96,
+        // Position just above the tab bar
+        // Tab bar is outside SafeAreaView, so use small offset
+        bottom: 16,
         // Subtle shadow for iOS
         shadowColor: '#000000',
         shadowOffset: { width: 0, height: 2 },
