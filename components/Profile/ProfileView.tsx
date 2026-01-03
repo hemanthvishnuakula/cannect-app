@@ -281,14 +281,11 @@ function MessageButton({ did }: { did: string }) {
   const router = useRouter();
   const { showError } = useToast();
   const { mutate: startConversation, isPending } = useStartConversation();
-  const { data: availability, isLoading: isCheckingAvailability, isError } = useCanMessage(did);
-
-  // Safely extract canChat as a boolean - never render availability object
-  const canChat = availability?.canChat === true;
-
-  // Determine if we should hide the button
-  // Hide when: not loading, no error, have data, and canChat is false
-  const shouldHide = !isCheckingAvailability && !isError && availability !== undefined && !canChat;
+  
+  // TEMPORARILY DISABLED: useCanMessage was causing React error #300
+  // const { data: availability, isLoading: isCheckingAvailability, isError } = useCanMessage(did);
+  // const canChat = availability?.canChat === true;
+  // const shouldHide = !isCheckingAvailability && !isError && availability !== undefined && !canChat;
 
   const handlePress = useCallback(() => {
     triggerImpact('light');
@@ -310,18 +307,13 @@ function MessageButton({ did }: { did: string }) {
     });
   }, [did, startConversation, router, showError]);
 
-  // Instead of returning null, return an empty fragment to avoid React re-mount issues
-  if (shouldHide) {
-    return <></>;
-  }
-
   return (
     <Pressable
       onPress={handlePress}
-      disabled={isPending || isCheckingAvailability}
+      disabled={isPending}
       className="bg-surface-elevated border border-border p-2.5 rounded-full items-center justify-center active:opacity-70"
     >
-      {isPending || isCheckingAvailability ? (
+      {isPending ? (
         <ActivityIndicator size="small" color="#10B981" />
       ) : (
         <MessageCircle size={20} color="#FAFAFA" />
