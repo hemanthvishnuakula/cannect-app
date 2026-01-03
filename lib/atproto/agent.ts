@@ -546,12 +546,12 @@ async function getProfileFromPds(did: string): Promise<{
     const response = await fetch(
       `${PDS_SERVICE}/xrpc/com.atproto.repo.getRecord?repo=${encodeURIComponent(did)}&collection=app.bsky.actor.profile&rkey=self`
     );
-    
+
     if (!response.ok) {
       // User might not have a profile record yet, or not on this PDS
       return null;
     }
-    
+
     const data = await response.json();
     return data.value || null;
   } catch (error) {
@@ -568,13 +568,13 @@ async function getProfileFromPds(did: string): Promise<{
 export async function getProfile(actor: string) {
   const bskyAgent = getAgent();
   const result = await bskyAgent.getProfile({ actor });
-  
+
   // Check if this is a Cannect user based on handle (from input or result)
   const handle = result.data.handle || actor;
   if (isCannectUser(handle)) {
     const did = result.data.did;
     const pdsProfile = await getProfileFromPds(did);
-    
+
     if (pdsProfile) {
       // Merge PDS data into the result, preferring PDS values for profile fields
       // This ensures displayName/description from PDS override stale AppView data
@@ -594,7 +594,7 @@ export async function getProfile(actor: string) {
       console.log('[getProfile] Merged PDS data for Cannect user:', did.substring(0, 20));
     }
   }
-  
+
   return result;
 }
 
@@ -673,7 +673,7 @@ export async function getProfiles(dids: string[]) {
 
     const profiles = results.flatMap((r) => r.data.profiles);
     console.log('[getProfiles] Got', profiles.length, 'profiles from batch');
-    
+
     // Apply Read Your Own Writes pattern for Cannect users
     const enhancedProfiles = await Promise.all(
       profiles.map(async (profile) => {
@@ -681,7 +681,11 @@ export async function getProfiles(dids: string[]) {
         // 1. User has a .cannect.space handle (confirmed Cannect user)
         // 2. Profile has an avatar/banner already (likely has profile record)
         // Skip users without handles or avatars - they likely haven't set up profiles yet
-        if (profile.handle && isCannectUser(profile.handle) && (profile.avatar || profile.banner || profile.displayName)) {
+        if (
+          profile.handle &&
+          isCannectUser(profile.handle) &&
+          (profile.avatar || profile.banner || profile.displayName)
+        ) {
           const pdsProfile = await getProfileFromPds(profile.did);
           if (pdsProfile) {
             // Merge PDS data
@@ -702,7 +706,7 @@ export async function getProfiles(dids: string[]) {
         return profile;
       })
     );
-    
+
     return enhancedProfiles;
   } catch (error) {
     console.error('[getProfiles] Batch failed, trying individual:', error);
@@ -1002,19 +1006,19 @@ export async function uploadVideoToPDS(
   onProgress?: (progress: number) => void
 ): Promise<{ blob: any }> {
   const bskyAgent = getAgent();
-  
+
   if (!bskyAgent.session) {
     throw new Error('Not authenticated');
   }
 
   console.log('[Video] Uploading to PDS via uploadBlob...');
   console.log('[Video] Data size:', data.byteLength, 'bytes');
-  
+
   onProgress?.(0);
-  
+
   // Convert ArrayBuffer to Uint8Array for uploadBlob
   const uint8Array = new Uint8Array(data);
-  
+
   try {
     const result = await bskyAgent.uploadBlob(uint8Array, { encoding: mimeType });
     console.log('[Video] PDS upload complete:', result.data);
@@ -1037,7 +1041,7 @@ export async function uploadVideoWithFallback(
 ): Promise<{ blob: any }> {
   console.log('[Video] Uploading to PDS...');
   onProgress?.('uploading', 0);
-  
+
   const result = await uploadVideoToPDS(data, mimeType, (p) => onProgress?.('uploading', p));
   onProgress?.('uploading', 100);
   return result;

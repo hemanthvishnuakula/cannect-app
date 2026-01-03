@@ -60,9 +60,8 @@ export function ThreadPost({ post, onImagePress }: ThreadPostProps) {
   const isCannectUser = author.handle.endsWith('.cannect.space');
 
   // Truncate long handles
-  const displayHandle = author.handle.length > 25 
-    ? `@${author.handle.slice(0, 25)}…` 
-    : `@${author.handle}`;
+  const displayHandle =
+    author.handle.length > 25 ? `@${author.handle.slice(0, 25)}…` : `@${author.handle}`;
 
   return (
     <View className="px-4">
@@ -93,7 +92,10 @@ export function ThreadPost({ post, onImagePress }: ThreadPostProps) {
         )}
         <View className="ml-3 flex-1">
           <View className="flex-row items-center">
-            <Text className="text-text-primary font-semibold text-base flex-shrink" numberOfLines={1}>
+            <Text
+              className="text-text-primary font-semibold text-base flex-shrink"
+              numberOfLines={1}
+            >
               {author.displayName || author.handle}
             </Text>
             {/* Network badge - cannect (green) or global */}
@@ -107,7 +109,9 @@ export function ThreadPost({ post, onImagePress }: ThreadPostProps) {
               </View>
             )}
             <View className="flex-1" />
-            <Text className="text-text-muted text-sm flex-shrink-0">{formatTime(record.createdAt)}</Text>
+            <Text className="text-text-muted text-sm flex-shrink-0">
+              {formatTime(record.createdAt)}
+            </Text>
           </View>
           <Text className="text-text-muted text-sm">{displayHandle}</Text>
         </View>

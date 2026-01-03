@@ -54,19 +54,18 @@ Answer ONLY: YES or NO
 • Generic news with "high" = NO
 • Stoner memes = YES, random memes = NO`;
 
-
 /**
  * Wait for rate limit if needed
  */
 async function waitForRateLimit() {
   const now = Date.now();
-  
+
   // Ensure minimum delay between requests
   const timeSinceLastRequest = now - lastRequestTime;
   if (timeSinceLastRequest < MIN_DELAY_MS) {
-    await new Promise(resolve => setTimeout(resolve, MIN_DELAY_MS - timeSinceLastRequest));
+    await new Promise((resolve) => setTimeout(resolve, MIN_DELAY_MS - timeSinceLastRequest));
   }
-  
+
   lastRequestTime = Date.now();
 }
 
@@ -84,18 +83,21 @@ async function verifyWithAI(text) {
   try {
     // Wait for rate limit
     await waitForRateLimit();
-    
+
     const response = await fetch(OPENAI_API_URL, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${OPENAI_API_KEY}`,
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
         model: MODEL,
         messages: [
           { role: 'system', content: SYSTEM_PROMPT },
-          { role: 'user', content: `Should this post appear in our cannabis community feed?\n\n"""\n${text}\n"""` }
+          {
+            role: 'user',
+            content: `Should this post appear in our cannabis community feed?\n\n"""\n${text}\n"""`,
+          },
         ],
         temperature: 0,
         max_tokens: 10,
@@ -110,10 +112,10 @@ async function verifyWithAI(text) {
 
     const data = await response.json();
     const answer = data.choices?.[0]?.message?.content?.trim()?.toUpperCase();
-    
+
     const isCannabis = answer === 'YES';
     console.log(`[AI-Filter] "${text.substring(0, 50)}..." → ${answer}`);
-    
+
     return { isCannabis, error: false };
   } catch (error) {
     console.error('[AI-Filter] Request failed:', error.message);
@@ -133,7 +135,7 @@ async function verifyBatchWithAI(texts) {
     const result = await verifyWithAI(text);
     results.push(result.isCannabis);
     // Small delay between requests
-    await new Promise(resolve => setTimeout(resolve, 50));
+    await new Promise((resolve) => setTimeout(resolve, 50));
   }
   return { results, error: false };
 }

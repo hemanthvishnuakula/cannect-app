@@ -113,9 +113,7 @@ export const MentionSuggestions = memo(function MentionSuggestions({
             />
           ) : (
             <View className="w-9 h-9 rounded-full bg-surface-elevated items-center justify-center">
-              <Text className="text-text-muted text-sm">
-                {user.handle[0].toUpperCase()}
-              </Text>
+              <Text className="text-text-muted text-sm">{user.handle[0].toUpperCase()}</Text>
             </View>
           )}
 

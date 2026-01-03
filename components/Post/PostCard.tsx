@@ -127,11 +127,11 @@ export function PostCard({
   return (
     <Pressable
       onPress={handlePress}
-      className={`px-4 pt-4 pb-2 ${showBorder ? 'border-b border-border' : ''}`}
+      className={`px-5 py-4 ${showBorder ? 'border-b border-border' : ''} web:hover:bg-surface/50 web:transition-colors`}
     >
       {/* Repost indicator */}
       {isRepost && repostBy && (
-        <View className="flex-row items-center mb-2 pl-10">
+        <View className="flex-row items-center mb-2 pl-12">
           <Repeat2 size={14} color="#6B7280" />
           <Text className="text-text-muted text-xs ml-1 flex-1" numberOfLines={1}>
             Reposted by {repostBy.displayName || repostBy.handle}
@@ -153,15 +153,15 @@ export function PostCard({
         >
           {author.avatar ? (
             <Image
-              source={{ uri: getOptimizedAvatarUrl(author.avatar, 44) }}
-              className="w-11 h-11 rounded-full bg-surface-elevated"
+              source={{ uri: getOptimizedAvatarUrl(author.avatar, 48) }}
+              className="w-12 h-12 rounded-full bg-surface-elevated ring-2 ring-border"
               contentFit="cover"
               transition={200}
               cachePolicy="memory-disk"
               recyclingKey={author.avatar}
             />
           ) : (
-            <View className="w-11 h-11 rounded-full bg-surface-elevated items-center justify-center">
+            <View className="w-12 h-12 rounded-full bg-surface-elevated ring-2 ring-border items-center justify-center">
               <Text className="text-text-muted text-lg">{author.handle[0].toUpperCase()}</Text>
             </View>
           )}
@@ -180,7 +180,7 @@ export function PostCard({
               className="flex-row items-center flex-1 mr-2"
               style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
             >
-              <Text className="font-semibold text-text-primary flex-shrink" numberOfLines={1}>
+              <Text className="font-bold text-text-primary flex-shrink" numberOfLines={1}>
                 {author.displayName || author.handle}
               </Text>
               {/* Network badge - cannect (green) or global */}
@@ -194,7 +194,7 @@ export function PostCard({
                 </View>
               )}
             </Pressable>
-            <Text className="text-text-muted flex-shrink-0">{formatTime(record.createdAt)}</Text>
+            <Text className="text-text-muted text-sm flex-shrink-0">{formatTime(record.createdAt)}</Text>
           </View>
 
           {/* Post text with facets (mentions, links, hashtags) */}

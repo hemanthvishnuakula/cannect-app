@@ -152,10 +152,10 @@ export default function ComposeScreen() {
       setError('Video must be under 100MB');
       return;
     }
-    
+
     // Create object URL for the video
     const uri = URL.createObjectURL(file);
-    
+
     // Get video dimensions using HTML video element
     const videoEl = document.createElement('video');
     videoEl.preload = 'metadata';
@@ -166,7 +166,7 @@ export default function ComposeScreen() {
         URL.revokeObjectURL(uri);
         return;
       }
-      
+
       setVideo({
         uri,
         mimeType: file.type || 'video/mp4',
@@ -179,7 +179,7 @@ export default function ComposeScreen() {
       URL.revokeObjectURL(uri);
     };
     videoEl.src = uri;
-    
+
     // Reset input so same file can be selected again
     e.target.value = '';
   }, []);
@@ -202,13 +202,13 @@ export default function ComposeScreen() {
 
     if (!result.canceled && result.assets[0]) {
       const asset = result.assets[0];
-      
+
       // Check duration if available
       if (asset.duration && asset.duration > 60000) {
         setError('Video must be under 60 seconds');
         return;
       }
-      
+
       setVideo({
         uri: asset.uri,
         mimeType: asset.mimeType || 'video/mp4',
@@ -227,26 +227,32 @@ export default function ComposeScreen() {
   };
 
   // Handle text change and detect @mentions
-  const handleTextChange = useCallback((text: string) => {
-    setContent(text);
+  const handleTextChange = useCallback(
+    (text: string) => {
+      setContent(text);
 
-    // Find if we're currently typing a mention
-    const textBeforeCursor = text.slice(0, cursorPosition + (text.length - content.length));
-    
-    // Look for @ that starts a mention (after space, newline, or at start)
-    const mentionMatch = textBeforeCursor.match(/(?:^|[\s])@([a-zA-Z0-9._-]*)$/);
-    
-    if (mentionMatch) {
-      const query = mentionMatch[1];
-      // Store the position where @ starts
-      mentionStartRef.current = textBeforeCursor.length - mentionMatch[0].length + (mentionMatch[0].startsWith('@') ? 0 : 1);
-      setMentionQuery(query);
-      setMentionVisible(true);
-    } else {
-      setMentionVisible(false);
-      setMentionQuery('');
-    }
-  }, [content, cursorPosition]);
+      // Find if we're currently typing a mention
+      const textBeforeCursor = text.slice(0, cursorPosition + (text.length - content.length));
+
+      // Look for @ that starts a mention (after space, newline, or at start)
+      const mentionMatch = textBeforeCursor.match(/(?:^|[\s])@([a-zA-Z0-9._-]*)$/);
+
+      if (mentionMatch) {
+        const query = mentionMatch[1];
+        // Store the position where @ starts
+        mentionStartRef.current =
+          textBeforeCursor.length -
+          mentionMatch[0].length +
+          (mentionMatch[0].startsWith('@') ? 0 : 1);
+        setMentionQuery(query);
+        setMentionVisible(true);
+      } else {
+        setMentionVisible(false);
+        setMentionQuery('');
+      }
+    },
+    [content, cursorPosition]
+  );
 
   // Handle cursor position change
   const handleSelectionChange = useCallback(
@@ -257,27 +263,30 @@ export default function ComposeScreen() {
   );
 
   // Handle mention selection
-  const handleMentionSelect = useCallback((handle: string) => {
-    if (mentionStartRef.current === -1) return;
+  const handleMentionSelect = useCallback(
+    (handle: string) => {
+      if (mentionStartRef.current === -1) return;
 
-    // Replace the partial mention with the full handle
-    const beforeMention = content.slice(0, mentionStartRef.current);
-    const afterCursor = content.slice(cursorPosition);
-    
-    // Insert @handle followed by a space
-    const newContent = `${beforeMention}@${handle} ${afterCursor}`;
-    setContent(newContent);
-    
-    // Hide the suggestions
-    setMentionVisible(false);
-    setMentionQuery('');
-    mentionStartRef.current = -1;
-    
-    // Haptic feedback
-    if (Platform.OS !== 'web') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
-  }, [content, cursorPosition]);
+      // Replace the partial mention with the full handle
+      const beforeMention = content.slice(0, mentionStartRef.current);
+      const afterCursor = content.slice(cursorPosition);
+
+      // Insert @handle followed by a space
+      const newContent = `${beforeMention}@${handle} ${afterCursor}`;
+      setContent(newContent);
+
+      // Hide the suggestions
+      setMentionVisible(false);
+      setMentionQuery('');
+      mentionStartRef.current = -1;
+
+      // Haptic feedback
+      if (Platform.OS !== 'web') {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      }
+    },
+    [content, cursorPosition]
+  );
 
   const handlePost = useCallback(async () => {
     if (!canPost) return;
@@ -301,12 +310,17 @@ export default function ComposeScreen() {
         const blob = await response.blob();
         const arrayBuffer = await blob.arrayBuffer();
 
-        console.log('[Compose] Video size:', arrayBuffer.byteLength, 'bytes, mimeType:', video.mimeType);
+        console.log(
+          '[Compose] Video size:',
+          arrayBuffer.byteLength,
+          'bytes, mimeType:',
+          video.mimeType
+        );
 
         // Upload to Bluesky with fallback to PDS
         const uploadStart = Date.now();
         setUploadStatus('Uploading video...');
-        
+
         const uploadResult = await atproto.uploadVideoWithFallback(
           arrayBuffer,
           video.mimeType || 'video/mp4',
@@ -318,7 +332,7 @@ export default function ComposeScreen() {
             }
           }
         );
-        
+
         setUploadStatus(null);
         console.log('[Compose] Video ready in', Date.now() - uploadStart, 'ms');
 
