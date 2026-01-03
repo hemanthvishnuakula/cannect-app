@@ -24,18 +24,18 @@ export function ComposeFAB() {
   return (
     <Pressable
       onPress={handlePress}
-      className="absolute bottom-24 right-5 w-14 h-14 bg-primary rounded-full items-center justify-center shadow-lg active:scale-95"
+      className="absolute bottom-20 right-4 w-12 h-12 bg-primary rounded-full items-center justify-center active:scale-95 active:opacity-90"
       style={{
-        // Shadow for iOS
-        shadowColor: '#10B981',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
+        // Subtle shadow for iOS
+        shadowColor: '#000000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 4,
         // Shadow for Android
-        elevation: 8,
+        elevation: 4,
       }}
     >
-      <Plus size={28} color="#FFFFFF" strokeWidth={2.5} />
+      <Plus size={24} color="#FFFFFF" strokeWidth={2.5} />
     </Pressable>
   );
 }

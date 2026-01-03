@@ -6,14 +6,7 @@
  */
 
 import React, { useCallback, useState } from 'react';
-import {
-  View,
-  Text,
-  ActivityIndicator,
-  FlatList,
-  RefreshControl,
-  Platform,
-} from 'react-native';
+import { View, Text, ActivityIndicator, FlatList, RefreshControl, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { MessageCircle } from 'lucide-react-native';
@@ -110,7 +103,9 @@ export default function MessagesTabScreen() {
           onPress={() => startChatWithUser(user)}
           showFollowButton={false}
           showBio={false}
-          rightElement={isStartingConvo ? <ActivityIndicator size="small" color="#10B981" /> : undefined}
+          rightElement={
+            isStartingConvo ? <ActivityIndicator size="small" color="#10B981" /> : undefined
+          }
         />
       );
     },
@@ -182,7 +177,9 @@ export default function MessagesTabScreen() {
           ListEmptyComponent={
             <View className="flex-1 items-center justify-center py-20 px-6">
               <MessageCircle size={48} color="#6B7280" />
-              <Text className="text-text-primary text-lg font-semibold mb-2 mt-4">No messages yet</Text>
+              <Text className="text-text-primary text-lg font-semibold mb-2 mt-4">
+                No messages yet
+              </Text>
               <Text className="text-text-muted text-center">
                 Search for a user above or visit someone's profile and tap Message.
               </Text>

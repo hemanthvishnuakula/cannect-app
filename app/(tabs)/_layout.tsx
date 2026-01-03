@@ -73,7 +73,11 @@ export default function TabsLayout() {
         options={{
           tabBarIcon: ({ color, size }) => <MessageCircle size={size} color={color} />,
           tabBarBadge:
-            unreadMsgCount && unreadMsgCount > 0 ? (unreadMsgCount > 99 ? '99+' : unreadMsgCount) : undefined,
+            unreadMsgCount && unreadMsgCount > 0
+              ? unreadMsgCount > 99
+                ? '99+'
+                : unreadMsgCount
+              : undefined,
           tabBarBadgeStyle: { backgroundColor: '#10B981', fontSize: 10 },
         }}
       />
@@ -88,7 +92,11 @@ export default function TabsLayout() {
         options={{
           tabBarIcon: ({ color, size }) => <Bell size={size} color={color} />,
           tabBarBadge:
-            unreadNotifCount && unreadNotifCount > 0 ? (unreadNotifCount > 99 ? '99+' : unreadNotifCount) : undefined,
+            unreadNotifCount && unreadNotifCount > 0
+              ? unreadNotifCount > 99
+                ? '99+'
+                : unreadNotifCount
+              : undefined,
           tabBarBadgeStyle: { backgroundColor: '#EF4444', fontSize: 10 },
         }}
       />
