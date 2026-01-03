@@ -297,6 +297,15 @@ async function fetchCannectFollowingTimeline(
           item.post.repostCount = hydratedPost.repostCount;
           item.post.replyCount = hydratedPost.replyCount;
         }
+        
+        // For Following feed: ensure author.viewer.following is set to true
+        // since by definition we follow everyone in this feed
+        if (item.post.author) {
+          item.post.author.viewer = {
+            ...item.post.author.viewer,
+            following: 'following', // URI placeholder - presence indicates following
+          };
+        }
       }
     } catch (error) {
       console.warn('[Following] Failed to hydrate viewer state:', error);
