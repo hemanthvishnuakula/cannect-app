@@ -1142,11 +1142,25 @@ export async function getConvoForMembers(members: string[]) {
 
 /**
  * Send a message in a conversation
+ * Automatically detects and includes facets (mentions, links, hashtags)
  */
 export async function sendMessage(convoId: string, text: string) {
+  const bskyAgent = getAgent();
+
+  // Parse facets (mentions, links, hashtags) using RichText
+  const rt = new RichText({ text });
+  await rt.detectFacets(bskyAgent);
+
+  const message: { text: string; facets?: any[] } = { text: rt.text };
+
+  // Only include facets if we found any
+  if (rt.facets && rt.facets.length > 0) {
+    message.facets = rt.facets;
+  }
+
   return chatRequest('POST', 'chat.bsky.convo.sendMessage', undefined, {
     convoId,
-    message: { text },
+    message,
   });
 }
 

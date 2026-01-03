@@ -4,14 +4,17 @@
 
 /* ✅ Platinum: Web layout fixes for FlashList and full-height containers */
 @layer base {
-  html, body, #root {
+  html,
+  body,
+  #root {
     height: 100%;
     display: flex;
     flex-direction: column;
   }
 
   /* Remove browser default focus outlines on inputs (React Native Web) */
-  input, textarea {
+  input,
+  textarea {
     outline: none;
   }
 }
@@ -21,27 +24,27 @@
   .btn-primary {
     @apply bg-primary-500 text-white font-semibold py-3 px-6 rounded-xl active:bg-primary-600;
   }
-  
+
   .btn-secondary {
     @apply bg-surface-elevated text-text-primary font-semibold py-3 px-6 rounded-xl border border-border;
   }
-  
+
   .btn-ghost {
     @apply bg-transparent text-primary-500 font-semibold py-3 px-6 rounded-xl;
   }
-  
+
   .card {
     @apply bg-surface rounded-2xl border border-border p-4;
   }
-  
+
   .card-elevated {
     @apply bg-surface-elevated rounded-2xl border border-border p-4;
   }
-  
+
   .input {
     @apply bg-surface-elevated text-text-primary border border-border rounded-xl px-4 py-3 placeholder:text-text-muted;
   }
-  
+
   .input-focus {
     @apply focus:border-primary-500 focus:ring-1 focus:ring-primary-500;
   }

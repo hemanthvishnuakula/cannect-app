@@ -32,6 +32,7 @@ import {
   useDeleteMessage,
   type ChatMessage,
 } from '@/lib/hooks';
+import { MessageRichText } from '@/components/messages';
 import { getOptimizedAvatarWithFallback } from '@/lib/utils/avatar';
 import { triggerImpact } from '@/lib/utils/haptics';
 import * as atproto from '@/lib/atproto/agent';
@@ -90,27 +91,36 @@ export default function ChatScreen() {
   }, []);
 
   // Helper to check if we should show date separator
-  const shouldShowDateSeparator = useCallback((currentMsg: ChatMessage, prevMsg: ChatMessage | undefined) => {
-    if (!prevMsg) return true;
-    const currentDate = new Date(currentMsg.sentAt).toDateString();
-    const prevDate = new Date(prevMsg.sentAt).toDateString();
-    return currentDate !== prevDate;
-  }, []);
+  const shouldShowDateSeparator = useCallback(
+    (currentMsg: ChatMessage, prevMsg: ChatMessage | undefined) => {
+      if (!prevMsg) return true;
+      const currentDate = new Date(currentMsg.sentAt).toDateString();
+      const prevDate = new Date(prevMsg.sentAt).toDateString();
+      return currentDate !== prevDate;
+    },
+    []
+  );
 
   // Helper to check if messages are grouped (same sender, within 2 minutes)
-  const isGroupedWithPrev = useCallback((currentMsg: ChatMessage, prevMsg: ChatMessage | undefined) => {
-    if (!prevMsg) return false;
-    if (currentMsg.sender?.did !== prevMsg.sender?.did) return false;
-    const timeDiff = new Date(currentMsg.sentAt).getTime() - new Date(prevMsg.sentAt).getTime();
-    return timeDiff < 2 * 60 * 1000; // 2 minutes
-  }, []);
+  const isGroupedWithPrev = useCallback(
+    (currentMsg: ChatMessage, prevMsg: ChatMessage | undefined) => {
+      if (!prevMsg) return false;
+      if (currentMsg.sender?.did !== prevMsg.sender?.did) return false;
+      const timeDiff = new Date(currentMsg.sentAt).getTime() - new Date(prevMsg.sentAt).getTime();
+      return timeDiff < 2 * 60 * 1000; // 2 minutes
+    },
+    []
+  );
 
-  const isGroupedWithNext = useCallback((currentMsg: ChatMessage, nextMsg: ChatMessage | undefined) => {
-    if (!nextMsg) return false;
-    if (currentMsg.sender?.did !== nextMsg.sender?.did) return false;
-    const timeDiff = new Date(nextMsg.sentAt).getTime() - new Date(currentMsg.sentAt).getTime();
-    return timeDiff < 2 * 60 * 1000; // 2 minutes
-  }, []);
+  const isGroupedWithNext = useCallback(
+    (currentMsg: ChatMessage, nextMsg: ChatMessage | undefined) => {
+      if (!nextMsg) return false;
+      if (currentMsg.sender?.did !== nextMsg.sender?.did) return false;
+      const timeDiff = new Date(nextMsg.sentAt).getTime() - new Date(currentMsg.sentAt).getTime();
+      return timeDiff < 2 * 60 * 1000; // 2 minutes
+    },
+    []
+  );
 
   // Load older messages
   const handleLoadMore = useCallback(() => {
@@ -278,7 +288,14 @@ export default function ChatScreen() {
           {/* Date Separator */}
           {showDateSeparator && (
             <View style={{ alignItems: 'center', marginVertical: 16 }}>
-              <View style={{ backgroundColor: '#374151', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 8 }}>
+              <View
+                style={{
+                  backgroundColor: '#374151',
+                  paddingHorizontal: 12,
+                  paddingVertical: 4,
+                  borderRadius: 8,
+                }}
+              >
                 <Text style={{ color: '#9CA3AF', fontSize: 12, fontWeight: '500' }}>
                   {getDateLabel(msg.sentAt)}
                 </Text>
@@ -327,17 +344,7 @@ export default function ChatScreen() {
               >
                 {/* Message text + inline timestamp */}
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-end' }}>
-                  <Text
-                    style={{
-                      color: isOwn ? '#FFFFFF' : '#F3F4F6',
-                      fontSize: 15,
-                      lineHeight: 20,
-                      marginRight: 8,
-                      flexShrink: 1,
-                    }}
-                  >
-                    {msg.text}
-                  </Text>
+                  <MessageRichText text={msg.text} facets={msg.facets} isOwn={isOwn} />
                   <Text
                     style={{
                       color: isOwn ? 'rgba(255,255,255,0.7)' : '#9CA3AF',
@@ -370,7 +377,17 @@ export default function ChatScreen() {
         </View>
       );
     },
-    [session?.did, isSelectMode, selectedMessages, handleToggleSelect, messages, shouldShowDateSeparator, isGroupedWithPrev, isGroupedWithNext, getDateLabel]
+    [
+      session?.did,
+      isSelectMode,
+      selectedMessages,
+      handleToggleSelect,
+      messages,
+      shouldShowDateSeparator,
+      isGroupedWithPrev,
+      isGroupedWithNext,
+      getDateLabel,
+    ]
   );
 
   if (isLoadingConvo || isLoadingMessages) {

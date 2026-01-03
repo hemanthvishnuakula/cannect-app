@@ -65,11 +65,7 @@ export function UserRow({
       {/* Avatar */}
       <Image
         source={{
-          uri: getOptimizedAvatarWithFallback(
-            user.avatar,
-            user.displayName || user.handle,
-            48
-          ),
+          uri: getOptimizedAvatarWithFallback(user.avatar, user.displayName || user.handle, 48),
         }}
         className="w-12 h-12 rounded-full"
         contentFit="cover"

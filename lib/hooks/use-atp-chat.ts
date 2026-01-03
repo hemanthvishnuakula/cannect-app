@@ -24,6 +24,7 @@ export interface ChatMessage {
   id: string;
   rev: string;
   text: string;
+  facets?: any[]; // Rich text facets (mentions, links, hashtags)
   sender: { did: string };
   sentAt: string;
 }
@@ -158,7 +159,7 @@ export function useSendMessage() {
 
       // Get current user's DID for the optimistic message
       const session = atproto.getSession();
-      
+
       // Create optimistic message
       const optimisticMessage: ChatMessage = {
         id: `optimistic-${Date.now()}`,
@@ -171,7 +172,7 @@ export function useSendMessage() {
       // Optimistically update the cache
       queryClient.setQueryData(['messages', convoId], (old: any) => {
         if (!old?.pages) return old;
-        
+
         // Add to first page (messages are reversed for display, so first page = newest)
         const newPages = [...old.pages];
         if (newPages[0]) {
@@ -280,7 +281,12 @@ export function useCanMessage(memberDid: string | undefined) {
         // Ensure we always return a simple boolean
         return { canChat: result?.canChat === true };
       } catch (error: any) {
-        console.warn('[useCanMessage] Error for', memberDid.slice(-8), ':', error?.message || error);
+        console.warn(
+          '[useCanMessage] Error for',
+          memberDid.slice(-8),
+          ':',
+          error?.message || error
+        );
         // On error, return canChat: true to show button (let the actual message attempt handle errors)
         return { canChat: true };
       }

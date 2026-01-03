@@ -279,7 +279,7 @@ export function ProfileView({
 
 /**
  * MessageButton - Opens a DM conversation with the user
- * 
+ *
  * Note: We intentionally don't pre-check if the user allows DMs.
  * The getConvoAvailability API caused React rendering issues.
  * Instead, we show the button and display a helpful error if DMs are restricted.
