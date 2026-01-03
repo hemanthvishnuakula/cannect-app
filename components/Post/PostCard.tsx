@@ -21,6 +21,8 @@ import { Repeat2 } from 'lucide-react-native';
 import { PostEmbeds } from './PostEmbeds';
 import { PostActions } from './PostActions';
 import { RichText } from './RichText';
+import { FollowButton } from '../ui/FollowButton';
+import { useAuthStore } from '../../lib/stores';
 import { getOptimizedAvatarUrl } from '../../lib/utils/avatar';
 import type { AppBskyFeedDefs, AppBskyFeedPost } from '@atproto/api';
 
@@ -70,6 +72,7 @@ export function PostCard({
 }: PostCardProps) {
   const router = useRouter();
   const [isExpanded, setIsExpanded] = useState(false);
+  const { did: currentUserDid } = useAuthStore();
 
   // Support both FeedViewPost (item) and raw PostView (post)
   const post = item?.post ?? rawPost;
@@ -195,6 +198,16 @@ export function PostCard({
               )}
             </Pressable>
             <Text className="text-text-muted text-sm flex-shrink-0">{formatTime(record.createdAt)}</Text>
+            {/* Follow button - show only if not following and not own post */}
+            {!author.viewer?.following && author.did !== currentUserDid && (
+              <View className="ml-2 flex-shrink-0" onStartShouldSetResponder={() => true}>
+                <FollowButton
+                  profile={author}
+                  size="small"
+                  variant="icon-only"
+                />
+              </View>
+            )}
           </View>
 
           {/* Post text with facets (mentions, links, hashtags) */}
