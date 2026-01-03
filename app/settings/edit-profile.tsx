@@ -16,8 +16,9 @@ import {
   Switch,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ArrowLeft, Camera, Bell, BellOff } from 'lucide-react-native';
+import { Camera, Bell, BellOff } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
+import { BackButton } from '@/components/ui';
 import { triggerNotification } from '@/lib/utils/haptics';
 import { compressAvatar, compressBanner } from '@/lib/utils/media-compression';
 import { router } from 'expo-router';
@@ -297,13 +298,7 @@ export default function EditProfileScreen() {
       >
         {/* Header */}
         <View className="flex-row items-center justify-between px-4 py-3 border-b border-border">
-          <Pressable
-            onPress={() => router.back()}
-            className="w-10 h-10 items-center justify-center active:opacity-70"
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <ArrowLeft size={24} color="#FAFAFA" />
-          </Pressable>
+          <BackButton fallbackRoute="/profile" />
 
           <Text className="text-text-primary text-lg font-semibold">Edit Profile</Text>
 
