@@ -87,6 +87,7 @@ export { useWebPush } from './use-web-push';
 // Chat / Direct Messages
 export {
   useConversations,
+  useConversation,
   useMessages,
   useStartConversation,
   useSendMessage,

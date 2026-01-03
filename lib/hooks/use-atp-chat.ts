@@ -62,6 +62,24 @@ export function useConversations() {
 }
 
 /**
+ * Get a single conversation by ID
+ */
+export function useConversation(convoId: string | undefined) {
+  const { isAuthenticated } = useAuthStore();
+
+  return useQuery({
+    queryKey: ['conversation', convoId],
+    queryFn: async () => {
+      if (!convoId) throw new Error('No conversation ID');
+      const result = await atproto.getConversation(convoId);
+      return result.convo as Conversation;
+    },
+    enabled: isAuthenticated && !!convoId,
+    staleTime: 1000 * 30,
+  });
+}
+
+/**
  * Get messages for a specific conversation
  */
 export function useMessages(convoId: string | undefined) {

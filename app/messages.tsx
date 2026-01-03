@@ -5,7 +5,7 @@
  * Tap conversation to expand and see messages + reply input.
  */
 
-import { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -23,6 +23,7 @@ import { ArrowLeft, Send, ChevronDown, ChevronRight } from 'lucide-react-native'
 import * as Haptics from 'expo-haptics';
 import {
   useConversations,
+  useConversation,
   useMessages,
   useSendMessage,
   useMarkConvoRead,
@@ -38,8 +39,26 @@ export default function MessagesScreen() {
   const [expandedConvoId, setExpandedConvoId] = useState<string | null>(initialConvoId || null);
 
   const { data: convosData, isLoading, refetch, isRefetching } = useConversations();
-  const conversations: Conversation[] =
+  
+  // Fetch the specific conversation if we have an initialConvoId
+  // This handles the case where user navigates directly to a conversation
+  const { data: initialConvo, isLoading: isLoadingInitialConvo } = useConversation(initialConvoId);
+  
+  // Combine conversations from list with the initial convo (if not already in list)
+  const listConversations: Conversation[] =
     convosData?.pages?.flatMap((page: any) => page.convos || []) || [];
+  
+  // Build final conversation list, ensuring initialConvo is included
+  const conversations: Conversation[] = useMemo(() => {
+    if (!initialConvo) return listConversations;
+    
+    // Check if initialConvo is already in the list
+    const alreadyInList = listConversations.some((c) => c.id === initialConvo.id);
+    if (alreadyInList) return listConversations;
+    
+    // Add initialConvo at the top
+    return [initialConvo, ...listConversations];
+  }, [listConversations, initialConvo]);
 
   const handleBack = useCallback(() => {
     if (Platform.OS !== 'web') {
@@ -55,7 +74,8 @@ export default function MessagesScreen() {
     setExpandedConvoId((prev) => (prev === convoId ? null : convoId));
   }, []);
 
-  if (isLoading) {
+  // Show loading if either main list or initial convo is loading
+  if (isLoading || (initialConvoId && isLoadingInitialConvo)) {
     return (
       <SafeAreaView className="flex-1 bg-background">
         <Header onBack={handleBack} />
