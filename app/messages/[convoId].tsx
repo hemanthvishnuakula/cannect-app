@@ -46,7 +46,7 @@ export default function ChatScreen() {
   const flatListRef = useRef<FlatList>(null);
 
   const { data: conversation, isLoading: isLoadingConvo } = useConversation(convoId);
-  const { data: messagesData, isLoading: isLoadingMessages, refetch } = useMessages(convoId);
+  const { data: messagesData, isLoading: isLoadingMessages } = useMessages(convoId);
   const { mutate: sendMessage, isPending: isSending } = useSendMessage();
   const { mutate: markRead } = useMarkConvoRead();
   const { mutate: leaveConversation, isPending: isLeavingConvo } = useLeaveConversation();
@@ -152,8 +152,9 @@ export default function ChatScreen() {
 
     const confirmDelete = () => {
       triggerImpact('medium');
-      // Delete each selected message
-      selectedMessages.forEach((messageId) => {
+      // Delete each selected message sequentially
+      const messageIds = Array.from(selectedMessages);
+      messageIds.forEach((messageId) => {
         deleteMessage({ convoId, messageId });
       });
       setSelectedMessages(new Set());
