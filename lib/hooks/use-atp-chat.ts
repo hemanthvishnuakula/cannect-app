@@ -56,8 +56,10 @@ export function useConversations() {
     getNextPageParam: (lastPage: any) => lastPage.cursor,
     initialPageParam: undefined as string | undefined,
     enabled: isAuthenticated,
-    staleTime: 1000 * 30, // 30 seconds
-    refetchInterval: 1000 * 60, // Refetch every minute
+    staleTime: 1000 * 10, // 10 seconds
+    refetchInterval: 1000 * 30, // Poll every 30 seconds
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
   });
 }
 
@@ -75,7 +77,9 @@ export function useConversation(convoId: string | undefined) {
       return result.convo as Conversation;
     },
     enabled: isAuthenticated && !!convoId,
-    staleTime: 1000 * 30,
+    staleTime: 1000 * 10,
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
   });
 }
 
@@ -95,8 +99,10 @@ export function useMessages(convoId: string | undefined) {
     getNextPageParam: (lastPage: any) => lastPage.cursor,
     initialPageParam: undefined as string | undefined,
     enabled: isAuthenticated && !!convoId,
-    staleTime: 1000 * 10, // 10 seconds
-    refetchInterval: 1000 * 15, // Poll every 15 seconds when viewing
+    staleTime: 1000 * 5, // 5 seconds
+    refetchInterval: 1000 * 5, // Poll every 5 seconds when in chat
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
   });
 }
 
