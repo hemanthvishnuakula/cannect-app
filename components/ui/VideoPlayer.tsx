@@ -46,7 +46,7 @@ export function VideoPlayer({
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false); // Video still processing
-  const [showControls, setShowControls] = useState(true);
+  const [showControls, setShowControls] = useState(false); // Hide controls initially for autoplay
   const [isMuted, setIsMuted] = useState(initialMuted);
   const [isMounted, setIsMounted] = useState(false);
   const [isVideoLoaded, setIsVideoLoaded] = useState(autoLoad); // Only load video when user taps
@@ -232,7 +232,12 @@ export function VideoPlayer({
         isLooping={loop}
         onPlaybackStatusUpdate={(s) => {
           setStatus(s);
-          if (s.isLoaded) setIsLoading(false);
+          if (s.isLoaded) {
+            setIsLoading(false);
+            // Show controls briefly then auto-hide
+            setShowControls(true);
+            setTimeout(() => setShowControls(false), 2000);
+          }
         }}
         onError={(error) => {
           console.log('[VideoPlayer] HLS not ready, video is processing');
