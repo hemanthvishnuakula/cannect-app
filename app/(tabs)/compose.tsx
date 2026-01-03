@@ -11,12 +11,13 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
-  Image,
+  Image as RNImage,
   ScrollView,
   Modal,
   type NativeSyntheticEvent,
   type TextInputSelectionChangeEventData,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { X, Image as ImageIcon, Video as VideoIcon, Quote, Trash2 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
@@ -26,6 +27,7 @@ import { RichText } from '@atproto/api';
 import { useCreatePost } from '@/lib/hooks';
 import { useAuthStore } from '@/lib/stores';
 import * as atproto from '@/lib/atproto/agent';
+import { getOptimizedAvatarUrl } from '@/lib/utils/avatar';
 import { compressImageForPost } from '@/lib/utils/media-compression';
 import { MentionSuggestions } from '@/components/ui/MentionSuggestions';
 
@@ -535,7 +537,7 @@ export default function ComposeScreen() {
           <View className="flex-row">
             {/* Avatar */}
             {profile?.avatar ? (
-              <Image source={{ uri: profile.avatar }} className="w-10 h-10 rounded-full" />
+              <Image source={{ uri: getOptimizedAvatarUrl(profile.avatar, 40) }} className="w-10 h-10 rounded-full" cachePolicy="memory-disk" />
             ) : (
               <View className="w-10 h-10 rounded-full bg-surface-elevated items-center justify-center">
                 <Text className="text-text-muted text-lg">
@@ -656,8 +658,9 @@ export default function ComposeScreen() {
                   <View className="flex-row items-center">
                     {quotedPost.author.avatar ? (
                       <Image
-                        source={{ uri: quotedPost.author.avatar }}
+                        source={{ uri: getOptimizedAvatarUrl(quotedPost.author.avatar, 20) }}
                         className="w-5 h-5 rounded-full"
+                        cachePolicy="memory-disk"
                       />
                     ) : (
                       <View className="w-5 h-5 rounded-full bg-primary/20 items-center justify-center">

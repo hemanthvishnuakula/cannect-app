@@ -20,6 +20,7 @@ import * as Haptics from 'expo-haptics';
 import { useAuthorFeed, useActorLikes, useStartConversation } from '@/lib/hooks';
 import { PostCard } from '@/components/Post';
 import { FollowButton, useToast } from '@/components/ui';
+import { getOptimizedAvatarUrl } from '@/lib/utils/avatar';
 import type { AppBskyActorDefs } from '@atproto/api';
 
 type ProfileViewDetailed = AppBskyActorDefs.ProfileViewDetailed;
@@ -136,9 +137,10 @@ export function ProfileView({
               {/* Avatar */}
               {profileData.avatar ? (
                 <Image
-                  source={{ uri: profileData.avatar }}
+                  source={{ uri: getOptimizedAvatarUrl(profileData.avatar, 96) }}
                   className="w-24 h-24 rounded-full border-4 border-background"
                   contentFit="cover"
+                  cachePolicy="memory-disk"
                 />
               ) : (
                 <View className="w-24 h-24 rounded-full border-4 border-background bg-surface-elevated items-center justify-center">
