@@ -988,279 +988,13 @@ export async function reportAccount(
 }
 
 // ============================================================
-// VIDEO UPLOAD WITH JOB STATUS POLLING
+// VIDEO UPLOAD (Direct PDS Upload)
 // ============================================================
-
-const VIDEO_SERVICE = 'https://video.bsky.app';
-
-export interface VideoJobStatus {
-  jobId: string;
-  did: string;
-  state: 'JOB_STATE_COMPLETED' | 'JOB_STATE_FAILED' | string;
-  progress?: number;
-  blob?: any;
-  error?: string;
-  message?: string;
-}
-
-// Video Service DID constant
-const VIDEO_SERVICE_DID = 'did:web:video.bsky.app';
-
-/**
- * Get a service auth token for video upload
- * This is required because video uploads go to a separate service
- */
-async function getServiceAuthToken(lxm: string, aud?: string): Promise<string> {
-  const bskyAgent = getAgent();
-  const session = bskyAgent.session;
-  
-  if (!session) {
-    throw new Error('Not authenticated');
-  }
-
-  // Get the service auth token from the PDS
-  // Use VIDEO_SERVICE_DID as the audience for video operations
-  const response = await bskyAgent.com.atproto.server.getServiceAuth({
-    aud: aud || VIDEO_SERVICE_DID,
-    lxm,
-    exp: Math.floor(Date.now() / 1000) + 60 * 30, // 30 minutes
-  });
-
-  return response.data.token;
-}
-
-/**
- * Check if video upload is available for this user
- * This helps diagnose issues with video service access
- */
-export async function checkVideoUploadLimits(): Promise<{ canUpload: boolean; message?: string; error?: string }> {
-  try {
-    const token = await getServiceAuthToken('app.bsky.video.getUploadLimits', VIDEO_SERVICE_DID);
-    console.log('[Video] Got limits token, length:', token.length);
-    
-    const response = await fetch(
-      `${VIDEO_SERVICE}/xrpc/app.bsky.video.getUploadLimits`,
-      {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      }
-    );
-    
-    console.log('[Video] getUploadLimits response:', response.status);
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('[Video] getUploadLimits failed:', response.status, errorText);
-      return { canUpload: false, error: `${response.status}: ${errorText}` };
-    }
-    
-    const limits = await response.json();
-    console.log('[Video] Upload limits:', limits);
-    
-    return { 
-      canUpload: limits.canUpload !== false,
-      message: limits.message,
-    };
-  } catch (error: any) {
-    console.error('[Video] checkVideoUploadLimits error:', error);
-    return { canUpload: false, error: error.message };
-  }
-}
-
-/**
- * Generate a unique ID for the video filename
- */
-function generateId(): string {
-  return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-}
-
-/**
- * Upload a video using the proper video upload endpoint
- * Returns a job ID that can be polled for completion
- */
-export async function uploadVideo(
-  data: ArrayBuffer,
-  mimeType: string = 'video/mp4',
-  onProgress?: (progress: number) => void
-): Promise<VideoJobStatus> {
-  const bskyAgent = getAgent();
-  const session = bskyAgent.session;
-  
-  if (!session) {
-    throw new Error('Not authenticated');
-  }
-
-  // Get service auth token
-  console.log('[Video] Getting service auth token...');
-  const token = await getServiceAuthToken('com.atproto.repo.uploadBlob');
-  console.log('[Video] Got service auth token, length:', token.length);
-
-  // Determine file extension from mime type
-  const ext = mimeType === 'video/quicktime' ? 'mov' : 
-              mimeType === 'video/webm' ? 'webm' : 'mp4';
-
-  // Build upload URL with required params
-  const uploadUrl = new URL(`${VIDEO_SERVICE}/xrpc/app.bsky.video.uploadVideo`);
-  uploadUrl.searchParams.set('did', session.did);
-  uploadUrl.searchParams.set('name', `${generateId()}.${ext}`);
-
-  console.log('[Video] Uploading to:', uploadUrl.toString());
-  console.log('[Video] Data size:', data.byteLength, 'bytes');
-
-  // Convert ArrayBuffer to Blob for better HTTP/2 streaming support
-  const blob = new Blob([data], { type: mimeType });
-  console.log('[Video] Created blob, size:', blob.size);
-
-  // Use XMLHttpRequest like Bluesky's official app does
-  return new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    
-    xhr.upload.addEventListener('progress', (e) => {
-      if (e.lengthComputable) {
-        const progress = e.loaded / e.total;
-        onProgress?.(progress);
-        console.log('[Video] Upload progress:', Math.round(progress * 100) + '%');
-      }
-    });
-
-    xhr.onloadend = () => {
-      console.log('[Video] XHR completed - status:', xhr.status, 'readyState:', xhr.readyState);
-      if (xhr.readyState === 4) {
-        if (xhr.status >= 200 && xhr.status < 300) {
-          try {
-            const response = JSON.parse(xhr.responseText);
-            console.log('[Video] Upload response:', response);
-            if (response.jobId) {
-              resolve(response as VideoJobStatus);
-            } else if (response.jobStatus) {
-              resolve(response.jobStatus as VideoJobStatus);
-            } else {
-              reject(new Error(response.error || response.message || 'Upload failed - no job ID'));
-            }
-          } catch (e) {
-            console.error('[Video] Failed to parse response:', xhr.responseText);
-            reject(new Error('Failed to parse upload response'));
-          }
-        } else if (xhr.status === 0) {
-          // Status 0 means the request was aborted/failed before getting a response
-          console.error('[Video] Request failed with status 0 - likely network/CORS issue');
-          reject(new Error('Upload failed - connection error. The video service may not be accessible.'));
-        } else {
-          console.error('[Video] Upload failed:', xhr.status, xhr.responseText);
-          try {
-            const error = JSON.parse(xhr.responseText);
-            reject(new Error(error.message || error.error || `Upload failed: ${xhr.status}`));
-          } catch {
-            reject(new Error(`Upload failed: ${xhr.status}`));
-          }
-        }
-      }
-    };
-
-    xhr.onerror = (e) => {
-      console.error('[Video] XHR onerror event:', e);
-      console.error('[Video] XHR state - status:', xhr.status, 'readyState:', xhr.readyState);
-      reject(new Error('Network error during upload'));
-    };
-
-    xhr.ontimeout = () => {
-      console.error('[Video] XHR timeout');
-      reject(new Error('Upload timed out'));
-    };
-
-    // Set a long timeout for large uploads (10 minutes)
-    xhr.timeout = 600000;
-
-    xhr.open('POST', uploadUrl.toString());
-    xhr.setRequestHeader('Content-Type', mimeType);
-    xhr.setRequestHeader('Authorization', `Bearer ${token}`);
-    
-    // Send as Blob instead of ArrayBuffer
-    xhr.send(blob);
-  });
-}
-
-/**
- * Get the current status of a video processing job
- */
-export async function getVideoJobStatus(jobId: string): Promise<VideoJobStatus> {
-  const bskyAgent = getAgent();
-  const session = bskyAgent.session;
-
-  if (!session) {
-    throw new Error('Not authenticated');
-  }
-
-  // Get service auth token for job status check
-  const token = await getServiceAuthToken('app.bsky.video.getJobStatus');
-
-  const response = await fetch(
-    `${VIDEO_SERVICE}/xrpc/app.bsky.video.getJobStatus?jobId=${encodeURIComponent(jobId)}`,
-    {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-      },
-    }
-  );
-
-  if (!response.ok) {
-    throw new Error(`Failed to get job status: ${response.status}`);
-  }
-
-  const result = await response.json();
-  return result.jobStatus as VideoJobStatus;
-}
-
-/**
- * Upload video and wait for processing to complete
- * Polls the job status until the video is ready
- */
-export async function uploadVideoAndWait(
-  data: ArrayBuffer,
-  mimeType: string = 'video/mp4',
-  onProgress?: (stage: 'uploading' | 'processing', progress: number) => void,
-  maxWaitMs: number = 120000 // 2 minutes max
-): Promise<{ blob: any }> {
-  // Start the upload
-  onProgress?.('uploading', 0);
-  const job = await uploadVideo(data, mimeType, (p) => onProgress?.('uploading', p * 100));
-  onProgress?.('uploading', 100);
-
-  console.log('[Video] Processing started, jobId:', job.jobId);
-
-  // Poll for completion
-  const startTime = Date.now();
-  const pollInterval = 1500; // 1.5 seconds between polls
-
-  while (Date.now() - startTime < maxWaitMs) {
-    await new Promise((resolve) => setTimeout(resolve, pollInterval));
-
-    const status = await getVideoJobStatus(job.jobId);
-    console.log('[Video] Job status:', status.state, 'progress:', status.progress);
-
-    onProgress?.('processing', status.progress || 0);
-
-    if (status.state === 'JOB_STATE_COMPLETED') {
-      if (!status.blob) {
-        throw new Error('Video processing completed but no blob returned');
-      }
-      console.log('[Video] Processing complete!');
-      return { blob: status.blob };
-    }
-
-    if (status.state === 'JOB_STATE_FAILED') {
-      throw new Error(status.error || status.message || 'Video processing failed');
-    }
-  }
-
-  throw new Error('Video processing timed out');
-}
 
 /**
  * Upload video directly to the PDS using uploadBlob
- * This is a fallback when video.bsky.app doesn't work (e.g., for federated PDS users)
- * Note: This bypasses Bluesky's video transcoding service
+ * Note: Bluesky's video.bsky.app service doesn't work from third-party origins (CORS/HTTP2 issues)
+ * So we upload directly to the user's PDS and play back via getBlob
  */
 export async function uploadVideoToPDS(
   data: ArrayBuffer,
@@ -1273,7 +1007,7 @@ export async function uploadVideoToPDS(
     throw new Error('Not authenticated');
   }
 
-  console.log('[Video] Uploading directly to PDS via uploadBlob...');
+  console.log('[Video] Uploading to PDS via uploadBlob...');
   console.log('[Video] Data size:', data.byteLength, 'bytes');
   
   onProgress?.(0);
@@ -1293,36 +1027,20 @@ export async function uploadVideoToPDS(
 }
 
 /**
- * Upload video - tries Bluesky's video service first, falls back to PDS upload
- * This ensures video upload works for both Bluesky users and federated PDS users
+ * Upload video - main entry point for video uploads
+ * Uses direct PDS upload for reliable cross-origin support
  */
 export async function uploadVideoWithFallback(
   data: ArrayBuffer,
   mimeType: string = 'video/mp4',
   onProgress?: (stage: 'uploading' | 'processing', progress: number) => void
 ): Promise<{ blob: any }> {
-  // First, try the Bluesky video service
-  try {
-    console.log('[Video] Attempting Bluesky video service...');
-    return await uploadVideoAndWait(data, mimeType, onProgress);
-  } catch (error: any) {
-    console.warn('[Video] Bluesky video service failed:', error.message);
-    
-    // Always fall back to direct PDS upload when video service fails
-    // This handles CORS issues, network errors, and any other failures
-    console.log('[Video] Falling back to direct PDS upload...');
-    onProgress?.('uploading', 0);
-    
-    try {
-      const result = await uploadVideoToPDS(data, mimeType, (p) => onProgress?.('uploading', p));
-      onProgress?.('uploading', 100);
-      return result;
-    } catch (pdsError: any) {
-      console.error('[Video] PDS upload also failed:', pdsError.message);
-      // If PDS upload also fails, throw the original error
-      throw new Error(`Video upload failed: ${error.message}. PDS fallback also failed: ${pdsError.message}`);
-    }
-  }
+  console.log('[Video] Uploading to PDS...');
+  onProgress?.('uploading', 0);
+  
+  const result = await uploadVideoToPDS(data, mimeType, (p) => onProgress?.('uploading', p));
+  onProgress?.('uploading', 100);
+  return result;
 }
 
 export { RichText };
