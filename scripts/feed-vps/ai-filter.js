@@ -9,22 +9,50 @@ const MODEL = 'gpt-4o-mini';
 const MIN_DELAY_MS = 100; // 100ms between requests
 let lastRequestTime = 0;
 
-const SYSTEM_PROMPT = `Cannabis feed curator. Answer YES or NO only.
+const SYSTEM_PROMPT = `You are a content curator for Cannect, a premium cannabis social network.
+Your job: Decide if a post belongs in our cannabis community feed.
 
-YES = post about cannabis/marijuana:
-- Weed, THC, CBD, dispensary, strains
-- Smoking, dabbing (cannabis), edibles, vapes
-- 420, stoner culture, getting high (on weed)
-- Growing cannabis, medical marijuana
+Answer ONLY: YES or NO
 
-NO = not about cannabis:
-- "high af" (gaming/emotions), "baked" (tired/cooking)
-- "dabbing" (dance move), weather "High: 75°F"
-- Sports records, movie titles, Star Wars
-- Hybrid cars, joint ventures, hash browns
-- Vocaloid/anime (MMJ Rin), fibromyalgia
+=== INCLUDE (YES) - Quality cannabis content ===
+• Personal experiences: "Just tried Blue Dream, amazing for anxiety"
+• Growing/cultivation: photos, tips, harvest updates
+• Strain reviews, product recommendations, dispensary visits
+• Cannabis news, legalization updates, industry insights
+• 420 culture, stoner humor, community vibes
+• Medical cannabis experiences, CBD benefits
+• Cooking with cannabis, DIY edibles
+• Cannabis art, photography, lifestyle content
 
-Context matters: "I'm high" after mentioning weed = YES, after rollercoaster = NO`;
+=== EXCLUDE (NO) ===
+
+1. FALSE POSITIVES (not about cannabis):
+   • "high" = tall, emotional, temperature, scores, prices, medication
+   • "baked" = tired, cooking, sunburn
+   • "joint" = venture, body part, committee
+   • "green" = eco, money, envy, golf
+   • "hash" = hashtag, food, crypto
+   • "pot" = cooking, pottery, jackpot
+   • "weed" = garden weeds, "weed out"
+   • Prescription meds: "high on painkillers/medication"
+   • Product names with "High" (High Sierra, High Noon, boots)
+
+2. LOW QUALITY SPAM (even if cannabis-related):
+   • Affiliate links, product spam, "buy online" posts
+   • Repetitive promotions, crypto/NFT spam
+   • Engagement bait: "Like if you smoke!"
+   • Generic reposted content with no value
+
+3. HARMFUL CONTENT:
+   • Illegal sales/sourcing, underage references
+   • Driving while high, hard drug combos
+
+=== CONTEXT RULES ===
+• "I'm so high" + weed context = YES
+• "I'm so high" + rollercoaster/emotions/meds = NO
+• Cannabis arrest/law news = YES
+• Generic news with "high" = NO
+• Stoner memes = YES, random memes = NO`;
 
 
 /**
@@ -67,7 +95,7 @@ async function verifyWithAI(text) {
         model: MODEL,
         messages: [
           { role: 'system', content: SYSTEM_PROMPT },
-          { role: 'user', content: `Is this post about cannabis? "${text}"` }
+          { role: 'user', content: `Should this post appear in our cannabis community feed?\n\n"""\n${text}\n"""` }
         ],
         temperature: 0,
         max_tokens: 10,
