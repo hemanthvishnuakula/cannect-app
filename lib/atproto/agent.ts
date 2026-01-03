@@ -1308,19 +1308,20 @@ export async function uploadVideoWithFallback(
   } catch (error: any) {
     console.warn('[Video] Bluesky video service failed:', error.message);
     
-    // If it's a network/CORS error, try direct PDS upload
-    if (error.message.includes('Network error') || 
-        error.message.includes('Failed to fetch') ||
-        error.message.includes('connection error')) {
-      console.log('[Video] Falling back to direct PDS upload...');
-      onProgress?.('uploading', 0);
+    // Always fall back to direct PDS upload when video service fails
+    // This handles CORS issues, network errors, and any other failures
+    console.log('[Video] Falling back to direct PDS upload...');
+    onProgress?.('uploading', 0);
+    
+    try {
       const result = await uploadVideoToPDS(data, mimeType, (p) => onProgress?.('uploading', p));
       onProgress?.('uploading', 100);
       return result;
+    } catch (pdsError: any) {
+      console.error('[Video] PDS upload also failed:', pdsError.message);
+      // If PDS upload also fails, throw the original error
+      throw new Error(`Video upload failed: ${error.message}. PDS fallback also failed: ${pdsError.message}`);
     }
-    
-    // Re-throw other errors
-    throw error;
   }
 }
 
