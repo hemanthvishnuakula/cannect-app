@@ -83,3 +83,16 @@ export {
 // PWA Diamond Standard APIs
 export { usePWA } from './use-pwa';
 export { useWebPush } from './use-web-push';
+
+// Chat / Direct Messages
+export {
+  useConversations,
+  useMessages,
+  useStartConversation,
+  useSendMessage,
+  useMarkConvoRead,
+  useUnreadMessageCount,
+  type ChatMember,
+  type ChatMessage,
+  type Conversation,
+} from './use-atp-chat';

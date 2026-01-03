@@ -1047,4 +1047,107 @@ export async function uploadVideoWithFallback(
   return result;
 }
 
+// ============================================================
+// CHAT / DIRECT MESSAGES
+// ============================================================
+
+// Bluesky Chat service DID for proxy header
+const CHAT_SERVICE_DID = 'did:web:api.bsky.chat#bsky_chat';
+
+/**
+ * Make a chat API request with the proper proxy header
+ */
+async function chatRequest(
+  method: 'GET' | 'POST',
+  endpoint: string,
+  params?: Record<string, any>,
+  body?: Record<string, any>
+) {
+  const bskyAgent = getAgent();
+
+  if (!bskyAgent.session) {
+    throw new Error('Not authenticated');
+  }
+
+  const url = new URL(`${PDS_SERVICE}/xrpc/${endpoint}`);
+
+  // Add query params for GET
+  if (method === 'GET' && params) {
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined) {
+        url.searchParams.append(key, String(value));
+      }
+    });
+  }
+
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${bskyAgent.session.accessJwt}`,
+    'atproto-proxy': CHAT_SERVICE_DID,
+  };
+
+  if (method === 'POST') {
+    headers['Content-Type'] = 'application/json';
+  }
+
+  const response = await fetch(url.toString(), {
+    method,
+    headers,
+    body: body ? JSON.stringify(body) : undefined,
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.message || `Chat request failed: ${response.status}`);
+  }
+
+  return response.json();
+}
+
+/**
+ * List all conversations
+ */
+export async function listConversations(cursor?: string, limit: number = 50) {
+  return chatRequest('GET', 'chat.bsky.convo.listConvos', { cursor, limit });
+}
+
+/**
+ * Get a single conversation by ID
+ */
+export async function getConversation(convoId: string) {
+  return chatRequest('GET', 'chat.bsky.convo.getConvo', { convoId });
+}
+
+/**
+ * Get messages in a conversation
+ */
+export async function getMessages(convoId: string, cursor?: string, limit: number = 50) {
+  return chatRequest('GET', 'chat.bsky.convo.getMessages', { convoId, cursor, limit });
+}
+
+/**
+ * Get or create a conversation with a user
+ */
+export async function getConvoForMembers(members: string[]) {
+  return chatRequest('GET', 'chat.bsky.convo.getConvoForMembers', {
+    members: members.join(','),
+  });
+}
+
+/**
+ * Send a message in a conversation
+ */
+export async function sendMessage(convoId: string, text: string) {
+  return chatRequest('POST', 'chat.bsky.convo.sendMessage', undefined, {
+    convoId,
+    message: { text },
+  });
+}
+
+/**
+ * Mark conversation as read
+ */
+export async function updateConvoRead(convoId: string) {
+  return chatRequest('POST', 'chat.bsky.convo.updateRead', undefined, { convoId });
+}
+
 export { RichText };

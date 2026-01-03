@@ -14,10 +14,10 @@ import { View, Text, Pressable, ActivityIndicator, RefreshControl, Platform } fr
 import { Image } from 'expo-image';
 import { FlashList } from '@shopify/flash-list';
 import { useRouter } from 'expo-router';
-import { LogOut, Edit3 } from 'lucide-react-native';
+import { LogOut, Edit3, MessageCircle } from 'lucide-react-native';
 import { useState, useMemo, useCallback } from 'react';
 import * as Haptics from 'expo-haptics';
-import { useAuthorFeed, useActorLikes } from '@/lib/hooks';
+import { useAuthorFeed, useActorLikes, useStartConversation } from '@/lib/hooks';
 import { PostCard } from '@/components/Post';
 import { FollowButton } from '@/components/ui';
 import type { AppBskyActorDefs } from '@atproto/api';
@@ -167,7 +167,10 @@ export function ProfileView({
                     </Pressable>
                   </>
                 ) : (
-                  <FollowButton profile={profileData} size="large" />
+                  <View className="flex-row gap-2">
+                    <MessageButton did={profileData.did} />
+                    <FollowButton profile={profileData} size="large" />
+                  </View>
                 )}
               </View>
 
@@ -271,5 +274,44 @@ export function ProfileView({
         }
       />
     </>
+  );
+}
+
+// ============================================================
+// MESSAGE BUTTON
+// ============================================================
+
+function MessageButton({ did }: { did: string }) {
+  const router = useRouter();
+  const { mutate: startConversation, isPending } = useStartConversation();
+
+  const handlePress = useCallback(() => {
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+
+    startConversation(did, {
+      onSuccess: (convo) => {
+        // Navigate to messages with this conversation expanded
+        router.push(`/messages?convoId=${convo.id}` as any);
+      },
+      onError: (error) => {
+        console.error('[Chat] Failed to start conversation:', error);
+      },
+    });
+  }, [did, startConversation, router]);
+
+  return (
+    <Pressable
+      onPress={handlePress}
+      disabled={isPending}
+      className="bg-surface-elevated border border-border p-2.5 rounded-full items-center justify-center active:opacity-70"
+    >
+      {isPending ? (
+        <ActivityIndicator size="small" color="#10B981" />
+      ) : (
+        <MessageCircle size={20} color="#FAFAFA" />
+      )}
+    </Pressable>
   );
 }
