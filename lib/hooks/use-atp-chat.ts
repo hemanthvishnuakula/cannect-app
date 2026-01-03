@@ -117,7 +117,14 @@ export function useStartConversation() {
       const session = atproto.getSession();
       if (!session) throw new Error('Not authenticated');
 
+      console.log('[Chat] Starting conversation with:', memberDid);
       const result = await atproto.getConvoForMembers([session.did, memberDid]);
+      console.log('[Chat] getConvoForMembers result:', result);
+      
+      if (!result?.convo?.id) {
+        throw new Error('Failed to create conversation - no convo returned');
+      }
+      
       return result.convo as Conversation;
     },
     onSuccess: () => {

@@ -1102,10 +1102,12 @@ async function chatRequest(
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({}));
+    console.error('[Chat] API error:', response.status, error);
     throw new Error(error.message || `Chat request failed: ${response.status}`);
   }
 
-  return response.json();
+  const data = await response.json();
+  return data;
 }
 
 /**
