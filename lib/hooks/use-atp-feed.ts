@@ -239,6 +239,9 @@ function isCannectSpaceUser(handle: string | null): boolean {
  * Fetch following timeline from our custom API (for cannect.space users)
  * This aggregates posts from followed users since Bluesky's getTimeline
  * doesn't work properly for third-party PDS users.
+ *
+ * The VPS uses public API (no auth), so we need to hydrate posts with
+ * viewer state using authenticated getPosts API.
  */
 async function fetchCannectFollowingTimeline(
   actor: string,
@@ -260,8 +263,45 @@ async function fetchCannectFollowingTimeline(
   }
 
   const data = await response.json();
+  const feed: FeedViewPost[] = data.feed || [];
+
+  // Hydrate posts with viewer state using authenticated getPosts API
+  // This adds like/repost state that the public VPS API doesn't include
+  // Bluesky limits getPosts to 25 URIs per request, so we batch
+  if (feed.length > 0) {
+    try {
+      const uris = feed.map((item) => item.post.uri);
+      const hydratedMap = new Map<string, PostView>();
+
+      // Batch requests in chunks of 25
+      const BATCH_SIZE = 25;
+      for (let i = 0; i < uris.length; i += BATCH_SIZE) {
+        const batch = uris.slice(i, i + BATCH_SIZE);
+        const hydrated = await atproto.getPosts(batch);
+        for (const post of hydrated.data.posts) {
+          hydratedMap.set(post.uri, post);
+        }
+      }
+
+      // Merge hydrated viewer state into feed posts
+      for (const item of feed) {
+        const hydratedPost = hydratedMap.get(item.post.uri);
+        if (hydratedPost) {
+          item.post.viewer = hydratedPost.viewer;
+          // Also update counts in case they changed
+          item.post.likeCount = hydratedPost.likeCount;
+          item.post.repostCount = hydratedPost.repostCount;
+          item.post.replyCount = hydratedPost.replyCount;
+        }
+      }
+    } catch (error) {
+      console.warn('[Following] Failed to hydrate viewer state:', error);
+      // Continue without hydration - posts will just not show like/repost state
+    }
+  }
+
   return {
-    feed: data.feed || [],
+    feed,
     cursor: data.cursor,
   };
 }

@@ -510,6 +510,18 @@ export async function getPost(uri: string) {
 }
 
 /**
+ * Get multiple posts by URI (with authenticated viewer state)
+ * Max 25 URIs per request per Bluesky API limits
+ */
+export async function getPosts(uris: string[]) {
+  const bskyAgent = getAgent();
+  // Bluesky limits to 25 posts per request
+  const limitedUris = uris.slice(0, 25);
+  const result = await bskyAgent.getPosts({ uris: limitedUris });
+  return result;
+}
+
+/**
  * Check if a handle belongs to a Cannect PDS user
  * Only returns true for .cannect.space handles to avoid unnecessary PDS requests
  */
