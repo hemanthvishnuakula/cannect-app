@@ -222,12 +222,12 @@ export default function ChatScreen() {
       return (
         <Pressable
           onPress={() => isSelectMode && handleToggleSelect(msg.id)}
-          className={`mb-3 ${isOwn ? 'items-end' : 'items-start'}`}
+          style={{ alignItems: isOwn ? 'flex-end' : 'flex-start', marginBottom: 12 }}
         >
-          <View className={`flex-row items-center ${isOwn ? 'flex-row-reverse' : ''}`}>
-            {/* Checkbox in select mode */}
-            {isSelectMode && (
-              <Pressable onPress={() => handleToggleSelect(msg.id)} className="p-1 mr-2">
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            {/* Checkbox in select mode - left side */}
+            {isSelectMode && !isOwn && (
+              <Pressable onPress={() => handleToggleSelect(msg.id)} style={{ padding: 4, marginRight: 8 }}>
                 {isSelected ? (
                   <CheckSquare size={20} color="#10B981" />
                 ) : (
@@ -237,16 +237,31 @@ export default function ChatScreen() {
             )}
 
             <View
-              className={`max-w-[75%] px-4 py-2.5 ${
-                isOwn
-                  ? 'bg-primary rounded-2xl rounded-br-md'
-                  : 'bg-surface-elevated rounded-2xl rounded-bl-md'
-              } ${isSelected ? 'ring-2 ring-primary' : ''}`}
+              style={{
+                maxWidth: '75%',
+                paddingHorizontal: 16,
+                paddingVertical: 10,
+                backgroundColor: isOwn ? '#10B981' : '#1E1E1E',
+                borderRadius: 16,
+                borderBottomRightRadius: isOwn ? 4 : 16,
+                borderBottomLeftRadius: isOwn ? 16 : 4,
+              }}
             >
-              <Text className={`${isOwn ? 'text-white' : 'text-text-primary'}`} style={{ flexShrink: 0 }}>{msg.text}</Text>
+              <Text style={{ color: isOwn ? '#FFFFFF' : '#FAFAFA' }}>{msg.text}</Text>
             </View>
+
+            {/* Checkbox in select mode - right side for own messages */}
+            {isSelectMode && isOwn && (
+              <Pressable onPress={() => handleToggleSelect(msg.id)} style={{ padding: 4, marginLeft: 8 }}>
+                {isSelected ? (
+                  <CheckSquare size={20} color="#10B981" />
+                ) : (
+                  <Square size={20} color="#6B7280" />
+                )}
+              </Pressable>
+            )}
           </View>
-          <Text className={`text-text-muted text-xs mt-1 px-1 ${isOwn ? 'text-right' : ''}`}>{time}</Text>
+          <Text style={{ color: '#6B7280', fontSize: 12, marginTop: 4, paddingHorizontal: 4, textAlign: isOwn ? 'right' : 'left' }}>{time}</Text>
         </Pressable>
       );
     },
