@@ -274,11 +274,6 @@ export default function ChatScreen() {
         minute: '2-digit',
       });
 
-      // Debug: log embed info
-      if (msg.embed) {
-        console.log('[Chat] Message has embed:', msg.embed.$type, msg.embed);
-      }
-
       const prevMsg = index > 0 ? messages[index - 1] : undefined;
       const nextMsg = index < messages.length - 1 ? messages[index + 1] : undefined;
       const showDateSeparator = shouldShowDateSeparator(msg, prevMsg);

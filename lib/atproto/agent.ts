@@ -1172,16 +1172,12 @@ export async function sendMessage(
         cid: embed.cid,
       },
     };
-    console.log('[sendMessage] Sending with embed:', message.embed);
   }
 
-  const result = await chatRequest('POST', 'chat.bsky.convo.sendMessage', undefined, {
+  return chatRequest('POST', 'chat.bsky.convo.sendMessage', undefined, {
     convoId,
     message,
   });
-
-  console.log('[sendMessage] Response:', JSON.stringify(result, null, 2));
-  return result;
 }
 
 /**
