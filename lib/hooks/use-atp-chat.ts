@@ -25,6 +25,7 @@ export interface ChatMessage {
   rev: string;
   text: string;
   facets?: any[]; // Rich text facets (mentions, links, hashtags)
+  embed?: any; // Embedded content (posts, etc.)
   sender: { did: string };
   sentAt: string;
 }
@@ -141,16 +142,25 @@ export function useStartConversation() {
 /**
  * Send a message with optimistic updates
  * Message appears instantly, then confirms with server
+ * Supports embedding posts (share to DM)
  */
 export function useSendMessage() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ convoId, text }: { convoId: string; text: string }) => {
-      const result = await atproto.sendMessage(convoId, text);
+    mutationFn: async ({
+      convoId,
+      text,
+      embed,
+    }: {
+      convoId: string;
+      text: string;
+      embed?: { uri: string; cid: string };
+    }) => {
+      const result = await atproto.sendMessage(convoId, text, embed);
       return result as ChatMessage;
     },
-    onMutate: async ({ convoId, text }) => {
+    onMutate: async ({ convoId, text, embed }) => {
       // Cancel any outgoing refetches
       await queryClient.cancelQueries({ queryKey: ['messages', convoId] });
 
@@ -167,6 +177,12 @@ export function useSendMessage() {
         text,
         sender: { did: session?.did || '' },
         sentAt: new Date().toISOString(),
+        embed: embed
+          ? {
+              $type: 'app.bsky.embed.record',
+              record: { uri: embed.uri, cid: embed.cid },
+            }
+          : undefined,
       };
 
       // Optimistically update the cache

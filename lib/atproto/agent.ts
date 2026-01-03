@@ -1143,19 +1143,35 @@ export async function getConvoForMembers(members: string[]) {
 /**
  * Send a message in a conversation
  * Automatically detects and includes facets (mentions, links, hashtags)
+ * Supports embedding posts (share to DM)
  */
-export async function sendMessage(convoId: string, text: string) {
+export async function sendMessage(
+  convoId: string,
+  text: string,
+  embed?: { uri: string; cid: string }
+) {
   const bskyAgent = getAgent();
 
   // Parse facets (mentions, links, hashtags) using RichText
   const rt = new RichText({ text });
   await rt.detectFacets(bskyAgent);
 
-  const message: { text: string; facets?: any[] } = { text: rt.text };
+  const message: { text: string; facets?: any[]; embed?: any } = { text: rt.text };
 
   // Only include facets if we found any
   if (rt.facets && rt.facets.length > 0) {
     message.facets = rt.facets;
+  }
+
+  // Include post embed if provided
+  if (embed) {
+    message.embed = {
+      $type: 'app.bsky.embed.record',
+      record: {
+        uri: embed.uri,
+        cid: embed.cid,
+      },
+    };
   }
 
   return chatRequest('POST', 'chat.bsky.convo.sendMessage', undefined, {

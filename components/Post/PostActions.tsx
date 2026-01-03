@@ -31,6 +31,7 @@ import {
   Flag,
   Link,
   Share2,
+  Send,
 } from 'lucide-react-native';
 import { memo, useCallback, useState } from 'react';
 import * as Clipboard from 'expo-clipboard';
@@ -46,6 +47,7 @@ import { useAuthStore } from '../../lib/stores';
 import * as atproto from '../../lib/atproto/agent';
 import type { ReportReason } from '../../lib/atproto/agent';
 import type { AppBskyFeedDefs, AppBskyFeedPost } from '@atproto/api';
+import { ShareToDMModal } from '../messages';
 
 type PostView = AppBskyFeedDefs.PostView;
 
@@ -98,6 +100,7 @@ export const PostActions = memo(function PostActions({
   const [isRepostLoading, setIsRepostLoading] = useState(false);
   const [repostMenuVisible, setRepostMenuVisible] = useState(false);
   const [optionsMenuVisible, setOptionsMenuVisible] = useState(false);
+  const [shareToDMVisible, setShareToDMVisible] = useState(false);
 
   // Derived state
   const isLiked = !!post.viewer?.like;
@@ -221,6 +224,12 @@ export const PostActions = memo(function PostActions({
   const handleOptionsPress = useCallback(() => {
     triggerHaptic();
     setOptionsMenuVisible(true);
+  }, []);
+
+  // Open share to DM modal
+  const handleSendToDM = useCallback(() => {
+    triggerHaptic();
+    setShareToDMVisible(true);
   }, []);
 
   // Copy link to clipboard
@@ -393,6 +402,21 @@ export const PostActions = memo(function PostActions({
           </Text>
         </Pressable>
 
+        {/* Send to DM */}
+        <Pressable
+          onPressIn={stopEvent}
+          onPress={(e) => {
+            stopEvent(e);
+            handleSendToDM();
+          }}
+          className="flex-row items-center justify-center p-2 min-w-[44px] min-h-[44px]"
+          hitSlop={buttonHitSlop}
+          android_ripple={{ color: 'rgba(0,0,0,0.1)', borderless: true }}
+          style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
+        >
+          <Send size={iconSize} color={mutedColor} />
+        </Pressable>
+
         {/* More Options (includes Share, Copy Link, Delete, Report) */}
         {!hideOptions && (
           <Pressable
@@ -462,6 +486,18 @@ export const PostActions = memo(function PostActions({
           >
             {likeCount > 0 ? likeCount : ''}
           </Text>
+        </Pressable>
+
+        {/* Send to DM */}
+        <Pressable
+          onPressIn={stopEvent}
+          onPress={handleSendToDM}
+          className="flex-row items-center justify-center p-3 min-w-[48px] min-h-[48px]"
+          hitSlop={buttonHitSlop}
+          android_ripple={{ color: 'rgba(0,0,0,0.1)', borderless: true }}
+          style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
+        >
+          <Send size={iconSize} color={mutedColor} />
         </Pressable>
 
         {/* Options (includes Share, Copy Link, Delete, Report) */}
@@ -641,6 +677,16 @@ export const PostActions = memo(function PostActions({
           </View>
         </View>
       </Modal>
+
+      {/* ========== SHARE TO DM MODAL ========== */}
+      <ShareToDMModal
+        visible={shareToDMVisible}
+        onClose={() => setShareToDMVisible(false)}
+        postUri={post.uri}
+        postCid={post.cid}
+        postText={record.text}
+        authorHandle={post.author.handle}
+      />
     </>
   );
 });

@@ -32,7 +32,7 @@ import {
   useDeleteMessage,
   type ChatMessage,
 } from '@/lib/hooks';
-import { MessageRichText } from '@/components/messages';
+import { MessageRichText, ChatEmbeddedPost } from '@/components/messages';
 import { getOptimizedAvatarWithFallback } from '@/lib/utils/avatar';
 import { triggerImpact } from '@/lib/utils/haptics';
 import * as atproto from '@/lib/atproto/agent';
@@ -357,6 +357,11 @@ export default function ChatScreen() {
                     {time}
                   </Text>
                 </View>
+
+                {/* Embedded post preview */}
+                {msg.embed && msg.embed.$type === 'app.bsky.embed.record' && (
+                  <ChatEmbeddedPost embed={msg.embed} isOwn={isOwn} />
+                )}
               </View>
 
               {/* Checkbox in select mode - right side for own messages */}
