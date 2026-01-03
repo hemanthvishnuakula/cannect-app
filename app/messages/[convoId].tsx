@@ -44,7 +44,8 @@ export default function ChatScreen() {
   const session = atproto.getSession();
 
   // Get the OTHER member (not current user)
-  const otherMember = conversation?.members?.find((m) => m.did !== session?.did) || conversation?.members?.[0];
+  const otherMember =
+    conversation?.members?.find((m) => m.did !== session?.did) || conversation?.members?.[0];
   const displayName = otherMember?.displayName || otherMember?.handle || 'Loading...';
   const handle = otherMember?.handle || '';
   const avatar = otherMember?.avatar;
@@ -75,7 +76,12 @@ export default function ChatScreen() {
     if (Platform.OS !== 'web') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
-    router.back();
+    // Use canGoBack check to prevent stuck navigation
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/messages' as any);
+    }
   }, [router]);
 
   const handleSend = useCallback(() => {
@@ -105,9 +111,12 @@ export default function ChatScreen() {
     }
   }, [otherMember?.handle, router]);
 
-  const renderMessage = useCallback(({ item: msg }: { item: ChatMessage }) => {
-    return <MessageBubble message={msg} currentUserDid={session?.did} />;
-  }, [session?.did]);
+  const renderMessage = useCallback(
+    ({ item: msg }: { item: ChatMessage }) => {
+      return <MessageBubble message={msg} currentUserDid={session?.did} />;
+    },
+    [session?.did]
+  );
 
   if (isLoadingConvo || isLoadingMessages) {
     return (
@@ -147,8 +156,8 @@ export default function ChatScreen() {
           data={messages}
           keyExtractor={(item) => item.id}
           renderItem={renderMessage}
-          contentContainerStyle={{ 
-            padding: 16, 
+          contentContainerStyle={{
+            padding: 16,
             paddingBottom: 8,
             flexGrow: 1,
             justifyContent: messages.length === 0 ? 'center' : 'flex-end',
@@ -157,7 +166,11 @@ export default function ChatScreen() {
             <View className="items-center justify-center py-8">
               <View className="w-20 h-20 rounded-full bg-surface-elevated items-center justify-center mb-4">
                 <Image
-                  source={{ uri: getAvatarUrl(avatar, 'thumb') || `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=10B981&color=fff` }}
+                  source={{
+                    uri:
+                      getAvatarUrl(avatar, 'thumb') ||
+                      `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=10B981&color=fff`,
+                  }}
                   style={{ width: 60, height: 60, borderRadius: 30 }}
                   contentFit="cover"
                 />
@@ -232,13 +245,17 @@ function ChatHeader({
       <Pressable onPress={onBack} className="p-2 -ml-2 mr-1">
         <ArrowLeft size={24} color="#FFFFFF" />
       </Pressable>
-      
-      <Pressable 
-        onPress={onProfilePress} 
+
+      <Pressable
+        onPress={onProfilePress}
         className="flex-row items-center flex-1 active:opacity-70"
       >
         <Image
-          source={{ uri: getAvatarUrl(avatar, 'thumb') || `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=10B981&color=fff` }}
+          source={{
+            uri:
+              getAvatarUrl(avatar, 'thumb') ||
+              `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=10B981&color=fff`,
+          }}
           style={{ width: 40, height: 40, borderRadius: 20 }}
           contentFit="cover"
         />
@@ -261,11 +278,11 @@ function ChatHeader({
 // MESSAGE BUBBLE
 // ============================================================
 
-function MessageBubble({ 
-  message, 
-  currentUserDid 
-}: { 
-  message: ChatMessage; 
+function MessageBubble({
+  message,
+  currentUserDid,
+}: {
+  message: ChatMessage;
   currentUserDid?: string;
 }) {
   const isOwn = currentUserDid === message.sender?.did;
@@ -279,8 +296,8 @@ function MessageBubble({
     <View className={`mb-3 ${isOwn ? 'items-end' : 'items-start'}`}>
       <View
         className={`max-w-[80%] px-4 py-2.5 ${
-          isOwn 
-            ? 'bg-primary rounded-2xl rounded-br-md' 
+          isOwn
+            ? 'bg-primary rounded-2xl rounded-br-md'
             : 'bg-surface-elevated rounded-2xl rounded-bl-md'
         }`}
       >

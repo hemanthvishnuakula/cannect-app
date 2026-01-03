@@ -297,7 +297,7 @@ async function fetchCannectFollowingTimeline(
           item.post.repostCount = hydratedPost.repostCount;
           item.post.replyCount = hydratedPost.replyCount;
         }
-        
+
         // For Following feed: ensure author.viewer.following is set to true
         // since by definition we follow everyone in this feed
         if (item.post.author) {

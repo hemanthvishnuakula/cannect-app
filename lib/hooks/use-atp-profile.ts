@@ -174,7 +174,11 @@ export function useFollow() {
   const { did: myDid } = useAuthStore();
 
   // Helper to update a user in any list cache AND all profile caches for that user
-  const updateUserInLists = (targetDid: string, followUri: string | undefined, followersDelta: number) => {
+  const updateUserInLists = (
+    targetDid: string,
+    followUri: string | undefined,
+    followersDelta: number
+  ) => {
     // Update ALL profile caches that match this DID (could be cached by handle or DID)
     queryClient.setQueriesData({ queryKey: ['profile'] }, (old: any) => {
       if (!old || old.did !== targetDid) return old;
@@ -264,7 +268,14 @@ export function useFollow() {
       // Optimistically update ALL caches (profile by DID, by handle, and lists)
       updateUserInLists(targetDid, 'pending', 1);
 
-      return { previousProfiles, previousSuggested, previousSearch, previousTimeline, previousCannectFeed, targetDid };
+      return {
+        previousProfiles,
+        previousSuggested,
+        previousSearch,
+        previousTimeline,
+        previousCannectFeed,
+        targetDid,
+      };
     },
     onSuccess: (result, _, context) => {
       // Update with actual follow URI from server (0 delta since already updated)
@@ -326,7 +337,11 @@ export function useUnfollow() {
   const { did: myDid } = useAuthStore();
 
   // Helper to update a user in any list cache AND all profile caches for that user
-  const updateUserInLists = (targetDid: string, followUri: string | undefined, followersDelta: number) => {
+  const updateUserInLists = (
+    targetDid: string,
+    followUri: string | undefined,
+    followersDelta: number
+  ) => {
     // Update ALL profile caches that match this DID (could be cached by handle or DID)
     queryClient.setQueriesData({ queryKey: ['profile'] }, (old: any) => {
       if (!old || old.did !== targetDid) return old;
@@ -420,7 +435,14 @@ export function useUnfollow() {
       // Optimistically update ALL caches
       updateUserInLists(targetDid, undefined, -1);
 
-      return { previousProfiles, previousSuggested, previousSearch, previousTimeline, previousCannectFeed, targetDid };
+      return {
+        previousProfiles,
+        previousSuggested,
+        previousSearch,
+        previousTimeline,
+        previousCannectFeed,
+        targetDid,
+      };
     },
     onError: (err, variables, context) => {
       // Rollback all profile caches

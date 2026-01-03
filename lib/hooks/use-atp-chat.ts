@@ -163,7 +163,9 @@ export function useUnreadMessageCount() {
   const { data } = useConversations();
 
   const unreadCount =
-    data?.pages?.flatMap((page: any) => page.convos || []).reduce((sum: number, convo: any) => sum + (convo.unreadCount || 0), 0) || 0;
+    data?.pages
+      ?.flatMap((page: any) => page.convos || [])
+      .reduce((sum: number, convo: any) => sum + (convo.unreadCount || 0), 0) || 0;
 
   return unreadCount;
 }

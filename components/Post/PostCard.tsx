@@ -197,15 +197,13 @@ export function PostCard({
                 </View>
               )}
             </Pressable>
-            <Text className="text-text-muted text-sm flex-shrink-0">{formatTime(record.createdAt)}</Text>
+            <Text className="text-text-muted text-sm flex-shrink-0">
+              {formatTime(record.createdAt)}
+            </Text>
             {/* Follow button - show only if not following and not own post */}
             {!author.viewer?.following && author.did !== currentUserDid && (
               <View className="ml-2 flex-shrink-0" onStartShouldSetResponder={() => true}>
-                <FollowButton
-                  profile={author}
-                  size="small"
-                  variant="icon-only"
-                />
+                <FollowButton profile={author} size="small" variant="icon-only" />
               </View>
             )}
           </View>
