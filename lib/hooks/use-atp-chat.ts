@@ -138,7 +138,8 @@ export function useStartConversation() {
 }
 
 /**
- * Send a message
+ * Send a message with optimistic updates
+ * Message appears instantly, then confirms with server
  */
 export function useSendMessage() {
   const queryClient = useQueryClient();
@@ -148,8 +149,51 @@ export function useSendMessage() {
       const result = await atproto.sendMessage(convoId, text);
       return result as ChatMessage;
     },
-    onSuccess: (_, variables) => {
-      // Refetch messages for this conversation
+    onMutate: async ({ convoId, text }) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['messages', convoId] });
+
+      // Snapshot the previous value
+      const previousMessages = queryClient.getQueryData(['messages', convoId]);
+
+      // Get current user's DID for the optimistic message
+      const session = atproto.getSession();
+      
+      // Create optimistic message
+      const optimisticMessage: ChatMessage = {
+        id: `optimistic-${Date.now()}`,
+        rev: '',
+        text,
+        sender: { did: session?.did || '' },
+        sentAt: new Date().toISOString(),
+      };
+
+      // Optimistically update the cache
+      queryClient.setQueryData(['messages', convoId], (old: any) => {
+        if (!old?.pages) return old;
+        
+        // Add to first page (messages are reversed for display, so first page = newest)
+        const newPages = [...old.pages];
+        if (newPages[0]) {
+          newPages[0] = {
+            ...newPages[0],
+            messages: [optimisticMessage, ...(newPages[0].messages || [])],
+          };
+        }
+        return { ...old, pages: newPages };
+      });
+
+      return { previousMessages };
+    },
+    onError: (err, variables, context) => {
+      // Rollback to previous state on error
+      if (context?.previousMessages) {
+        queryClient.setQueryData(['messages', variables.convoId], context.previousMessages);
+      }
+      console.error('[useSendMessage] Failed:', err);
+    },
+    onSettled: (_, __, variables) => {
+      // Refetch to ensure we have the real message from server
       queryClient.invalidateQueries({ queryKey: ['messages', variables.convoId] });
       // Also refresh conversation list (for last message preview)
       queryClient.invalidateQueries({ queryKey: ['conversations'] });

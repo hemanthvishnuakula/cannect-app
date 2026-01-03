@@ -46,7 +46,13 @@ export default function ChatScreen() {
   const flatListRef = useRef<FlatList>(null);
 
   const { data: conversation, isLoading: isLoadingConvo } = useConversation(convoId);
-  const { data: messagesData, isLoading: isLoadingMessages } = useMessages(convoId);
+  const {
+    data: messagesData,
+    isLoading: isLoadingMessages,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useMessages(convoId);
   const { mutate: sendMessage, isPending: isSending } = useSendMessage();
   const { mutate: markRead } = useMarkConvoRead();
   const { mutate: leaveConversation, isPending: isLeavingConvo } = useLeaveConversation();
@@ -105,6 +111,14 @@ export default function ChatScreen() {
     const timeDiff = new Date(nextMsg.sentAt).getTime() - new Date(currentMsg.sentAt).getTime();
     return timeDiff < 2 * 60 * 1000; // 2 minutes
   }, []);
+
+  // Load older messages
+  const handleLoadMore = useCallback(() => {
+    if (hasNextPage && !isFetchingNextPage) {
+      triggerImpact('light');
+      fetchNextPage();
+    }
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   // Mark as read when opened
   useEffect(() => {
@@ -463,6 +477,23 @@ export default function ChatScreen() {
             flexGrow: 1,
             justifyContent: messages.length === 0 ? 'center' : 'flex-end',
           }}
+          ListHeaderComponent={
+            hasNextPage ? (
+              <Pressable
+                onPress={handleLoadMore}
+                disabled={isFetchingNextPage}
+                className="items-center py-4 mb-2"
+              >
+                {isFetchingNextPage ? (
+                  <ActivityIndicator size="small" color="#10B981" />
+                ) : (
+                  <View className="bg-surface-elevated px-4 py-2 rounded-full">
+                    <Text className="text-text-muted text-sm">Load older messages</Text>
+                  </View>
+                )}
+              </Pressable>
+            ) : null
+          }
           ListEmptyComponent={
             <View className="items-center justify-center py-8">
               <View className="w-20 h-20 rounded-full bg-surface-elevated items-center justify-center mb-4">
