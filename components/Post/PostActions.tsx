@@ -68,9 +68,9 @@ const triggerHaptic = (style: Haptics.ImpactFeedbackStyle = Haptics.ImpactFeedba
 };
 
 // Stop event propagation helper (works on web and native)
+// Note: Only stopPropagation is needed - preventDefault breaks click detection on web
 const stopEvent = (e: any) => {
   e?.stopPropagation?.();
-  e?.preventDefault?.();
 };
 
 // Check if web share API is available

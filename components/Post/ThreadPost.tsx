@@ -47,9 +47,9 @@ export function ThreadPost({ post, onImagePress }: ThreadPostProps) {
   const author = post.author;
 
   // Stop event propagation helper
+  // Note: Only stopPropagation is needed - preventDefault breaks click detection on web
   const stopEvent = useCallback((e: any) => {
     e?.stopPropagation?.();
-    e?.preventDefault?.();
   }, []);
 
   const handleAuthorPress = () => {

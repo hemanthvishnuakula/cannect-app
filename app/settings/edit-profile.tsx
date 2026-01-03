@@ -204,11 +204,7 @@ export default function EditProfileScreen() {
     if (!result.canceled && result.assets[0]) {
       try {
         const asset = result.assets[0];
-        const compressed = await compressAvatar(
-          asset.uri,
-          asset.width,
-          asset.height
-        );
+        const compressed = await compressAvatar(asset.uri, asset.width, asset.height);
         setAvatar(compressed);
       } catch (err) {
         console.error('Failed to compress avatar:', err);
@@ -269,7 +265,7 @@ export default function EditProfileScreen() {
       await updateProfileMutation.mutateAsync(update);
 
       triggerNotification('success');
-      
+
       // Navigate back after successful save
       router.back();
     } catch (err: any) {
@@ -288,9 +284,7 @@ export default function EditProfileScreen() {
     return (
       <SafeAreaView className="flex-1 bg-background items-center justify-center">
         <ActivityIndicator size="large" color="#10B981" />
-        <Text className="text-text-muted mt-2">
-          {isSaving ? 'Saving...' : 'Loading...'}
-        </Text>
+        <Text className="text-text-muted mt-2">{isSaving ? 'Saving...' : 'Loading...'}</Text>
       </SafeAreaView>
     );
   }

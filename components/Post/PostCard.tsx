@@ -89,9 +89,9 @@ export function PostCard({
   const shouldTruncate = needsTruncation && !isExpanded;
 
   // Stop event propagation helper (works on web and native)
+  // Note: Only stopPropagation is needed - preventDefault breaks click detection on web
   const stopEvent = useCallback((e: any) => {
     e?.stopPropagation?.();
-    e?.preventDefault?.();
   }, []);
 
   // Handle "Show more" tap
