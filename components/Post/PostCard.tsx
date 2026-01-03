@@ -127,7 +127,7 @@ export function PostCard({
   return (
     <Pressable
       onPress={handlePress}
-      className={`px-5 py-4 ${showBorder ? 'border-b border-border' : ''} web:hover:bg-surface/50 web:transition-colors`}
+      className={`px-5 pt-4 pb-2 ${showBorder ? 'border-b border-border' : ''} web:hover:bg-surface/50 web:transition-colors`}
     >
       {/* Repost indicator */}
       {isRepost && repostBy && (

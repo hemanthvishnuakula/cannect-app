@@ -332,7 +332,7 @@ export const PostActions = memo(function PostActions({
   // Action buttons JSX
   const actionButtons =
     variant === 'compact' ? (
-      <View className="flex-row items-center justify-around mt-3">
+      <View className="flex-row items-center justify-around mt-2 -mb-1">
         {/* Reply */}
         <Pressable
           onPressIn={stopEvent}
@@ -340,7 +340,7 @@ export const PostActions = memo(function PostActions({
             stopEvent(e);
             handleReply();
           }}
-          className="flex-row items-center justify-center p-3 min-w-[48px] min-h-[48px]"
+          className="flex-row items-center justify-center p-2 min-w-[44px] min-h-[44px]"
           hitSlop={buttonHitSlop}
           android_ripple={{ color: 'rgba(0,0,0,0.1)', borderless: true }}
           style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
@@ -360,7 +360,7 @@ export const PostActions = memo(function PostActions({
             stopEvent(e);
             handleRepostPress();
           }}
-          className="flex-row items-center justify-center p-3 min-w-[48px] min-h-[48px]"
+          className="flex-row items-center justify-center p-2 min-w-[44px] min-h-[44px]"
           disabled={isRepostLoading}
           hitSlop={buttonHitSlop}
           android_ripple={{ color: 'rgba(0,0,0,0.1)', borderless: true }}
@@ -381,7 +381,7 @@ export const PostActions = memo(function PostActions({
             stopEvent(e);
             handleLike();
           }}
-          className="flex-row items-center justify-center p-3 min-w-[48px] min-h-[48px]"
+          className="flex-row items-center justify-center p-2 min-w-[44px] min-h-[44px]"
           disabled={isLikeLoading}
           hitSlop={buttonHitSlop}
           android_ripple={{ color: 'rgba(0,0,0,0.1)', borderless: true }}
@@ -403,7 +403,7 @@ export const PostActions = memo(function PostActions({
               stopEvent(e);
               handleOptionsPress();
             }}
-            className="flex-row items-center justify-center p-3 min-w-[48px] min-h-[48px] -mr-3"
+            className="flex-row items-center justify-center p-2 min-w-[44px] min-h-[44px] -mr-2"
             hitSlop={buttonHitSlop}
             android_ripple={{ color: 'rgba(0,0,0,0.1)', borderless: true }}
             style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
