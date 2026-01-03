@@ -1,7 +1,10 @@
 /**
  * Chat Screen - Full-screen conversation view
  *
- * Shows messages with the other user in a proper chat interface.
+ * Features:
+ * - Chat with user
+ * - Select mode to delete messages
+ * - Delete conversation button
  */
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
@@ -14,19 +17,21 @@ import {
   FlatList,
   KeyboardAvoidingView,
   Platform,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { ArrowLeft, Send } from 'lucide-react-native';
+import { ArrowLeft, Send, Trash2, CheckSquare, Square, X, MoreVertical } from 'lucide-react-native';
 import {
   useConversation,
   useMessages,
   useSendMessage,
   useMarkConvoRead,
+  useLeaveConversation,
+  useDeleteMessage,
   type ChatMessage,
 } from '@/lib/hooks';
-import { MessageBubble } from '@/components/messages';
 import { getAvatarWithFallback } from '@/lib/utils/avatar';
 import { triggerImpact } from '@/lib/utils/haptics';
 import * as atproto from '@/lib/atproto/agent';
@@ -35,12 +40,17 @@ export default function ChatScreen() {
   const router = useRouter();
   const { convoId } = useLocalSearchParams<{ convoId: string }>();
   const [messageText, setMessageText] = useState('');
+  const [isSelectMode, setIsSelectMode] = useState(false);
+  const [selectedMessages, setSelectedMessages] = useState<Set<string>>(new Set());
+  const [showMenu, setShowMenu] = useState(false);
   const flatListRef = useRef<FlatList>(null);
 
   const { data: conversation, isLoading: isLoadingConvo } = useConversation(convoId);
   const { data: messagesData, isLoading: isLoadingMessages, refetch } = useMessages(convoId);
   const { mutate: sendMessage, isPending: isSending } = useSendMessage();
   const { mutate: markRead } = useMarkConvoRead();
+  const { mutate: leaveConversation, isPending: isLeavingConvo } = useLeaveConversation();
+  const { mutate: deleteMessage, isPending: isDeletingMessages } = useDeleteMessage();
 
   const session = atproto.getSession();
 
@@ -66,22 +76,26 @@ export default function ChatScreen() {
 
   // Scroll to bottom when messages change
   useEffect(() => {
-    if (messages.length > 0) {
+    if (messages.length > 0 && !isSelectMode) {
       setTimeout(() => {
         flatListRef.current?.scrollToEnd({ animated: true });
       }, 100);
     }
-  }, [messages.length]);
+  }, [messages.length, isSelectMode]);
 
   const handleBack = useCallback(() => {
+    if (isSelectMode) {
+      setIsSelectMode(false);
+      setSelectedMessages(new Set());
+      return;
+    }
     triggerImpact('light');
-    // Use canGoBack check to prevent stuck navigation
     if (router.canGoBack()) {
       router.back();
     } else {
       router.replace('/messages' as any);
     }
-  }, [router]);
+  }, [router, isSelectMode]);
 
   const handleSend = useCallback(() => {
     if (!messageText.trim() || isSending || !convoId) return;
@@ -108,11 +122,134 @@ export default function ChatScreen() {
     }
   }, [otherMember?.handle, router]);
 
+  const handleEnterSelectMode = useCallback(() => {
+    triggerImpact('light');
+    setShowMenu(false);
+    setIsSelectMode(true);
+    setSelectedMessages(new Set());
+  }, []);
+
+  const handleExitSelectMode = useCallback(() => {
+    setIsSelectMode(false);
+    setSelectedMessages(new Set());
+  }, []);
+
+  const handleToggleSelect = useCallback((messageId: string) => {
+    triggerImpact('light');
+    setSelectedMessages((prev) => {
+      const next = new Set(prev);
+      if (next.has(messageId)) {
+        next.delete(messageId);
+      } else {
+        next.add(messageId);
+      }
+      return next;
+    });
+  }, []);
+
+  const handleDeleteSelected = useCallback(() => {
+    if (!convoId || selectedMessages.size === 0) return;
+
+    const confirmDelete = () => {
+      triggerImpact('medium');
+      // Delete each selected message
+      selectedMessages.forEach((messageId) => {
+        deleteMessage({ convoId, messageId });
+      });
+      setSelectedMessages(new Set());
+      setIsSelectMode(false);
+    };
+
+    if (Platform.OS === 'web') {
+      if (window.confirm(`Delete ${selectedMessages.size} message(s)?`)) {
+        confirmDelete();
+      }
+    } else {
+      Alert.alert(
+        'Delete Messages',
+        `Delete ${selectedMessages.size} message(s)?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Delete', style: 'destructive', onPress: confirmDelete },
+        ]
+      );
+    }
+  }, [convoId, selectedMessages, deleteMessage]);
+
+  const handleDeleteConversation = useCallback(() => {
+    if (!convoId) return;
+
+    const confirmDelete = () => {
+      triggerImpact('medium');
+      setShowMenu(false);
+      leaveConversation(convoId, {
+        onSuccess: () => {
+          if (router.canGoBack()) {
+            router.back();
+          } else {
+            router.replace('/messages' as any);
+          }
+        },
+      });
+    };
+
+    if (Platform.OS === 'web') {
+      if (window.confirm('Delete this conversation? This cannot be undone.')) {
+        confirmDelete();
+      }
+    } else {
+      Alert.alert(
+        'Delete Conversation',
+        'Delete this conversation? This cannot be undone.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Delete', style: 'destructive', onPress: confirmDelete },
+        ]
+      );
+    }
+  }, [convoId, leaveConversation, router]);
+
   const renderMessage = useCallback(
     ({ item: msg }: { item: ChatMessage }) => {
-      return <MessageBubble message={msg} currentUserDid={session?.did} />;
+      const isOwn = session?.did === msg.sender?.did;
+      const isSelected = selectedMessages.has(msg.id);
+      const time = new Date(msg.sentAt).toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+
+      return (
+        <Pressable
+          onPress={() => isSelectMode && handleToggleSelect(msg.id)}
+          className={`mb-3 ${isOwn ? 'items-end' : 'items-start'}`}
+        >
+          <View className={`flex-row items-center gap-2 ${isOwn ? 'flex-row-reverse' : ''}`}>
+            {/* Checkbox in select mode */}
+            {isSelectMode && (
+              <Pressable onPress={() => handleToggleSelect(msg.id)} className="p-1">
+                {isSelected ? (
+                  <CheckSquare size={20} color="#10B981" />
+                ) : (
+                  <Square size={20} color="#6B7280" />
+                )}
+              </Pressable>
+            )}
+
+            <View
+              className={`max-w-[75%] px-4 py-2.5 ${
+                isOwn
+                  ? 'bg-primary rounded-2xl rounded-br-md'
+                  : 'bg-surface-elevated rounded-2xl rounded-bl-md'
+              } ${isSelected ? 'ring-2 ring-primary' : ''}`}
+            >
+              <Text className={isOwn ? 'text-white' : 'text-text-primary'}>{msg.text}</Text>
+            </View>
+          </View>
+          <Text className={`text-text-muted text-xs mt-1 px-1 ${isOwn ? 'text-right' : ''}`}>{time}</Text>
+        </Pressable>
+      );
     },
-    [session?.did]
+    [session?.did, isSelectMode, selectedMessages, handleToggleSelect]
   );
 
   if (isLoadingConvo || isLoadingMessages) {
@@ -124,6 +261,8 @@ export default function ChatScreen() {
           avatar={undefined}
           onBack={handleBack}
           onProfilePress={() => {}}
+          onMenuPress={() => {}}
+          isSelectMode={false}
         />
         <View className="flex-1 items-center justify-center">
           <ActivityIndicator size="large" color="#10B981" />
@@ -134,13 +273,73 @@ export default function ChatScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={['top', 'bottom']}>
-      <ChatHeader
-        displayName={displayName}
-        handle={handle}
-        avatar={avatar}
-        onBack={handleBack}
-        onProfilePress={handleProfilePress}
-      />
+      {/* Header */}
+      {isSelectMode ? (
+        <View className="flex-row items-center justify-between px-4 py-2 border-b border-border">
+          <Pressable onPress={handleExitSelectMode} className="p-2 -ml-2">
+            <X size={24} color="#FFFFFF" />
+          </Pressable>
+          <Text className="text-text-primary font-semibold">
+            {selectedMessages.size} selected
+          </Text>
+          <Pressable
+            onPress={handleDeleteSelected}
+            disabled={selectedMessages.size === 0 || isDeletingMessages}
+            className={`p-2 -mr-2 ${selectedMessages.size === 0 ? 'opacity-40' : ''}`}
+          >
+            {isDeletingMessages ? (
+              <ActivityIndicator size="small" color="#EF4444" />
+            ) : (
+              <Trash2 size={24} color="#EF4444" />
+            )}
+          </Pressable>
+        </View>
+      ) : (
+        <ChatHeader
+          displayName={displayName}
+          handle={handle}
+          avatar={avatar}
+          onBack={handleBack}
+          onProfilePress={handleProfilePress}
+          onMenuPress={() => setShowMenu(!showMenu)}
+          isSelectMode={false}
+        />
+      )}
+
+      {/* Dropdown Menu */}
+      {showMenu && !isSelectMode && (
+        <View className="absolute right-4 top-14 z-50 bg-surface-elevated border border-border rounded-xl shadow-lg overflow-hidden">
+          <Pressable
+            onPress={handleEnterSelectMode}
+            className="flex-row items-center px-4 py-3 active:bg-surface"
+          >
+            <CheckSquare size={18} color="#FAFAFA" />
+            <Text className="text-text-primary ml-3">Select Messages</Text>
+          </Pressable>
+          <View className="h-px bg-border" />
+          <Pressable
+            onPress={handleDeleteConversation}
+            disabled={isLeavingConvo}
+            className="flex-row items-center px-4 py-3 active:bg-surface"
+          >
+            {isLeavingConvo ? (
+              <ActivityIndicator size="small" color="#EF4444" />
+            ) : (
+              <Trash2 size={18} color="#EF4444" />
+            )}
+            <Text className="text-red-500 ml-3">Delete Conversation</Text>
+          </Pressable>
+        </View>
+      )}
+
+      {/* Tap outside to close menu */}
+      {showMenu && (
+        <Pressable
+          onPress={() => setShowMenu(false)}
+          className="absolute inset-0 z-40"
+          style={{ backgroundColor: 'transparent' }}
+        />
+      )}
 
       <KeyboardAvoidingView
         className="flex-1"
@@ -178,40 +377,42 @@ export default function ChatScreen() {
           }
           showsVerticalScrollIndicator={false}
           onContentSizeChange={() => {
-            if (messages.length > 0) {
+            if (messages.length > 0 && !isSelectMode) {
               flatListRef.current?.scrollToEnd({ animated: false });
             }
           }}
         />
 
-        {/* Input Area */}
-        <View className="flex-row items-end px-4 py-3 border-t border-border bg-background">
-          <TextInput
-            value={messageText}
-            onChangeText={setMessageText}
-            placeholder="Message..."
-            placeholderTextColor="#6B7280"
-            className="flex-1 bg-surface border border-border rounded-3xl px-4 py-3 text-text-primary mr-3 max-h-32"
-            multiline
-            maxLength={1000}
-            editable={!isSending}
-            onSubmitEditing={handleSend}
-            blurOnSubmit={false}
-          />
-          <Pressable
-            onPress={handleSend}
-            disabled={!messageText.trim() || isSending}
-            className={`w-11 h-11 rounded-full items-center justify-center ${
-              messageText.trim() ? 'bg-primary' : 'bg-gray-700'
-            }`}
-          >
-            {isSending ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
-            ) : (
-              <Send size={20} color="#FFFFFF" />
-            )}
-          </Pressable>
-        </View>
+        {/* Input Area - hidden in select mode */}
+        {!isSelectMode && (
+          <View className="flex-row items-end px-4 py-3 border-t border-border bg-background">
+            <TextInput
+              value={messageText}
+              onChangeText={setMessageText}
+              placeholder="Message..."
+              placeholderTextColor="#6B7280"
+              className="flex-1 bg-surface border border-border rounded-3xl px-4 py-3 text-text-primary mr-3 max-h-32"
+              multiline
+              maxLength={1000}
+              editable={!isSending}
+              onSubmitEditing={handleSend}
+              blurOnSubmit={false}
+            />
+            <Pressable
+              onPress={handleSend}
+              disabled={!messageText.trim() || isSending}
+              className={`w-11 h-11 rounded-full items-center justify-center ${
+                messageText.trim() ? 'bg-primary' : 'bg-gray-700'
+              }`}
+            >
+              {isSending ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Send size={20} color="#FFFFFF" />
+              )}
+            </Pressable>
+          </View>
+        )}
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -227,12 +428,16 @@ function ChatHeader({
   avatar,
   onBack,
   onProfilePress,
+  onMenuPress,
+  isSelectMode,
 }: {
   displayName: string;
   handle: string;
   avatar?: string;
   onBack: () => void;
   onProfilePress: () => void;
+  onMenuPress: () => void;
+  isSelectMode: boolean;
 }) {
   return (
     <View className="flex-row items-center px-4 py-2 border-b border-border">
@@ -261,6 +466,12 @@ function ChatHeader({
           )}
         </View>
       </Pressable>
+
+      {!isSelectMode && (
+        <Pressable onPress={onMenuPress} className="p-2 -mr-2">
+          <MoreVertical size={24} color="#FFFFFF" />
+        </Pressable>
+      )}
     </View>
   );
 }
