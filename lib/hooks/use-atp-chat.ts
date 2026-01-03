@@ -213,3 +213,23 @@ export function useUnreadMessageCount() {
 
   return { data: unreadCount };
 }
+
+/**
+ * Check if current user can message another user
+ * Returns { canChat: boolean } - use to show/hide message button
+ */
+export function useCanMessage(memberDid: string | undefined) {
+  const { isAuthenticated } = useAuthStore();
+
+  return useQuery({
+    queryKey: ['canMessage', memberDid],
+    queryFn: async () => {
+      if (!memberDid) return { canChat: false };
+      const result = await atproto.getConvoAvailability(memberDid);
+      return { canChat: result.canChat ?? false };
+    },
+    enabled: isAuthenticated && !!memberDid,
+    staleTime: 1000 * 60 * 5, // Cache for 5 minutes
+    retry: false, // Don't retry - if it fails, just hide button
+  });
+}

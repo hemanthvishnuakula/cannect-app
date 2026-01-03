@@ -95,6 +95,7 @@ export {
   useLeaveConversation,
   useDeleteMessage,
   useUnreadMessageCount,
+  useCanMessage,
   type ChatMember,
   type ChatMessage,
   type Conversation,

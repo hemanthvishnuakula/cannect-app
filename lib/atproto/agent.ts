@@ -1174,4 +1174,17 @@ export async function deleteMessageForSelf(convoId: string, messageId: string) {
   });
 }
 
+/**
+ * Check if we can message a user
+ * Returns { canChat: boolean, convo?: Conversation }
+ */
+export async function getConvoAvailability(memberDid: string) {
+  const session = getSession();
+  if (!session) throw new Error('Not authenticated');
+  
+  return chatRequest('GET', 'chat.bsky.convo.getConvoAvailability', {
+    members: [session.did, memberDid],
+  });
+}
+
 export { RichText };

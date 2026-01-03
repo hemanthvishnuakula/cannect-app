@@ -16,7 +16,7 @@ import { FlashList } from '@shopify/flash-list';
 import { useRouter } from 'expo-router';
 import { LogOut, Edit3, MessageCircle } from 'lucide-react-native';
 import { useState, useMemo, useCallback } from 'react';
-import { useAuthorFeed, useActorLikes, useStartConversation } from '@/lib/hooks';
+import { useAuthorFeed, useActorLikes, useStartConversation, useCanMessage } from '@/lib/hooks';
 import { PostCard } from '@/components/Post';
 import { FollowButton, useToast } from '@/components/ui';
 import { getOptimizedAvatarUrl } from '@/lib/utils/avatar';
@@ -281,6 +281,12 @@ function MessageButton({ did }: { did: string }) {
   const router = useRouter();
   const { showError } = useToast();
   const { mutate: startConversation, isPending } = useStartConversation();
+  const { data: availability, isLoading: isCheckingAvailability } = useCanMessage(did);
+
+  // Don't render if we can't message this user
+  if (!isCheckingAvailability && availability?.canChat === false) {
+    return null;
+  }
 
   const handlePress = useCallback(() => {
     triggerImpact('light');
@@ -292,15 +298,7 @@ function MessageButton({ did }: { did: string }) {
       },
       onError: (error: any) => {
         console.error('[Chat] Failed to start conversation:', error);
-        // Check for specific DM restriction errors
-        const msg = error?.message || '';
-        if (msg.includes('someone they follow')) {
-          showError('This user only accepts messages from people they follow.');
-        } else if (msg.includes('blocked')) {
-          showError('Cannot message this user.');
-        } else {
-          showError('Could not start conversation. Please try again.');
-        }
+        showError('Could not start conversation. Please try again.');
       },
     });
   }, [did, startConversation, router, showError]);
@@ -308,10 +306,10 @@ function MessageButton({ did }: { did: string }) {
   return (
     <Pressable
       onPress={handlePress}
-      disabled={isPending}
+      disabled={isPending || isCheckingAvailability}
       className="bg-surface-elevated border border-border p-2.5 rounded-full items-center justify-center active:opacity-70"
     >
-      {isPending ? (
+      {isPending || isCheckingAvailability ? (
         <ActivityIndicator size="small" color="#10B981" />
       ) : (
         <MessageCircle size={20} color="#FAFAFA" />
