@@ -296,27 +296,18 @@ export default function ComposeScreen() {
 
       // Upload video if any (video takes priority, can't have both)
       if (video) {
-        // First check if video upload is available
-        setUploadStatus('Checking video upload availability...');
-        const limits = await atproto.checkVideoUploadLimits();
-        console.log('[Compose] Video upload limits:', limits);
-        
-        if (!limits.canUpload) {
-          throw new Error(limits.error || limits.message || 'Video upload not available');
-        }
-
-        // Fetch the video data as ArrayBuffer (same as Bluesky's official implementation)
+        // Fetch the video data as ArrayBuffer
         const response = await fetch(video.uri);
         const blob = await response.blob();
         const arrayBuffer = await blob.arrayBuffer();
 
         console.log('[Compose] Video size:', arrayBuffer.byteLength, 'bytes, mimeType:', video.mimeType);
 
-        // Upload to Bluesky and wait for processing
+        // Upload to Bluesky with fallback to PDS
         const uploadStart = Date.now();
         setUploadStatus('Uploading video...');
         
-        const uploadResult = await atproto.uploadVideoAndWait(
+        const uploadResult = await atproto.uploadVideoWithFallback(
           arrayBuffer,
           video.mimeType || 'video/mp4',
           (stage, progress) => {

@@ -1257,4 +1257,71 @@ export async function uploadVideoAndWait(
   throw new Error('Video processing timed out');
 }
 
+/**
+ * Upload video directly to the PDS using uploadBlob
+ * This is a fallback when video.bsky.app doesn't work (e.g., for federated PDS users)
+ * Note: This bypasses Bluesky's video transcoding service
+ */
+export async function uploadVideoToPDS(
+  data: ArrayBuffer,
+  mimeType: string = 'video/mp4',
+  onProgress?: (progress: number) => void
+): Promise<{ blob: any }> {
+  const bskyAgent = getAgent();
+  
+  if (!bskyAgent.session) {
+    throw new Error('Not authenticated');
+  }
+
+  console.log('[Video] Uploading directly to PDS via uploadBlob...');
+  console.log('[Video] Data size:', data.byteLength, 'bytes');
+  
+  onProgress?.(0);
+  
+  // Convert ArrayBuffer to Uint8Array for uploadBlob
+  const uint8Array = new Uint8Array(data);
+  
+  try {
+    const result = await bskyAgent.uploadBlob(uint8Array, { encoding: mimeType });
+    console.log('[Video] PDS upload complete:', result.data);
+    onProgress?.(100);
+    return { blob: result.data.blob };
+  } catch (error: any) {
+    console.error('[Video] PDS upload failed:', error);
+    throw new Error(error.message || 'Failed to upload video to PDS');
+  }
+}
+
+/**
+ * Upload video - tries Bluesky's video service first, falls back to PDS upload
+ * This ensures video upload works for both Bluesky users and federated PDS users
+ */
+export async function uploadVideoWithFallback(
+  data: ArrayBuffer,
+  mimeType: string = 'video/mp4',
+  onProgress?: (stage: 'uploading' | 'processing', progress: number) => void
+): Promise<{ blob: any }> {
+  // First, try the Bluesky video service
+  try {
+    console.log('[Video] Attempting Bluesky video service...');
+    return await uploadVideoAndWait(data, mimeType, onProgress);
+  } catch (error: any) {
+    console.warn('[Video] Bluesky video service failed:', error.message);
+    
+    // If it's a network/CORS error, try direct PDS upload
+    if (error.message.includes('Network error') || 
+        error.message.includes('Failed to fetch') ||
+        error.message.includes('connection error')) {
+      console.log('[Video] Falling back to direct PDS upload...');
+      onProgress?.('uploading', 0);
+      const result = await uploadVideoToPDS(data, mimeType, (p) => onProgress?.('uploading', p));
+      onProgress?.('uploading', 100);
+      return result;
+    }
+    
+    // Re-throw other errors
+    throw error;
+  }
+}
+
 export { RichText };
