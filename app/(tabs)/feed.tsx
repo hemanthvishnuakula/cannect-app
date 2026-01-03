@@ -22,7 +22,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { FlashList } from '@shopify/flash-list';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
-import { Leaf } from 'lucide-react-native';
+import { Leaf, MessageCircle } from 'lucide-react-native';
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import * as Haptics from 'expo-haptics';
 import { useTimeline, useCannectFeed } from '@/lib/hooks';
@@ -154,10 +154,19 @@ export default function FeedScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={['top']}>
-      {/* Header with Logo */}
-      <View className="flex-row items-center justify-center px-5 py-3 border-b border-border">
-        <Leaf size={24} color="#10B981" />
-        <Text className="text-xl font-bold text-text-primary ml-2">Cannect</Text>
+      {/* Header with Logo and DM */}
+      <View className="flex-row items-center justify-between px-5 py-3 border-b border-border">
+        <View className="flex-row items-center">
+          <Leaf size={24} color="#10B981" />
+          <Text className="text-xl font-bold text-text-primary ml-2">Cannect</Text>
+        </View>
+        <Pressable
+          onPress={() => router.push('/messages' as any)}
+          className="p-2 -mr-2 active:opacity-70"
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <MessageCircle size={24} color="#FAFAFA" />
+        </Pressable>
       </View>
 
       {/* Feed Tabs - Just 2 */}
