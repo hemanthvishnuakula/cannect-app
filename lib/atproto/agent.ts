@@ -1037,7 +1037,7 @@ function generateId(): string {
  * Returns a job ID that can be polled for completion
  */
 export async function uploadVideo(
-  data: Uint8Array,
+  data: ArrayBuffer,
   mimeType: string = 'video/mp4',
   onProgress?: (progress: number) => void
 ): Promise<VideoJobStatus> {
@@ -1051,6 +1051,7 @@ export async function uploadVideo(
   // Get service auth token
   console.log('[Video] Getting service auth token...');
   const token = await getServiceAuthToken('com.atproto.repo.uploadBlob');
+  console.log('[Video] Got service auth token, length:', token.length);
 
   // Determine file extension from mime type
   const ext = mimeType === 'video/quicktime' ? 'mov' : 
@@ -1062,6 +1063,7 @@ export async function uploadVideo(
   uploadUrl.searchParams.set('name', `${generateId()}.${ext}`);
 
   console.log('[Video] Uploading to:', uploadUrl.toString());
+  console.log('[Video] Data size:', data.byteLength, 'bytes');
 
   // Upload using XMLHttpRequest for progress tracking on web
   return new Promise((resolve, reject) => {
@@ -1077,6 +1079,7 @@ export async function uploadVideo(
 
     xhr.onloadend = () => {
       if (xhr.readyState === 4) {
+        console.log('[Video] XHR completed, status:', xhr.status);
         if (xhr.status >= 200 && xhr.status < 300) {
           try {
             const response = JSON.parse(xhr.responseText);
@@ -1104,7 +1107,7 @@ export async function uploadVideo(
     };
 
     xhr.onerror = () => {
-      console.error('[Video] XHR error');
+      console.error('[Video] XHR error - status:', xhr.status, 'readyState:', xhr.readyState);
       reject(new Error('Network error during upload'));
     };
 
@@ -1151,7 +1154,7 @@ export async function getVideoJobStatus(jobId: string): Promise<VideoJobStatus> 
  * Polls the job status until the video is ready
  */
 export async function uploadVideoAndWait(
-  data: Uint8Array,
+  data: ArrayBuffer,
   mimeType: string = 'video/mp4',
   onProgress?: (stage: 'uploading' | 'processing', progress: number) => void,
   maxWaitMs: number = 120000 // 2 minutes max

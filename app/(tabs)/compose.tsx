@@ -296,18 +296,19 @@ export default function ComposeScreen() {
 
       // Upload video if any (video takes priority, can't have both)
       if (video) {
-        // Fetch the video data
+        // Fetch the video data as ArrayBuffer (same as Bluesky's official implementation)
         const response = await fetch(video.uri);
         const blob = await response.blob();
         const arrayBuffer = await blob.arrayBuffer();
-        const uint8Array = new Uint8Array(arrayBuffer);
+
+        console.log('[Compose] Video size:', arrayBuffer.byteLength, 'bytes, mimeType:', video.mimeType);
 
         // Upload to Bluesky and wait for processing
         const uploadStart = Date.now();
         setUploadStatus('Uploading video...');
         
         const uploadResult = await atproto.uploadVideoAndWait(
-          uint8Array,
+          arrayBuffer,
           video.mimeType || 'video/mp4',
           (stage, progress) => {
             if (stage === 'uploading') {
