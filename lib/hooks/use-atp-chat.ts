@@ -128,6 +128,11 @@ export function useStartConversation() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['conversations'] });
     },
+    onError: (error) => {
+      // Mutation will automatically reset isPending to false
+      // This is here for explicitness and logging
+      console.log('[useStartConversation] Mutation error handled, isPending reset');
+    },
     retry: false, // Don't retry - user action, not network error
   });
 }
