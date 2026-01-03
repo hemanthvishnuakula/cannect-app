@@ -292,8 +292,8 @@ function MessageButton({ did }: { did: string }) {
 
     startConversation(did, {
       onSuccess: (convo) => {
-        // Navigate to messages with this conversation expanded
-        router.push(`/messages?convoId=${convo.id}` as any);
+        // Navigate to full-screen chat
+        router.push(`/messages/${convo.id}` as any);
       },
       onError: (error) => {
         console.error('[Chat] Failed to start conversation:', error);
