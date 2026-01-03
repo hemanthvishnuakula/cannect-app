@@ -118,11 +118,11 @@ export function useStartConversation() {
       if (!session) throw new Error('Not authenticated');
 
       const result = await atproto.getConvoForMembers([session.did, memberDid]);
-      
+
       if (!result?.convo?.id) {
         throw new Error('Failed to create conversation');
       }
-      
+
       return result.convo as Conversation;
     },
     onSuccess: () => {
@@ -223,13 +223,15 @@ export function useCanMessage(memberDid: string | undefined) {
 
   return useQuery({
     queryKey: ['canMessage', memberDid],
-    queryFn: async () => {
+    queryFn: async (): Promise<{ canChat: boolean }> => {
       if (!memberDid) return { canChat: false };
       try {
         const result = await atproto.getConvoAvailability(memberDid);
-        return { canChat: Boolean(result?.canChat) };
-      } catch (error) {
-        console.error('[useCanMessage] Error checking availability:', error);
+        console.log('[useCanMessage] Result for', memberDid.slice(-8), ':', result?.canChat);
+        // Ensure we always return a simple boolean
+        return { canChat: result?.canChat === true };
+      } catch (error: any) {
+        console.warn('[useCanMessage] Error for', memberDid.slice(-8), ':', error?.message || error);
         // On error, return canChat: true to show button (let the actual message attempt handle errors)
         return { canChat: true };
       }

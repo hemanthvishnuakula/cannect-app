@@ -535,7 +535,11 @@ export default function ComposeScreen() {
           <View className="flex-row">
             {/* Avatar */}
             {profile?.avatar ? (
-              <Image source={{ uri: getOptimizedAvatarUrl(profile.avatar, 40) }} className="w-10 h-10 rounded-full" cachePolicy="memory-disk" />
+              <Image
+                source={{ uri: getOptimizedAvatarUrl(profile.avatar, 40) }}
+                className="w-10 h-10 rounded-full"
+                cachePolicy="memory-disk"
+              />
             ) : (
               <View className="w-10 h-10 rounded-full bg-surface-elevated items-center justify-center">
                 <Text className="text-text-muted text-lg">

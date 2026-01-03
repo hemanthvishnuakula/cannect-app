@@ -1181,7 +1181,7 @@ export async function deleteMessageForSelf(convoId: string, messageId: string) {
 export async function getConvoAvailability(memberDid: string) {
   const session = getSession();
   if (!session) throw new Error('Not authenticated');
-  
+
   return chatRequest('GET', 'chat.bsky.convo.getConvoAvailability', {
     members: [session.did, memberDid],
   });

@@ -86,12 +86,7 @@ export default function MessagesTabScreen() {
 
   const renderConversation = useCallback(
     ({ item: convo }: { item: Conversation }) => {
-      return (
-        <ConversationRow
-          conversation={convo}
-          onPress={() => openChat(convo)}
-        />
-      );
+      return <ConversationRow conversation={convo} onPress={() => openChat(convo)} />;
     },
     [openChat]
   );

@@ -166,14 +166,10 @@ export default function ChatScreen() {
         confirmDelete();
       }
     } else {
-      Alert.alert(
-        'Delete Messages',
-        `Delete ${selectedMessages.size} message(s)?`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Delete', style: 'destructive', onPress: confirmDelete },
-        ]
-      );
+      Alert.alert('Delete Messages', `Delete ${selectedMessages.size} message(s)?`, [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: confirmDelete },
+      ]);
     }
   }, [convoId, selectedMessages, deleteMessage]);
 
@@ -199,14 +195,10 @@ export default function ChatScreen() {
         confirmDelete();
       }
     } else {
-      Alert.alert(
-        'Delete Conversation',
-        'Delete this conversation? This cannot be undone.',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Delete', style: 'destructive', onPress: confirmDelete },
-        ]
-      );
+      Alert.alert('Delete Conversation', 'Delete this conversation? This cannot be undone.', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: confirmDelete },
+      ]);
     }
   }, [convoId, leaveConversation, router]);
 
@@ -227,7 +219,10 @@ export default function ChatScreen() {
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             {/* Checkbox in select mode - left side */}
             {isSelectMode && !isOwn && (
-              <Pressable onPress={() => handleToggleSelect(msg.id)} style={{ padding: 4, marginRight: 8 }}>
+              <Pressable
+                onPress={() => handleToggleSelect(msg.id)}
+                style={{ padding: 4, marginRight: 8 }}
+              >
                 {isSelected ? (
                   <CheckSquare size={20} color="#10B981" />
                 ) : (
@@ -252,7 +247,10 @@ export default function ChatScreen() {
 
             {/* Checkbox in select mode - right side for own messages */}
             {isSelectMode && isOwn && (
-              <Pressable onPress={() => handleToggleSelect(msg.id)} style={{ padding: 4, marginLeft: 8 }}>
+              <Pressable
+                onPress={() => handleToggleSelect(msg.id)}
+                style={{ padding: 4, marginLeft: 8 }}
+              >
                 {isSelected ? (
                   <CheckSquare size={20} color="#10B981" />
                 ) : (
@@ -261,7 +259,17 @@ export default function ChatScreen() {
               </Pressable>
             )}
           </View>
-          <Text style={{ color: '#6B7280', fontSize: 12, marginTop: 4, paddingHorizontal: 4, textAlign: isOwn ? 'right' : 'left' }}>{time}</Text>
+          <Text
+            style={{
+              color: '#6B7280',
+              fontSize: 12,
+              marginTop: 4,
+              paddingHorizontal: 4,
+              textAlign: isOwn ? 'right' : 'left',
+            }}
+          >
+            {time}
+          </Text>
         </Pressable>
       );
     },
@@ -295,9 +303,7 @@ export default function ChatScreen() {
           <Pressable onPress={handleExitSelectMode} className="p-2 -ml-2">
             <X size={24} color="#FFFFFF" />
           </Pressable>
-          <Text className="text-text-primary font-semibold">
-            {selectedMessages.size} selected
-          </Text>
+          <Text className="text-text-primary font-semibold">{selectedMessages.size} selected</Text>
           <Pressable
             onPress={handleDeleteSelected}
             disabled={selectedMessages.size === 0 || isDeletingMessages}

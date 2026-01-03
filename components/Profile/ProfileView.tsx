@@ -283,8 +283,12 @@ function MessageButton({ did }: { did: string }) {
   const { mutate: startConversation, isPending } = useStartConversation();
   const { data: availability, isLoading: isCheckingAvailability, isError } = useCanMessage(did);
 
+  // Safely extract canChat as a boolean - never render availability object
+  const canChat = availability?.canChat === true;
+
   // Don't render if we can't message this user (or if check failed, show button anyway)
-  if (!isCheckingAvailability && !isError && availability?.canChat === false) {
+  // Must wait for check to complete and have a definitive false result
+  if (!isCheckingAvailability && !isError && availability && !canChat) {
     return null;
   }
 

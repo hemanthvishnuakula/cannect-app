@@ -2,14 +2,7 @@
  * Notifications Screen - Pure AT Protocol
  */
 
-import {
-  View,
-  Text,
-  FlatList,
-  Pressable,
-  RefreshControl,
-  ActivityIndicator,
-} from 'react-native';
+import { View, Text, FlatList, Pressable, RefreshControl, ActivityIndicator } from 'react-native';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
@@ -114,7 +107,10 @@ function NotificationItem({ notification }: { notification: Notification }) {
       <View className="flex-1 ml-2">
         <View className="flex-row items-center">
           {author.avatar ? (
-            <Image source={{ uri: getOptimizedAvatarUrl(author.avatar, 32) }} className="w-8 h-8 rounded-full" />
+            <Image
+              source={{ uri: getOptimizedAvatarUrl(author.avatar, 32) }}
+              className="w-8 h-8 rounded-full"
+            />
           ) : (
             <View className="w-8 h-8 rounded-full bg-surface-elevated items-center justify-center">
               <Text className="text-text-muted">{author.handle[0].toUpperCase()}</Text>
