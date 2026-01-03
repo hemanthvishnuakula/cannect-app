@@ -6,7 +6,8 @@
  */
 
 import React, { useCallback, useState } from 'react';
-import { View, Text, ActivityIndicator, FlatList, RefreshControl } from 'react-native';
+import { View, Text, ActivityIndicator, RefreshControl } from 'react-native';
+import { FlatList } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { MessageCircle } from 'lucide-react-native';
