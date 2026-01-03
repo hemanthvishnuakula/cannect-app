@@ -133,7 +133,9 @@ export const MessageRichText = memo(function MessageRichText({
 
   // Colors based on message ownership
   const textColor = isOwn ? '#FFFFFF' : '#F3F4F6';
-  const linkColor = isOwn ? '#BFDBFE' : '#60A5FA'; // Light blue for contrast
+  // For own messages (green bg): use white with underline for visibility
+  // For others (dark bg): use blue
+  const linkColor = isOwn ? '#FFFFFF' : '#60A5FA';
 
   return (
     <Text
