@@ -30,6 +30,7 @@ import {
   type ChatMessage,
 } from '@/lib/hooks';
 import { getAvatarUrl } from '@/lib/utils/avatar';
+import * as atproto from '@/lib/atproto/agent';
 
 export default function MessagesScreen() {
   const router = useRouter();
@@ -291,7 +292,7 @@ function ChatView({ convoId }: { convoId: string }) {
 // ============================================================
 
 function MessageBubble({ message }: { message: ChatMessage }) {
-  const session = require('@/lib/atproto/agent').getSession();
+  const session = atproto.getSession();
   const isOwn = session?.did === message.sender?.did;
 
   const time = new Date(message.sentAt).toLocaleTimeString([], {
