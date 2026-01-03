@@ -173,5 +173,5 @@ export function useUnreadMessageCount() {
       ?.flatMap((page: any) => page.convos || [])
       .reduce((sum: number, convo: any) => sum + (convo.unreadCount || 0), 0) || 0;
 
-  return unreadCount;
+  return { data: unreadCount };
 }
