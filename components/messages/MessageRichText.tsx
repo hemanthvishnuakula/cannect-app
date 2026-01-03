@@ -141,8 +141,6 @@ export const MessageRichText = memo(function MessageRichText({
         color: textColor,
         fontSize: 15,
         lineHeight: 20,
-        marginRight: 8,
-        flexShrink: 1,
       }}
     >
       {segments.map((segment, index) => {

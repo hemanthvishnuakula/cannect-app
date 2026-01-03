@@ -340,23 +340,23 @@ export default function ChatScreen() {
                   borderBottomLeftRadius: !isOwn && showTail ? 4 : 16,
                   borderBottomRightRadius: isOwn && showTail ? 4 : 16,
                   minWidth: 60,
+                  maxWidth: '100%',
+                  flexShrink: 1,
                 }}
               >
-                {/* Message text + inline timestamp */}
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-end' }}>
-                  <MessageRichText text={msg.text} facets={msg.facets} isOwn={isOwn} />
-                  <Text
-                    style={{
-                      color: isOwn ? 'rgba(255,255,255,0.7)' : '#9CA3AF',
-                      fontSize: 11,
-                      marginLeft: 'auto',
-                      alignSelf: 'flex-end',
-                      marginBottom: 1,
-                    }}
-                  >
-                    {time}
-                  </Text>
-                </View>
+                {/* Message text */}
+                <MessageRichText text={msg.text} facets={msg.facets} isOwn={isOwn} />
+                {/* Timestamp */}
+                <Text
+                  style={{
+                    color: isOwn ? 'rgba(255,255,255,0.7)' : '#9CA3AF',
+                    fontSize: 11,
+                    alignSelf: 'flex-end',
+                    marginTop: 2,
+                  }}
+                >
+                  {time}
+                </Text>
 
                 {/* Embedded post preview - check for both input and view types */}
                 {msg.embed && msg.embed.$type?.includes('app.bsky.embed.record') && (

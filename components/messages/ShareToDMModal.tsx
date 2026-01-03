@@ -79,7 +79,8 @@ export function ShareToDMModal({
 
       try {
         // Build the message text
-        const messageText = message.trim() || `Check out this post by @${authorHandle || 'someone'}`;
+        const messageText =
+          message.trim() || `Check out this post by @${authorHandle || 'someone'}`;
 
         await sendMessage.mutateAsync({
           convoId: convo.id,
@@ -105,7 +106,17 @@ export function ShareToDMModal({
         setIsSending(false);
       }
     },
-    [isSending, sentConvoIds, message, authorHandle, postUri, postCid, sendMessage, selectedConvo, onClose]
+    [
+      isSending,
+      sentConvoIds,
+      message,
+      authorHandle,
+      postUri,
+      postCid,
+      sendMessage,
+      selectedConvo,
+      onClose,
+    ]
   );
 
   // Handle close and reset state
@@ -257,13 +268,7 @@ export function ShareToDMModal({
 }
 
 // Avatar component with error handling
-function ConversationAvatar({
-  avatar,
-  displayName,
-}: {
-  avatar?: string;
-  displayName: string;
-}) {
+function ConversationAvatar({ avatar, displayName }: { avatar?: string; displayName: string }) {
   const [avatarError, setAvatarError] = useState(false);
 
   const avatarUrl = avatarError
