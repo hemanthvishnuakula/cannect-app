@@ -461,6 +461,17 @@ export async function unfollow(followUri: string): Promise<void> {
 export async function getTimeline(cursor?: string, limit = 50) {
   const bskyAgent = getAgent();
   const result = await bskyAgent.getTimeline({ cursor, limit });
+
+  // DEBUG: Log first post's viewer state
+  if (result.data.feed.length > 0) {
+    const firstPost = result.data.feed[0];
+    console.log('[getTimeline DEBUG] First post viewer:', {
+      uri: firstPost.post.uri.slice(-30),
+      viewer: firstPost.post.viewer,
+      hasSession: !!bskyAgent.session,
+    });
+  }
+
   return result;
 }
 
