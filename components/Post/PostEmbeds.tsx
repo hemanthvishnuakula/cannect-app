@@ -270,9 +270,11 @@ function getVideoUrl(video: AppBskyEmbedVideo.View): string {
   if (match) {
     const did = decodeURIComponent(match[1]);
     const cid = match[2];
-    // Use PDS blob URL directly for clean playback
-    return `https://cannect.space/xrpc/com.atproto.sync.getBlob?did=${encodeURIComponent(did)}&cid=${encodeURIComponent(cid)}`;
+    const url = `https://cannect.space/xrpc/com.atproto.sync.getBlob?did=${encodeURIComponent(did)}&cid=${encodeURIComponent(cid)}`;
+    console.log('[VideoEmbed] Using PDS blob URL:', url);
+    return url;
   }
+  console.log('[VideoEmbed] Fallback to original URL:', video.playlist);
   // Fallback to original URL if parsing fails
   return video.playlist;
 }
@@ -290,14 +292,16 @@ function VideoEmbed({
       : 16 / 9;
 
   const borderClass = fullWidth ? '' : 'rounded-xl';
+  const videoUrl = getVideoUrl(video);
 
   return (
     <View className={`overflow-hidden ${borderClass}`}>
       <VideoPlayer
-        url={getVideoUrl(video)}
+        url={videoUrl}
         aspectRatio={aspectRatio}
         muted={true}
         loop={true}
+        autoLoad={true}
       />
     </View>
   );
