@@ -2,7 +2,7 @@
  * Compose Screen - Pure AT Protocol
  */
 
-import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -14,6 +14,8 @@ import {
   Image,
   ScrollView,
   Modal,
+  type NativeSyntheticEvent,
+  type TextInputSelectionChangeEventData,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { X, Image as ImageIcon, Video as VideoIcon, Quote, Trash2 } from 'lucide-react-native';
@@ -25,6 +27,7 @@ import { useCreatePost } from '@/lib/hooks';
 import { useAuthStore } from '@/lib/stores';
 import * as atproto from '@/lib/atproto/agent';
 import { compressImageForPost } from '@/lib/utils/media-compression';
+import { MentionSuggestions } from '@/components/ui/MentionSuggestions';
 
 const MAX_LENGTH = 300; // Bluesky character limit
 
@@ -66,6 +69,12 @@ export default function ComposeScreen() {
   const [quotedPost, setQuotedPost] = useState<QuotedPost | null>(null);
   const [isLoadingQuote, setIsLoadingQuote] = useState(false);
   const [discardMenuVisible, setDiscardMenuVisible] = useState(false);
+
+  // Mention autocomplete state
+  const [mentionQuery, setMentionQuery] = useState('');
+  const [mentionVisible, setMentionVisible] = useState(false);
+  const [cursorPosition, setCursorPosition] = useState(0);
+  const mentionStartRef = useRef<number>(-1);
 
   const createPostMutation = useCreatePost();
   const { isAuthenticated, profile, handle } = useAuthStore();
@@ -156,6 +165,59 @@ export default function ComposeScreen() {
   const removeVideo = () => {
     setVideo(null);
   };
+
+  // Handle text change and detect @mentions
+  const handleTextChange = useCallback((text: string) => {
+    setContent(text);
+
+    // Find if we're currently typing a mention
+    const textBeforeCursor = text.slice(0, cursorPosition + (text.length - content.length));
+    
+    // Look for @ that starts a mention (after space, newline, or at start)
+    const mentionMatch = textBeforeCursor.match(/(?:^|[\s])@([a-zA-Z0-9._-]*)$/);
+    
+    if (mentionMatch) {
+      const query = mentionMatch[1];
+      // Store the position where @ starts
+      mentionStartRef.current = textBeforeCursor.length - mentionMatch[0].length + (mentionMatch[0].startsWith('@') ? 0 : 1);
+      setMentionQuery(query);
+      setMentionVisible(true);
+    } else {
+      setMentionVisible(false);
+      setMentionQuery('');
+    }
+  }, [content, cursorPosition]);
+
+  // Handle cursor position change
+  const handleSelectionChange = useCallback(
+    (e: NativeSyntheticEvent<TextInputSelectionChangeEventData>) => {
+      setCursorPosition(e.nativeEvent.selection.end);
+    },
+    []
+  );
+
+  // Handle mention selection
+  const handleMentionSelect = useCallback((handle: string) => {
+    if (mentionStartRef.current === -1) return;
+
+    // Replace the partial mention with the full handle
+    const beforeMention = content.slice(0, mentionStartRef.current);
+    const afterCursor = content.slice(cursorPosition);
+    
+    // Insert @handle followed by a space
+    const newContent = `${beforeMention}@${handle} ${afterCursor}`;
+    setContent(newContent);
+    
+    // Hide the suggestions
+    setMentionVisible(false);
+    setMentionQuery('');
+    mentionStartRef.current = -1;
+    
+    // Haptic feedback
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+  }, [content, cursorPosition]);
 
   const handlePost = useCallback(async () => {
     if (!canPost) return;
@@ -374,7 +436,8 @@ export default function ComposeScreen() {
             {/* Text Input */}
             <TextInput
               value={content}
-              onChangeText={setContent}
+              onChangeText={handleTextChange}
+              onSelectionChange={handleSelectionChange}
               placeholder={
                 isReply
                   ? 'Write your reply...'
@@ -391,6 +454,17 @@ export default function ComposeScreen() {
               style={{ textAlignVertical: 'top', minHeight: 180 }}
             />
           </View>
+
+          {/* Mention Suggestions - Shows when typing @username */}
+          {mentionVisible && (
+            <View className="ml-13 mt-2">
+              <MentionSuggestions
+                query={mentionQuery}
+                onSelect={handleMentionSelect}
+                visible={mentionVisible}
+              />
+            </View>
+          )}
 
           {/* Inline Toolbar - Below Text */}
           <View className="flex-row items-center justify-between ml-13 mt-3 pb-3 border-b border-border">

@@ -730,6 +730,16 @@ export async function searchActors(query: string, cursor?: string, limit = 25) {
 }
 
 /**
+ * Search actors typeahead for @mention autocomplete
+ * This is optimized for real-time typing suggestions
+ * Does NOT require authentication
+ */
+export async function searchActorsTypeahead(query: string, limit = 8) {
+  const bskyAgent = getAgent();
+  return bskyAgent.app.bsky.actor.searchActorsTypeahead({ q: query, limit });
+}
+
+/**
  * Search posts
  */
 export async function searchPosts(query: string, cursor?: string, limit = 25) {
