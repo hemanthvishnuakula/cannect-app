@@ -45,6 +45,8 @@ interface PostCardProps {
   onImagePress?: (images: string[], index: number) => void;
   /** Show border at bottom (default: true) */
   showBorder?: boolean;
+  /** Hide the follow button (useful on profile pages where there's already one) */
+  hideFollowButton?: boolean;
 }
 
 // Format relative time
@@ -69,6 +71,7 @@ export function PostCard({
   onPress,
   onImagePress,
   showBorder = true,
+  hideFollowButton = false,
 }: PostCardProps) {
   const router = useRouter();
   const [isExpanded, setIsExpanded] = useState(false);
@@ -200,8 +203,8 @@ export function PostCard({
             <Text className="text-text-muted text-sm flex-shrink-0">
               {formatTime(record.createdAt)}
             </Text>
-            {/* Follow button - show only if not following and not own post */}
-            {!author.viewer?.following && author.did !== currentUserDid && (
+            {/* Follow button - show only if not following, not own post, and not hidden */}
+            {!hideFollowButton && !author.viewer?.following && author.did !== currentUserDid && (
               <View className="ml-2 flex-shrink-0" onStartShouldSetResponder={() => true}>
                 <FollowButton profile={author} size="small" variant="icon-only" />
               </View>

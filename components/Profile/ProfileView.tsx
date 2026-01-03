@@ -230,7 +230,7 @@ export function ProfileView({
             </View>
           </View>
         }
-        renderItem={({ item }) => <PostCard item={item} />}
+        renderItem={({ item }) => <PostCard item={item} hideFollowButton />}
         refreshControl={
           <RefreshControl
             refreshing={isRefreshing || currentQuery.isRefetching}
