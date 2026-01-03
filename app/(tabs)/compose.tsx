@@ -26,7 +26,7 @@ import { RichText } from '@atproto/api';
 import { useCreatePost } from '@/lib/hooks';
 import { useAuthStore } from '@/lib/stores';
 import * as atproto from '@/lib/atproto/agent';
-import { compressImageForPost, compressVideoForPost } from '@/lib/utils/media-compression';
+import { compressImageForPost } from '@/lib/utils/media-compression';
 import { MentionSuggestions } from '@/components/ui/MentionSuggestions';
 
 const MAX_LENGTH = 300; // Bluesky character limit
@@ -236,27 +236,19 @@ export default function ComposeScreen() {
 
       // Upload video if any (video takes priority, can't have both)
       if (video) {
-        // Compress video first (WhatsApp-style compression)
-        console.log('[Compose] Compressing video...');
-        const compressed = await compressVideoForPost(video.uri, (progress) => {
-          // Could show progress in UI if desired
-          console.log('[Compose] Compression progress:', Math.round(progress * 100) + '%');
-        });
-
-        // Fetch the compressed video data
-        const response = await fetch(compressed.uri);
+        // Fetch the video data
+        const response = await fetch(video.uri);
         const blob = await response.blob();
         const arrayBuffer = await blob.arrayBuffer();
         const uint8Array = new Uint8Array(arrayBuffer);
 
         // Upload to Bluesky
         const uploadStart = Date.now();
-        const uploadResult = await atproto.uploadBlob(uint8Array, compressed.mimeType);
+        const uploadResult = await atproto.uploadBlob(uint8Array, 'video/mp4');
         console.log('[Compose] Video uploaded in', Date.now() - uploadStart, 'ms');
 
-        // Use compressed dimensions if available, fallback to original
-        const width = compressed.width || video.width;
-        const height = compressed.height || video.height;
+        const width = video.width;
+        const height = video.height;
 
         embed = {
           $type: 'app.bsky.embed.video',
