@@ -987,4 +987,129 @@ export async function reportAccount(
   });
 }
 
+// ============================================================
+// VIDEO UPLOAD WITH JOB STATUS POLLING
+// ============================================================
+
+export interface VideoJobStatus {
+  jobId: string;
+  did: string;
+  state: 'JOB_STATE_COMPLETED' | 'JOB_STATE_FAILED' | string;
+  progress?: number;
+  blob?: any;
+  error?: string;
+  message?: string;
+}
+
+/**
+ * Upload a video using the proper video upload endpoint
+ * Returns a job ID that can be polled for completion
+ */
+export async function uploadVideo(
+  data: Uint8Array,
+  onProgress?: (progress: number) => void
+): Promise<VideoJobStatus> {
+  const bskyAgent = getAgent();
+
+  // The video upload endpoint needs to be called via service proxy
+  // We'll use a direct fetch since the SDK may not have this method
+  const session = bskyAgent.session;
+  if (!session) {
+    throw new Error('Not authenticated');
+  }
+
+  // Upload to the video service
+  const response = await fetch('https://video.bsky.app/xrpc/app.bsky.video.uploadVideo', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${session.accessJwt}`,
+      'Content-Type': 'video/mp4',
+    },
+    body: data,
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('[Video] Upload failed:', response.status, errorText);
+    throw new Error(`Video upload failed: ${response.status}`);
+  }
+
+  const result = await response.json();
+  console.log('[Video] Upload started, job:', result.jobStatus?.jobId);
+
+  return result.jobStatus as VideoJobStatus;
+}
+
+/**
+ * Get the current status of a video processing job
+ */
+export async function getVideoJobStatus(jobId: string): Promise<VideoJobStatus> {
+  const bskyAgent = getAgent();
+  const session = bskyAgent.session;
+
+  if (!session) {
+    throw new Error('Not authenticated');
+  }
+
+  const response = await fetch(
+    `https://video.bsky.app/xrpc/app.bsky.video.getJobStatus?jobId=${encodeURIComponent(jobId)}`,
+    {
+      headers: {
+        'Authorization': `Bearer ${session.accessJwt}`,
+      },
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(`Failed to get job status: ${response.status}`);
+  }
+
+  const result = await response.json();
+  return result.jobStatus as VideoJobStatus;
+}
+
+/**
+ * Upload video and wait for processing to complete
+ * Polls the job status until the video is ready
+ */
+export async function uploadVideoAndWait(
+  data: Uint8Array,
+  onProgress?: (stage: 'uploading' | 'processing', progress: number) => void,
+  maxWaitMs: number = 120000 // 2 minutes max
+): Promise<{ blob: any }> {
+  // Start the upload
+  onProgress?.('uploading', 0);
+  const job = await uploadVideo(data);
+  onProgress?.('uploading', 100);
+
+  console.log('[Video] Processing started, jobId:', job.jobId);
+
+  // Poll for completion
+  const startTime = Date.now();
+  const pollInterval = 1500; // 1.5 seconds between polls
+
+  while (Date.now() - startTime < maxWaitMs) {
+    await new Promise((resolve) => setTimeout(resolve, pollInterval));
+
+    const status = await getVideoJobStatus(job.jobId);
+    console.log('[Video] Job status:', status.state, 'progress:', status.progress);
+
+    onProgress?.('processing', status.progress || 0);
+
+    if (status.state === 'JOB_STATE_COMPLETED') {
+      if (!status.blob) {
+        throw new Error('Video processing completed but no blob returned');
+      }
+      console.log('[Video] Processing complete!');
+      return { blob: status.blob };
+    }
+
+    if (status.state === 'JOB_STATE_FAILED') {
+      throw new Error(status.error || status.message || 'Video processing failed');
+    }
+  }
+
+  throw new Error('Video processing timed out');
+}
+
 export { RichText };

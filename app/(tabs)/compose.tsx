@@ -65,6 +65,7 @@ export default function ComposeScreen() {
     height?: number;
   } | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [quotedPost, setQuotedPost] = useState<QuotedPost | null>(null);
   const [isLoadingQuote, setIsLoadingQuote] = useState(false);
@@ -242,17 +243,30 @@ export default function ComposeScreen() {
         const arrayBuffer = await blob.arrayBuffer();
         const uint8Array = new Uint8Array(arrayBuffer);
 
-        // Upload to Bluesky
+        // Upload to Bluesky and wait for processing
         const uploadStart = Date.now();
-        const uploadResult = await atproto.uploadBlob(uint8Array, 'video/mp4');
-        console.log('[Compose] Video uploaded in', Date.now() - uploadStart, 'ms');
+        setUploadStatus('Uploading video...');
+        
+        const uploadResult = await atproto.uploadVideoAndWait(
+          uint8Array,
+          (stage, progress) => {
+            if (stage === 'uploading') {
+              setUploadStatus('Uploading video...');
+            } else {
+              setUploadStatus(`Processing video... ${progress}%`);
+            }
+          }
+        );
+        
+        setUploadStatus(null);
+        console.log('[Compose] Video ready in', Date.now() - uploadStart, 'ms');
 
         const width = video.width;
         const height = video.height;
 
         embed = {
           $type: 'app.bsky.embed.video',
-          video: uploadResult.data.blob,
+          video: uploadResult.blob,
           ...(width &&
             height && {
               aspectRatio: { width, height },
@@ -349,6 +363,7 @@ export default function ComposeScreen() {
       console.error('[Compose] Post creation error:', err.message);
       setError(err.message || 'Failed to create post');
       setIsUploading(false);
+      setUploadStatus(null);
       if (Platform.OS !== 'web') {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       }
@@ -419,6 +434,14 @@ export default function ComposeScreen() {
         {error && (
           <View className="bg-accent-error/20 px-4 py-2">
             <Text className="text-accent-error text-center">{error}</Text>
+          </View>
+        )}
+
+        {/* Video Upload Status */}
+        {uploadStatus && (
+          <View className="bg-primary/20 px-4 py-2 flex-row items-center justify-center gap-2">
+            <ActivityIndicator size="small" color="#10B981" />
+            <Text className="text-primary text-center">{uploadStatus}</Text>
           </View>
         )}
 
