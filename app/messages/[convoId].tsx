@@ -11,10 +11,10 @@ import {
   Pressable,
   TextInput,
   ActivityIndicator,
+  FlatList,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { FlatList } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { useRouter, useLocalSearchParams } from 'expo-router';

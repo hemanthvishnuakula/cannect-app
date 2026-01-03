@@ -9,7 +9,6 @@ export { FollowButton, FollowingBadge } from './FollowButton';
 export { ComposeFAB } from './ComposeFAB';
 export { MediaViewer } from './MediaViewer';
 export { SearchBar } from './SearchBar';
-export { SwipeableDelete } from './SwipeableDelete';
 
 // Re-export skeletons for backwards compatibility
 export {

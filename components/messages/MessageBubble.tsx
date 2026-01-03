@@ -1,23 +1,19 @@
 /**
- * SwipeableMessage - Chat message bubble with delete support
- * 
- * Native: Swipe left to delete
- * Web: Hover to show delete button
+ * MessageBubble - Chat message with hover delete
  */
 
 import { useState } from 'react';
-import { View, Text, Pressable, Platform } from 'react-native';
+import { View, Text, Pressable } from 'react-native';
 import { Trash2 } from 'lucide-react-native';
-import { SwipeableDelete } from '@/components/ui';
 import type { ChatMessage } from '@/lib/hooks';
 
-export interface SwipeableMessageProps {
+export interface MessageBubbleProps {
   message: ChatMessage;
   currentUserDid?: string;
   onDelete?: (messageId: string) => void;
 }
 
-export function SwipeableMessage({ message, currentUserDid, onDelete }: SwipeableMessageProps) {
+export function MessageBubble({ message, currentUserDid, onDelete }: MessageBubbleProps) {
   const [isHovered, setIsHovered] = useState(false);
   const isOwn = currentUserDid === message.sender?.did;
 
@@ -31,15 +27,15 @@ export function SwipeableMessage({ message, currentUserDid, onDelete }: Swipeabl
     onDelete?.(message.id);
   };
 
-  const bubble = (
+  return (
     <Pressable
       onHoverIn={() => setIsHovered(true)}
       onHoverOut={() => setIsHovered(false)}
       className={`mb-3 ${isOwn ? 'items-end' : 'items-start'}`}
     >
       <View className="flex-row items-center gap-2">
-        {/* Delete button on left for own messages (web) */}
-        {Platform.OS === 'web' && isOwn && onDelete && isHovered && (
+        {/* Delete button on left for own messages */}
+        {isOwn && onDelete && isHovered && (
           <Pressable
             onPress={handleDelete}
             className="p-1.5 bg-red-500/10 rounded-full hover:bg-red-500/20"
@@ -58,8 +54,8 @@ export function SwipeableMessage({ message, currentUserDid, onDelete }: Swipeabl
           <Text className={isOwn ? 'text-white' : 'text-text-primary'}>{message.text}</Text>
         </View>
 
-        {/* Delete button on right for other's messages (web) */}
-        {Platform.OS === 'web' && !isOwn && onDelete && isHovered && (
+        {/* Delete button on right for other's messages */}
+        {!isOwn && onDelete && isHovered && (
           <Pressable
             onPress={handleDelete}
             className="p-1.5 bg-red-500/10 rounded-full hover:bg-red-500/20"
@@ -71,20 +67,7 @@ export function SwipeableMessage({ message, currentUserDid, onDelete }: Swipeabl
       <Text className="text-text-muted text-xs mt-1 px-1">{time}</Text>
     </Pressable>
   );
-
-  // On web, just return bubble with hover delete
-  if (Platform.OS === 'web') {
-    return bubble;
-  }
-
-  // On native, wrap with swipeable
-  if (!onDelete) {
-    return bubble;
-  }
-
-  return (
-    <SwipeableDelete onDelete={() => onDelete(message.id)} iconSize={18} padding="px-4">
-      {bubble}
-    </SwipeableDelete>
-  );
 }
+
+// Keep SwipeableMessage as alias for backwards compatibility
+export { MessageBubble as SwipeableMessage };

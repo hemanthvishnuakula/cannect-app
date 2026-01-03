@@ -1,21 +1,20 @@
 /**
- * ConversationRow - Conversation list item with delete support
+ * ConversationRow - Conversation list item with hover delete
  *
  * Displays a conversation in the messages list with:
  * - Other user's avatar, name, handle
  * - Last message preview
  * - Timestamp
  * - Unread indicator
- * - Swipe left to delete (native) or delete button (web)
+ * - Delete button on hover
  */
 
 import { useState } from 'react';
-import { View, Text, Pressable, Platform } from 'react-native';
+import { View, Text, Pressable } from 'react-native';
 import { Image } from 'expo-image';
 import { Trash2 } from 'lucide-react-native';
 import { getAvatarWithFallback } from '@/lib/utils/avatar';
 import { formatConversationTime } from '@/lib/utils/date';
-import { SwipeableDelete } from '@/components/ui';
 import * as atproto from '@/lib/atproto/agent';
 import type { Conversation } from '@/lib/hooks';
 
@@ -44,7 +43,7 @@ export function ConversationRow({ conversation, onPress, onDelete }: Conversatio
     onDelete?.(conversation.id);
   };
 
-  const content = (
+  return (
     <View className="border-b border-border">
       <Pressable
         onPress={onPress}
@@ -88,8 +87,8 @@ export function ConversationRow({ conversation, onPress, onDelete }: Conversatio
             <Text className="text-white text-xs font-bold">{conversation.unreadCount}</Text>
           </View>
         )}
-        {/* Web: Show delete button on hover */}
-        {Platform.OS === 'web' && onDelete && isHovered && (
+        {/* Delete button on hover */}
+        {onDelete && isHovered && (
           <Pressable
             onPress={handleDelete}
             className="ml-2 p-2 bg-red-500/10 rounded-full hover:bg-red-500/20"
@@ -99,21 +98,5 @@ export function ConversationRow({ conversation, onPress, onDelete }: Conversatio
         )}
       </Pressable>
     </View>
-  );
-
-  // On web, just return content with hover delete button
-  if (Platform.OS === 'web') {
-    return content;
-  }
-
-  // On native, wrap with swipeable
-  if (!onDelete) {
-    return content;
-  }
-
-  return (
-    <SwipeableDelete onDelete={() => onDelete(conversation.id)} iconSize={24} padding="px-6">
-      {content}
-    </SwipeableDelete>
   );
 }
