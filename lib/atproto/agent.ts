@@ -991,6 +991,8 @@ export async function reportAccount(
 // VIDEO UPLOAD WITH JOB STATUS POLLING
 // ============================================================
 
+const VIDEO_SERVICE = 'https://video.bsky.app';
+
 export interface VideoJobStatus {
   jobId: string;
   did: string;
@@ -1002,42 +1004,115 @@ export interface VideoJobStatus {
 }
 
 /**
+ * Get a service auth token for video upload
+ * This is required because video uploads go to a separate service
+ */
+async function getServiceAuthToken(lxm: string): Promise<string> {
+  const bskyAgent = getAgent();
+  const session = bskyAgent.session;
+  
+  if (!session) {
+    throw new Error('Not authenticated');
+  }
+
+  // Get the service auth token from the PDS
+  const response = await bskyAgent.com.atproto.server.getServiceAuth({
+    aud: `did:web:${new URL(VIDEO_SERVICE).hostname}`,
+    lxm,
+    exp: Math.floor(Date.now() / 1000) + 60 * 30, // 30 minutes
+  });
+
+  return response.data.token;
+}
+
+/**
+ * Generate a unique ID for the video filename
+ */
+function generateId(): string {
+  return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+}
+
+/**
  * Upload a video using the proper video upload endpoint
  * Returns a job ID that can be polled for completion
  */
 export async function uploadVideo(
   data: Uint8Array,
+  mimeType: string = 'video/mp4',
   onProgress?: (progress: number) => void
 ): Promise<VideoJobStatus> {
   const bskyAgent = getAgent();
-
-  // The video upload endpoint needs to be called via service proxy
-  // We'll use a direct fetch since the SDK may not have this method
   const session = bskyAgent.session;
+  
   if (!session) {
     throw new Error('Not authenticated');
   }
 
-  // Upload to the video service
-  const response = await fetch('https://video.bsky.app/xrpc/app.bsky.video.uploadVideo', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${session.accessJwt}`,
-      'Content-Type': 'video/mp4',
-    },
-    body: data,
+  // Get service auth token
+  console.log('[Video] Getting service auth token...');
+  const token = await getServiceAuthToken('com.atproto.repo.uploadBlob');
+
+  // Determine file extension from mime type
+  const ext = mimeType === 'video/quicktime' ? 'mov' : 
+              mimeType === 'video/webm' ? 'webm' : 'mp4';
+
+  // Build upload URL with required params
+  const uploadUrl = new URL(`${VIDEO_SERVICE}/xrpc/app.bsky.video.uploadVideo`);
+  uploadUrl.searchParams.set('did', session.did);
+  uploadUrl.searchParams.set('name', `${generateId()}.${ext}`);
+
+  console.log('[Video] Uploading to:', uploadUrl.toString());
+
+  // Upload using XMLHttpRequest for progress tracking on web
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    
+    xhr.upload.addEventListener('progress', (e) => {
+      if (e.lengthComputable) {
+        const progress = e.loaded / e.total;
+        onProgress?.(progress);
+        console.log('[Video] Upload progress:', Math.round(progress * 100) + '%');
+      }
+    });
+
+    xhr.onloadend = () => {
+      if (xhr.readyState === 4) {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            const response = JSON.parse(xhr.responseText);
+            console.log('[Video] Upload response:', response);
+            if (response.jobId) {
+              resolve(response as VideoJobStatus);
+            } else if (response.jobStatus) {
+              resolve(response.jobStatus as VideoJobStatus);
+            } else {
+              reject(new Error(response.error || response.message || 'Upload failed - no job ID'));
+            }
+          } catch (e) {
+            reject(new Error('Failed to parse upload response'));
+          }
+        } else {
+          console.error('[Video] Upload failed:', xhr.status, xhr.responseText);
+          try {
+            const error = JSON.parse(xhr.responseText);
+            reject(new Error(error.message || error.error || `Upload failed: ${xhr.status}`));
+          } catch {
+            reject(new Error(`Upload failed: ${xhr.status}`));
+          }
+        }
+      }
+    };
+
+    xhr.onerror = () => {
+      console.error('[Video] XHR error');
+      reject(new Error('Network error during upload'));
+    };
+
+    xhr.open('POST', uploadUrl.toString());
+    xhr.setRequestHeader('Content-Type', mimeType);
+    xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+    xhr.send(data);
   });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error('[Video] Upload failed:', response.status, errorText);
-    throw new Error(`Video upload failed: ${response.status}`);
-  }
-
-  const result = await response.json();
-  console.log('[Video] Upload started, job:', result.jobStatus?.jobId);
-
-  return result.jobStatus as VideoJobStatus;
 }
 
 /**
@@ -1051,11 +1126,14 @@ export async function getVideoJobStatus(jobId: string): Promise<VideoJobStatus> 
     throw new Error('Not authenticated');
   }
 
+  // Get service auth token for job status check
+  const token = await getServiceAuthToken('app.bsky.video.getJobStatus');
+
   const response = await fetch(
-    `https://video.bsky.app/xrpc/app.bsky.video.getJobStatus?jobId=${encodeURIComponent(jobId)}`,
+    `${VIDEO_SERVICE}/xrpc/app.bsky.video.getJobStatus?jobId=${encodeURIComponent(jobId)}`,
     {
       headers: {
-        'Authorization': `Bearer ${session.accessJwt}`,
+        'Authorization': `Bearer ${token}`,
       },
     }
   );
@@ -1074,12 +1152,13 @@ export async function getVideoJobStatus(jobId: string): Promise<VideoJobStatus> 
  */
 export async function uploadVideoAndWait(
   data: Uint8Array,
+  mimeType: string = 'video/mp4',
   onProgress?: (stage: 'uploading' | 'processing', progress: number) => void,
   maxWaitMs: number = 120000 // 2 minutes max
 ): Promise<{ blob: any }> {
   // Start the upload
   onProgress?.('uploading', 0);
-  const job = await uploadVideo(data);
+  const job = await uploadVideo(data, mimeType, (p) => onProgress?.('uploading', p * 100));
   onProgress?.('uploading', 100);
 
   console.log('[Video] Processing started, jobId:', job.jobId);

@@ -308,11 +308,12 @@ export default function ComposeScreen() {
         
         const uploadResult = await atproto.uploadVideoAndWait(
           uint8Array,
+          video.mimeType || 'video/mp4',
           (stage, progress) => {
             if (stage === 'uploading') {
-              setUploadStatus('Uploading video...');
+              setUploadStatus(`Uploading video... ${Math.round(progress)}%`);
             } else {
-              setUploadStatus(`Processing video... ${progress}%`);
+              setUploadStatus(`Processing video... ${Math.round(progress)}%`);
             }
           }
         );
