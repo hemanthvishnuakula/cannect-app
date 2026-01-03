@@ -9,6 +9,11 @@
     display: flex;
     flex-direction: column;
   }
+
+  /* Remove browser default focus outlines on inputs (React Native Web) */
+  input, textarea {
+    outline: none;
+  }
 }
 
 /* Custom utility classes for Cannect */
