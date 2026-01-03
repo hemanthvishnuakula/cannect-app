@@ -29,6 +29,8 @@ interface VideoPlayerProps {
   onFullscreen?: () => void;
   /** If true, video loads immediately. If false (default), shows thumbnail until tapped. */
   autoLoad?: boolean;
+  /** Fallback URL for PDS blob when HLS fails (for Cannect users' videos) */
+  fallbackUrl?: string;
 }
 
 export function VideoPlayer({
@@ -40,15 +42,18 @@ export function VideoPlayer({
   loop = true,
   onFullscreen,
   autoLoad = false, // Default to NOT loading video until user taps
+  fallbackUrl,
 }: VideoPlayerProps) {
   const videoRef = useRef<Video>(null);
   const [status, setStatus] = useState<AVPlaybackStatus | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false); // Video still processing
   const [showControls, setShowControls] = useState(true);
   const [isMuted, setIsMuted] = useState(initialMuted);
   const [isMounted, setIsMounted] = useState(false);
   const [isVideoLoaded, setIsVideoLoaded] = useState(autoLoad); // Only load video when user taps
+  const [useFallback, setUseFallback] = useState(false); // Use fallback URL when HLS fails
 
   // Derived state (moved before hooks that depend on them)
   const isPlaying = status?.isLoaded && status.isPlaying;
@@ -173,6 +178,15 @@ export function VideoPlayer({
     );
   }
 
+  if (isProcessing) {
+    return (
+      <View className="bg-surface items-center justify-center rounded-xl" style={{ aspectRatio }}>
+        <ActivityIndicator size="small" color="#10B981" />
+        <Text className="text-text-muted mt-2">Video is processing...</Text>
+      </View>
+    );
+  }
+
   // Stop event propagation to prevent parent PostCard from intercepting taps
   const stopEvent = (e: { stopPropagation: () => void }) => e.stopPropagation();
 
@@ -211,9 +225,9 @@ export function VideoPlayer({
       {/* Video - autoplay since user explicitly tapped to load */}
       <Video
         ref={videoRef}
-        source={{ uri: url }}
+        source={{ uri: useFallback && fallbackUrl ? fallbackUrl : url }}
         posterSource={thumbnailUrl ? { uri: thumbnailUrl } : undefined}
-        usePoster={!!thumbnailUrl}
+        usePoster={!!thumbnailUrl && !useFallback}
         posterStyle={{ resizeMode: 'cover' }}
         style={StyleSheet.absoluteFill}
         resizeMode={ResizeMode.CONTAIN}
@@ -226,7 +240,18 @@ export function VideoPlayer({
         }}
         onError={(error) => {
           console.error('Video error:', error);
-          setHasError(true);
+          // If HLS fails and we have a fallback, try PDS blob
+          if (!useFallback && fallbackUrl) {
+            console.log('[VideoPlayer] HLS failed, trying PDS blob fallback');
+            setUseFallback(true);
+            setIsLoading(true);
+          } else if (useFallback) {
+            // Both HLS and PDS blob failed - video might still be processing
+            console.log('[VideoPlayer] Both URLs failed, video may be processing');
+            setIsProcessing(true);
+          } else {
+            setHasError(true);
+          }
         }}
       />
 

@@ -261,22 +261,30 @@ function QuotePost({ record }: { record: any }) {
   );
 }
 
-// Construct PDS blob URL from video embed
-// Videos are stored on the user's PDS and accessed via getBlob
-function getVideoUrl(video: AppBskyEmbedVideo.View): string {
-  // Extract DID and CID from video.bsky.app URL
-  // Format: https://video.bsky.app/watch/{encoded_did}/{cid}/playlist.m3u8
-  const match = video.playlist.match(/video\.bsky\.app\/watch\/([^/]+)\/([^/]+)/);
+// Check if a DID belongs to a Cannect user (cannect.space PDS)
+function isCannectUser(did: string): boolean {
+  // Cannect users have their data on cannect.space PDS
+  // For now, we can check if the handle ends with .cannect.space
+  // But since we only have DID here, we'll check if blob exists on cannect.space
+  // A simpler approach: only use PDS blob for the current user's videos
+  return false; // For now, always use HLS - PDS blob fallback handled in VideoPlayer
+}
+
+// Construct PDS blob URL for Cannect users' videos
+function getPdsBlobUrl(did: string, cid: string): string {
+  return `https://cannect.space/xrpc/com.atproto.sync.getBlob?did=${encodeURIComponent(did)}&cid=${encodeURIComponent(cid)}`;
+}
+
+// Extract DID and CID from video.bsky.app URL
+function extractVideoInfo(url: string): { did: string; cid: string } | null {
+  const match = url.match(/video\.bsky\.app\/watch\/([^/]+)\/([^/]+)/);
   if (match) {
-    const did = decodeURIComponent(match[1]);
-    const cid = match[2];
-    const url = `https://cannect.space/xrpc/com.atproto.sync.getBlob?did=${encodeURIComponent(did)}&cid=${encodeURIComponent(cid)}`;
-    console.log('[VideoEmbed] Using PDS blob URL:', url);
-    return url;
+    return {
+      did: decodeURIComponent(match[1]),
+      cid: match[2],
+    };
   }
-  console.log('[VideoEmbed] Fallback to original URL:', video.playlist);
-  // Fallback to original URL if parsing fails
-  return video.playlist;
+  return null;
 }
 
 function VideoEmbed({
@@ -292,16 +300,21 @@ function VideoEmbed({
       : 16 / 9;
 
   const borderClass = fullWidth ? '' : 'rounded-xl';
-  const videoUrl = getVideoUrl(video);
+  
+  // Use HLS playlist URL from video.bsky.app as primary
+  // For Cannect users' videos that aren't on video.bsky.app, fall back to PDS blob
+  const videoInfo = extractVideoInfo(video.playlist);
+  const fallbackUrl = videoInfo ? getPdsBlobUrl(videoInfo.did, videoInfo.cid) : undefined;
 
   return (
     <View className={`overflow-hidden ${borderClass}`}>
       <VideoPlayer
-        url={videoUrl}
+        url={video.playlist}
+        thumbnailUrl={video.thumbnail}
+        fallbackUrl={fallbackUrl}
         aspectRatio={aspectRatio}
         muted={true}
         loop={true}
-        autoLoad={true}
       />
     </View>
   );
