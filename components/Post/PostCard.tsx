@@ -23,7 +23,7 @@ import { PostActions } from './PostActions';
 import { RichText } from './RichText';
 import { FollowButton } from '../ui/FollowButton';
 import { useAuthStore } from '../../lib/stores';
-import { getOptimizedAvatarUrl } from '../../lib/utils/avatar';
+import { getOptimizedAvatarWithFallback } from '../../lib/utils/avatar';
 import type { AppBskyFeedDefs, AppBskyFeedPost } from '@atproto/api';
 
 type FeedViewPost = AppBskyFeedDefs.FeedViewPost;
@@ -154,20 +154,20 @@ export function PostCard({
           hitSlop={8}
           style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
         >
-          {author.avatar ? (
-            <Image
-              source={{ uri: getOptimizedAvatarUrl(author.avatar, 48) }}
-              className="w-12 h-12 rounded-full bg-surface-elevated ring-2 ring-border"
-              contentFit="cover"
-              transition={200}
-              cachePolicy="memory-disk"
-              recyclingKey={author.avatar}
-            />
-          ) : (
-            <View className="w-12 h-12 rounded-full bg-surface-elevated ring-2 ring-border items-center justify-center">
-              <Text className="text-text-muted text-lg">{author.handle[0].toUpperCase()}</Text>
-            </View>
-          )}
+          <Image
+            source={{
+              uri: getOptimizedAvatarWithFallback(
+                author.avatar,
+                author.displayName || author.handle,
+                48
+              ),
+            }}
+            className="w-12 h-12 rounded-full bg-surface-elevated ring-2 ring-border"
+            contentFit="cover"
+            transition={200}
+            cachePolicy="memory-disk"
+            recyclingKey={author.avatar || author.did}
+          />
         </Pressable>
 
         {/* Content */}

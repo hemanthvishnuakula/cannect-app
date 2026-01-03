@@ -39,7 +39,7 @@ export function getAvatarUrl(
  *
  * @param avatarUrl - Original avatar URL
  * @param displaySize - Size avatar will be displayed at (in pixels)
- * @returns Optimized URL
+ * @returns Optimized URL or undefined if no avatar
  */
 export function getOptimizedAvatarUrl(
   avatarUrl: string | undefined,
@@ -49,6 +49,24 @@ export function getOptimizedAvatarUrl(
   // Use full for larger displays (profile headers, etc.)
   const quality = displaySize <= 64 ? 'thumb' : 'full';
   return getAvatarUrl(avatarUrl, quality);
+}
+
+/**
+ * Get optimized avatar URL with automatic fallback
+ * Always returns a valid URL - never undefined
+ *
+ * @param avatarUrl - Original avatar URL (may be undefined)
+ * @param displayName - Name to use for fallback initials
+ * @param displaySize - Size avatar will be displayed at (in pixels)
+ * @returns Always returns a valid avatar URL
+ */
+export function getOptimizedAvatarWithFallback(
+  avatarUrl: string | undefined,
+  displayName: string,
+  displaySize: number
+): string {
+  const quality = displaySize <= 64 ? 'thumb' : 'full';
+  return getAvatarUrl(avatarUrl, quality) || getFallbackAvatarUrl(displayName);
 }
 
 /**

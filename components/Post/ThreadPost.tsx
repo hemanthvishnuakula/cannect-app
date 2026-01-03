@@ -15,7 +15,7 @@ import { useRouter } from 'expo-router';
 import { PostEmbeds } from './PostEmbeds';
 import { PostActions } from './PostActions';
 import { RichText } from './RichText';
-import { getOptimizedAvatarUrl } from '../../lib/utils/avatar';
+import { getOptimizedAvatarWithFallback } from '../../lib/utils/avatar';
 import type { AppBskyFeedDefs, AppBskyFeedPost } from '@atproto/api';
 
 type PostView = AppBskyFeedDefs.PostView;
@@ -73,23 +73,20 @@ export function ThreadPost({ post, onImagePress }: ThreadPostProps) {
         hitSlop={8}
         style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
       >
-        {author.avatar ? (
-          <Image
-            source={{ uri: getOptimizedAvatarUrl(author.avatar, 48) }}
-            style={{ width: 48, height: 48, borderRadius: 24 }}
-            contentFit="cover"
-            transition={200}
-            cachePolicy="memory-disk"
-            recyclingKey={author.avatar}
-          />
-        ) : (
-          <View
-            style={{ width: 48, height: 48, borderRadius: 24 }}
-            className="bg-surface-elevated items-center justify-center"
-          >
-            <Text className="text-text-muted text-xl">{author.handle[0].toUpperCase()}</Text>
-          </View>
-        )}
+        <Image
+          source={{
+            uri: getOptimizedAvatarWithFallback(
+              author.avatar,
+              author.displayName || author.handle,
+              48
+            ),
+          }}
+          style={{ width: 48, height: 48, borderRadius: 24 }}
+          contentFit="cover"
+          transition={200}
+          cachePolicy="memory-disk"
+          recyclingKey={author.avatar || author.did}
+        />
         <View className="ml-3 flex-1">
           <View className="flex-row items-center">
             <Text

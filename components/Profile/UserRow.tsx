@@ -16,7 +16,7 @@ import { View, Text, Pressable } from 'react-native';
 import { Image } from 'expo-image';
 import { FollowButton, FollowingBadge } from '@/components/ui/FollowButton';
 import { useAuthStore } from '@/lib/stores/auth-store-atp';
-import { getOptimizedAvatarUrl } from '@/lib/utils/avatar';
+import { getOptimizedAvatarWithFallback } from '@/lib/utils/avatar';
 import type { AppBskyActorDefs } from '@atproto/api';
 
 type ProfileView = AppBskyActorDefs.ProfileView;
@@ -63,17 +63,17 @@ export function UserRow({
       hitSlop={4}
     >
       {/* Avatar */}
-      {user.avatar ? (
-        <Image
-          source={{ uri: getOptimizedAvatarUrl(user.avatar, 48) }}
-          className="w-12 h-12 rounded-full"
-          contentFit="cover"
-        />
-      ) : (
-        <View className="w-12 h-12 rounded-full bg-surface-elevated items-center justify-center">
-          <Text className="text-text-muted text-lg">{(user.handle || '?')[0].toUpperCase()}</Text>
-        </View>
-      )}
+      <Image
+        source={{
+          uri: getOptimizedAvatarWithFallback(
+            user.avatar,
+            user.displayName || user.handle,
+            48
+          ),
+        }}
+        className="w-12 h-12 rounded-full"
+        contentFit="cover"
+      />
 
       {/* User Info */}
       <View className="flex-1 ml-3">

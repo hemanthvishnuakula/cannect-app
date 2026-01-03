@@ -15,7 +15,7 @@ import {
   RefreshCw,
 } from 'lucide-react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { getOptimizedAvatarUrl } from '@/lib/utils/avatar';
+import { getOptimizedAvatarWithFallback } from '@/lib/utils/avatar';
 import { useCallback } from 'react';
 import { useNotifications, useMarkNotificationsRead } from '@/lib/hooks';
 import { triggerImpact } from '@/lib/utils/haptics';
@@ -106,16 +106,16 @@ function NotificationItem({ notification }: { notification: Notification }) {
       {/* Content */}
       <View className="flex-1 ml-2">
         <View className="flex-row items-center">
-          {author.avatar ? (
-            <Image
-              source={{ uri: getOptimizedAvatarUrl(author.avatar, 32) }}
-              className="w-8 h-8 rounded-full"
-            />
-          ) : (
-            <View className="w-8 h-8 rounded-full bg-surface-elevated items-center justify-center">
-              <Text className="text-text-muted">{author.handle[0].toUpperCase()}</Text>
-            </View>
-          )}
+          <Image
+            source={{
+              uri: getOptimizedAvatarWithFallback(
+                author.avatar,
+                author.displayName || author.handle,
+                32
+              ),
+            }}
+            className="w-8 h-8 rounded-full"
+          />
           <View className="ml-2 flex-1">
             <Text className="text-text-primary">
               <Text className="font-semibold">{author.displayName || author.handle}</Text>{' '}
