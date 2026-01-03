@@ -137,7 +137,7 @@ export function FollowButton({
     // Follow state - primary style
     return (
       <>
-        <UserPlus size={iconSize[size]} color="#FFFFFF" />
+        <UserPlus size={iconSize[size]} color={variant === 'icon-only' ? '#6B7280' : '#FFFFFF'} />
         {variant === 'full' && (
           <Text className={`ml-1 font-semibold text-white ${textSize[size]}`}>
             {isFollowedBy ? 'Follow back' : 'Follow'}
@@ -149,7 +149,9 @@ export function FollowButton({
 
   const buttonClass = isFollowing
     ? `bg-surface-elevated border border-border ${sizeStyles[size]} rounded-full flex-row items-center`
-    : `bg-primary ${sizeStyles[size]} rounded-full flex-row items-center`;
+    : variant === 'icon-only'
+      ? `bg-surface-elevated border border-border ${sizeStyles[size]} rounded-full flex-row items-center`
+      : `bg-primary ${sizeStyles[size]} rounded-full flex-row items-center`;
 
   return (
     <Pressable
