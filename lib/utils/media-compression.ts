@@ -8,6 +8,20 @@
 import * as ImageManipulator from 'expo-image-manipulator';
 import { Platform } from 'react-native';
 
+// Conditional import for react-native-compressor (native only)
+let VideoCompressor: typeof import('react-native-compressor').Video | null = null;
+let getVideoMetaData: typeof import('react-native-compressor').getVideoMetaData | null = null;
+
+if (Platform.OS !== 'web') {
+  try {
+    const compressor = require('react-native-compressor');
+    VideoCompressor = compressor.Video;
+    getVideoMetaData = compressor.getVideoMetaData;
+  } catch (e) {
+    console.warn('[Compress] react-native-compressor not available');
+  }
+}
+
 // AT Protocol limits - using 950KB to have safety margin
 export const MAX_IMAGE_SIZE_BYTES = 950000; // ~950KB (server limit is ~976KB)
 export const MAX_AVATAR_SIZE_BYTES = 950000;
@@ -316,4 +330,100 @@ export async function compressBanner(uri: string): Promise<{ uri: string; mimeTy
 
   console.log('[Compress] Banner final size:', blob.size, 'bytes');
   return { uri: result.uri, mimeType: 'image/jpeg' };
+}
+
+// ============================================================
+// VIDEO COMPRESSION
+// ============================================================
+
+// Bluesky video limits
+export const MAX_VIDEO_DURATION_SECONDS = 60;
+export const MAX_VIDEO_SIZE_BYTES = 100 * 1024 * 1024; // 100MB practical limit
+
+/**
+ * Compress a video for posting
+ * Uses WhatsApp-style compression for optimal quality/size balance
+ *
+ * @param uri - Local URI of the video
+ * @param onProgress - Optional callback for compression progress (0-1)
+ * @returns Compressed video URI and metadata
+ */
+export async function compressVideoForPost(
+  uri: string,
+  onProgress?: (progress: number) => void
+): Promise<{
+  uri: string;
+  mimeType: string;
+  width?: number;
+  height?: number;
+}> {
+  console.log('[Compress] Starting video compression');
+
+  // Web doesn't support video compression - return as-is
+  if (Platform.OS === 'web') {
+    console.log('[Compress] Web platform - skipping video compression');
+    return { uri, mimeType: 'video/mp4' };
+  }
+
+  // Check if compressor is available
+  if (!VideoCompressor || !getVideoMetaData) {
+    console.log('[Compress] Video compressor not available - skipping');
+    return { uri, mimeType: 'video/mp4' };
+  }
+
+  try {
+    // Get original video metadata
+    const metadata = await getVideoMetaData(uri);
+    console.log('[Compress] Original video:', {
+      size: `${(metadata.size / 1024 / 1024).toFixed(2)}MB`,
+      duration: `${metadata.duration?.toFixed(1)}s`,
+      dimensions: `${metadata.width}x${metadata.height}`,
+    });
+
+    // Check duration limit
+    if (metadata.duration && metadata.duration > MAX_VIDEO_DURATION_SECONDS) {
+      throw new Error(`Video is too long. Maximum is ${MAX_VIDEO_DURATION_SECONDS} seconds.`);
+    }
+
+    // Compress using WhatsApp-style auto compression
+    const compressedUri = await VideoCompressor.compress(
+      uri,
+      {
+        compressionMethod: 'auto', // WhatsApp-style compression
+        minimumFileSizeForCompress: 5, // Only compress if > 5MB
+      },
+      (progress: number) => {
+        console.log('[Compress] Video progress:', Math.round(progress * 100) + '%');
+        onProgress?.(progress);
+      }
+    );
+
+    // Get compressed video metadata
+    const compressedMetadata = await getVideoMetaData(compressedUri);
+    const savings = ((1 - compressedMetadata.size / metadata.size) * 100).toFixed(1);
+    console.log('[Compress] Compressed video:', {
+      size: `${(compressedMetadata.size / 1024 / 1024).toFixed(2)}MB`,
+      dimensions: `${compressedMetadata.width}x${compressedMetadata.height}`,
+      savings: `${savings}%`,
+    });
+
+    return {
+      uri: compressedUri,
+      mimeType: 'video/mp4',
+      width: compressedMetadata.width,
+      height: compressedMetadata.height,
+    };
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error('[Compress] Video compression failed:', errorMessage);
+
+    // If it's a duration error, re-throw it
+    if (errorMessage.includes('too long')) {
+      throw error;
+    }
+
+    // Otherwise return original video
+    console.log('[Compress] Falling back to original video');
+    return { uri, mimeType: 'video/mp4' };
+  }
 }

@@ -65,7 +65,8 @@
           "project": "react-native",
           "organization": "hemanthva-ventures"
         }
-      ]
+      ],
+      "react-native-compressor"
     ],
     "experiments": {
       "typedRoutes": true
