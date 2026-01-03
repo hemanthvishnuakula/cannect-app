@@ -117,12 +117,10 @@ export function useStartConversation() {
       const session = atproto.getSession();
       if (!session) throw new Error('Not authenticated');
 
-      console.log('[Chat] Starting conversation with:', memberDid);
       const result = await atproto.getConvoForMembers([session.did, memberDid]);
-      console.log('[Chat] getConvoForMembers result:', result);
       
       if (!result?.convo?.id) {
-        throw new Error('Failed to create conversation - no convo returned');
+        throw new Error('Failed to create conversation');
       }
       
       return result.convo as Conversation;
@@ -130,6 +128,7 @@ export function useStartConversation() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['conversations'] });
     },
+    retry: false, // Don't retry - user action, not network error
   });
 }
 

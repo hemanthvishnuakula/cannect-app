@@ -290,9 +290,17 @@ function MessageButton({ did }: { did: string }) {
         // Navigate to full-screen chat
         router.push(`/messages/${convo.id}` as any);
       },
-      onError: (error) => {
+      onError: (error: any) => {
         console.error('[Chat] Failed to start conversation:', error);
-        showError('Could not start conversation. Please try again.');
+        // Check for specific DM restriction errors
+        const msg = error?.message || '';
+        if (msg.includes('someone they follow')) {
+          showError('This user only accepts messages from people they follow.');
+        } else if (msg.includes('blocked')) {
+          showError('Cannot message this user.');
+        } else {
+          showError('Could not start conversation. Please try again.');
+        }
       },
     });
   }, [did, startConversation, router, showError]);
