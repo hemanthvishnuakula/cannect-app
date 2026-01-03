@@ -267,17 +267,21 @@ async function fetchCannectFollowingTimeline(
 
   // Hydrate posts with viewer state using authenticated getPosts API
   // This adds like/repost state that the public VPS API doesn't include
-  // Bluesky limits getPosts to 25 URIs per request, so we batch
+  // Bluesky limits getPosts to 25 URIs per request, so we batch in parallel
   if (feed.length > 0) {
     try {
       const uris = feed.map((item) => item.post.uri);
       const hydratedMap = new Map<string, PostView>();
 
-      // Batch requests in chunks of 25
+      // Batch requests in chunks of 25, run all batches in parallel
       const BATCH_SIZE = 25;
+      const batches: string[][] = [];
       for (let i = 0; i < uris.length; i += BATCH_SIZE) {
-        const batch = uris.slice(i, i + BATCH_SIZE);
-        const hydrated = await atproto.getPosts(batch);
+        batches.push(uris.slice(i, i + BATCH_SIZE));
+      }
+
+      const results = await Promise.all(batches.map((batch) => atproto.getPosts(batch)));
+      for (const hydrated of results) {
         for (const post of hydrated.data.posts) {
           hydratedMap.set(post.uri, post);
         }
