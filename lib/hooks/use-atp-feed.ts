@@ -213,9 +213,19 @@ function shouldFilterPost(post: PostView): boolean {
 
 /**
  * Filter an array of feed posts for moderation
+ * Also ensures viewer state is always defined (Bluesky API sometimes returns undefined for older posts)
  */
 function filterFeedForModeration(feed: FeedViewPost[]): FeedViewPost[] {
-  return feed.filter((item) => !shouldFilterPost(item.post));
+  return feed
+    .filter((item) => !shouldFilterPost(item.post))
+    .map((item) => ({
+      ...item,
+      post: {
+        ...item.post,
+        // Ensure viewer is always an object (API sometimes returns undefined for older/cached posts)
+        viewer: item.post.viewer ?? {},
+      },
+    }));
 }
 
 /**

@@ -107,18 +107,6 @@ export const PostActions = memo(function PostActions({
   const likeCount = post.likeCount || 0;
   const repostCount = post.repostCount || 0;
   const replyCount = post.replyCount || 0;
-
-  // DEBUG: Log viewer state for posts with likes/reposts
-  if (likeCount > 0 || repostCount > 0) {
-    console.log('[PostActions DEBUG]', {
-      uri: post.uri.slice(-20),
-      likeCount,
-      repostCount,
-      viewer: post.viewer,
-      isLiked,
-      isReposted,
-    });
-  }
   const isOwnPost = post.author.did === currentUserDid;
   const record = post.record as AppBskyFeedPost.Record;
 
