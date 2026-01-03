@@ -19,7 +19,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, Send } from 'lucide-react-native';
-import * as Haptics from 'expo-haptics';
 import {
   useConversation,
   useMessages,
@@ -28,8 +27,9 @@ import {
   useDeleteMessage,
   type ChatMessage,
 } from '@/lib/hooks';
-import { SwipeableMessage } from '@/components/messages/SwipeableMessage';
-import { getAvatarUrl } from '@/lib/utils/avatar';
+import { SwipeableMessage } from '@/components/messages';
+import { getAvatarWithFallback } from '@/lib/utils/avatar';
+import { triggerImpact } from '@/lib/utils/haptics';
 import * as atproto from '@/lib/atproto/agent';
 
 export default function ChatScreen() {
@@ -76,9 +76,7 @@ export default function ChatScreen() {
   }, [messages.length]);
 
   const handleBack = useCallback(() => {
-    if (Platform.OS !== 'web') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
+    triggerImpact('light');
     // Use canGoBack check to prevent stuck navigation
     if (router.canGoBack()) {
       router.back();
@@ -90,9 +88,7 @@ export default function ChatScreen() {
   const handleSend = useCallback(() => {
     if (!messageText.trim() || isSending || !convoId) return;
 
-    if (Platform.OS !== 'web') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
+    triggerImpact('light');
 
     sendMessage(
       { convoId, text: messageText.trim() },
@@ -183,13 +179,10 @@ export default function ChatScreen() {
             <View className="items-center justify-center py-8">
               <View className="w-20 h-20 rounded-full bg-surface-elevated items-center justify-center mb-4">
                 <Image
-                  source={{
-                    uri:
-                      getAvatarUrl(avatar, 'thumb') ||
-                      `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=10B981&color=fff`,
-                  }}
+                  source={{ uri: getAvatarWithFallback(avatar, displayName) }}
                   style={{ width: 60, height: 60, borderRadius: 30 }}
                   contentFit="cover"
+                  cachePolicy="memory-disk"
                 />
               </View>
               <Text className="text-text-primary text-lg font-semibold">{displayName}</Text>
@@ -268,13 +261,10 @@ function ChatHeader({
         className="flex-row items-center flex-1 active:opacity-70"
       >
         <Image
-          source={{
-            uri:
-              getAvatarUrl(avatar, 'thumb') ||
-              `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=10B981&color=fff`,
-          }}
+          source={{ uri: getAvatarWithFallback(avatar, displayName) }}
           style={{ width: 40, height: 40, borderRadius: 20 }}
           contentFit="cover"
+          cachePolicy="memory-disk"
         />
         <View className="ml-3 flex-1">
           <Text className="text-text-primary font-semibold" numberOfLines={1}>

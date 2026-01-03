@@ -6,18 +6,16 @@
  */
 
 import React from 'react';
-import { Pressable, Platform } from 'react-native';
+import { Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Plus } from 'lucide-react-native';
-import * as Haptics from 'expo-haptics';
+import { triggerImpact } from '@/lib/utils/haptics';
 
 export function ComposeFAB() {
   const router = useRouter();
 
   const handlePress = () => {
-    if (Platform.OS !== 'web') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    }
+    triggerImpact('medium');
     router.push('/(tabs)/compose' as any);
   };
 

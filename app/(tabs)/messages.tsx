@@ -6,13 +6,13 @@
  */
 
 import React, { useCallback, useState } from 'react';
-import { View, Text, ActivityIndicator, FlatList, RefreshControl, Platform } from 'react-native';
+import { View, Text, ActivityIndicator, FlatList, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { MessageCircle } from 'lucide-react-native';
-import * as Haptics from 'expo-haptics';
 import { useConversations, useStartConversation, useLeaveConversation, type Conversation } from '@/lib/hooks';
 import { useDebounce } from '@/lib/hooks/use-debounce';
+import { triggerImpact } from '@/lib/utils/haptics';
 import * as atproto from '@/lib/atproto/agent';
 import { ComposeFAB, SearchBar } from '@/components/ui';
 import { UserRow } from '@/components/Profile';
@@ -57,9 +57,7 @@ export default function MessagesTabScreen() {
 
   const openChat = useCallback(
     (convo: Conversation) => {
-      if (Platform.OS !== 'web') {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      }
+      triggerImpact('light');
       router.push(`/messages/${convo.id}` as any);
     },
     [router]
@@ -67,9 +65,7 @@ export default function MessagesTabScreen() {
 
   const startChatWithUser = useCallback(
     (user: any) => {
-      if (Platform.OS !== 'web') {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      }
+      triggerImpact('light');
 
       startConversation(user.did, {
         onSuccess: (convo) => {

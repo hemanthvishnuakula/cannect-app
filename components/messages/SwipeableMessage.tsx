@@ -2,11 +2,8 @@
  * SwipeableMessage - Chat message bubble with swipe to delete
  */
 
-import { useRef } from 'react';
-import { View, Text, Animated, Platform, Pressable } from 'react-native';
-import { Swipeable } from 'react-native-gesture-handler';
-import { Trash2 } from 'lucide-react-native';
-import * as Haptics from 'expo-haptics';
+import { View, Text } from 'react-native';
+import { SwipeableDelete } from '@/components/ui';
 import type { ChatMessage } from '@/lib/hooks';
 
 export interface SwipeableMessageProps {
@@ -16,43 +13,12 @@ export interface SwipeableMessageProps {
 }
 
 export function SwipeableMessage({ message, currentUserDid, onDelete }: SwipeableMessageProps) {
-  const swipeableRef = useRef<Swipeable>(null);
   const isOwn = currentUserDid === message.sender?.did;
 
   const time = new Date(message.sentAt).toLocaleTimeString([], {
     hour: '2-digit',
     minute: '2-digit',
   });
-
-  const handleDelete = () => {
-    if (Platform.OS !== 'web') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    }
-    swipeableRef.current?.close();
-    onDelete?.(message.id);
-  };
-
-  const renderRightActions = (
-    progress: Animated.AnimatedInterpolation<number>,
-    dragX: Animated.AnimatedInterpolation<number>
-  ) => {
-    const scale = dragX.interpolate({
-      inputRange: [-60, 0],
-      outputRange: [1, 0.5],
-      extrapolate: 'clamp',
-    });
-
-    return (
-      <Pressable
-        onPress={handleDelete}
-        className="bg-red-500 justify-center items-center px-4 rounded-xl ml-2"
-      >
-        <Animated.View style={{ transform: [{ scale }] }}>
-          <Trash2 size={18} color="#FFFFFF" />
-        </Animated.View>
-      </Pressable>
-    );
-  };
 
   const bubble = (
     <View className={`mb-3 ${isOwn ? 'items-end' : 'items-start'}`}>
@@ -69,19 +35,13 @@ export function SwipeableMessage({ message, currentUserDid, onDelete }: Swipeabl
     </View>
   );
 
-  // On web, just show the bubble (no swipe)
-  if (Platform.OS === 'web') {
+  if (!onDelete) {
     return bubble;
   }
 
   return (
-    <Swipeable
-      ref={swipeableRef}
-      renderRightActions={renderRightActions}
-      overshootRight={false}
-      friction={2}
-    >
+    <SwipeableDelete onDelete={() => onDelete(message.id)} iconSize={18} padding="px-4 rounded-xl ml-2">
       {bubble}
-    </Swipeable>
+    </SwipeableDelete>
   );
 }

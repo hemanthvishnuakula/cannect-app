@@ -50,3 +50,32 @@ export function getOptimizedAvatarUrl(
   const quality = displaySize <= 64 ? 'thumb' : 'full';
   return getAvatarUrl(avatarUrl, quality);
 }
+
+/**
+ * Get fallback avatar URL using ui-avatars.com
+ * Used when user has no avatar set
+ *
+ * @param name - Display name or handle to generate initials from
+ * @param bgColor - Background color hex (without #), defaults to primary green
+ * @returns Fallback avatar URL
+ */
+export function getFallbackAvatarUrl(name: string, bgColor: string = '10B981'): string {
+  return `https://ui-avatars.com/api/?name=${encodeURIComponent(name || 'U')}&background=${bgColor}&color=fff`;
+}
+
+/**
+ * Get avatar URL with automatic fallback
+ * Combines getAvatarUrl with getFallbackAvatarUrl
+ *
+ * @param avatarUrl - Avatar URL from API (may be undefined)
+ * @param displayName - Name to use for fallback
+ * @param size - Size variant
+ * @returns Avatar URL (always returns a valid URL)
+ */
+export function getAvatarWithFallback(
+  avatarUrl: string | undefined,
+  displayName: string,
+  size: 'thumb' | 'full' = 'thumb'
+): string {
+  return getAvatarUrl(avatarUrl, size) || getFallbackAvatarUrl(displayName);
+}
