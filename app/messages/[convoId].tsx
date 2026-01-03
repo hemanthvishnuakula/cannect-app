@@ -67,6 +67,45 @@ export default function ChatScreen() {
     return [...allMessages].reverse();
   }, [messagesData]);
 
+  // Helper to format date for separators
+  const getDateLabel = useCallback((dateString: string) => {
+    const date = new Date(dateString);
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    if (date.toDateString() === today.toDateString()) {
+      return 'Today';
+    } else if (date.toDateString() === yesterday.toDateString()) {
+      return 'Yesterday';
+    } else {
+      return date.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
+    }
+  }, []);
+
+  // Helper to check if we should show date separator
+  const shouldShowDateSeparator = useCallback((currentMsg: ChatMessage, prevMsg: ChatMessage | undefined) => {
+    if (!prevMsg) return true;
+    const currentDate = new Date(currentMsg.sentAt).toDateString();
+    const prevDate = new Date(prevMsg.sentAt).toDateString();
+    return currentDate !== prevDate;
+  }, []);
+
+  // Helper to check if messages are grouped (same sender, within 2 minutes)
+  const isGroupedWithPrev = useCallback((currentMsg: ChatMessage, prevMsg: ChatMessage | undefined) => {
+    if (!prevMsg) return false;
+    if (currentMsg.sender?.did !== prevMsg.sender?.did) return false;
+    const timeDiff = new Date(currentMsg.sentAt).getTime() - new Date(prevMsg.sentAt).getTime();
+    return timeDiff < 2 * 60 * 1000; // 2 minutes
+  }, []);
+
+  const isGroupedWithNext = useCallback((currentMsg: ChatMessage, nextMsg: ChatMessage | undefined) => {
+    if (!nextMsg) return false;
+    if (currentMsg.sender?.did !== nextMsg.sender?.did) return false;
+    const timeDiff = new Date(nextMsg.sentAt).getTime() - new Date(currentMsg.sentAt).getTime();
+    return timeDiff < 2 * 60 * 1000; // 2 minutes
+  }, []);
+
   // Mark as read when opened
   useEffect(() => {
     if (convoId) {
@@ -203,7 +242,7 @@ export default function ChatScreen() {
   }, [convoId, leaveConversation, router]);
 
   const renderMessage = useCallback(
-    ({ item: msg }: { item: ChatMessage }) => {
+    ({ item: msg, index }: { item: ChatMessage; index: number }) => {
       const isOwn = session?.did === msg.sender?.did;
       const isSelected = selectedMessages.has(msg.id);
       const time = new Date(msg.sentAt).toLocaleTimeString([], {
@@ -211,70 +250,113 @@ export default function ChatScreen() {
         minute: '2-digit',
       });
 
+      const prevMsg = index > 0 ? messages[index - 1] : undefined;
+      const nextMsg = index < messages.length - 1 ? messages[index + 1] : undefined;
+      const showDateSeparator = shouldShowDateSeparator(msg, prevMsg);
+      const groupedWithPrev = isGroupedWithPrev(msg, prevMsg);
+      const groupedWithNext = isGroupedWithNext(msg, nextMsg);
+
+      // Bubble tail: show only on last message of a group
+      const showTail = !groupedWithNext;
+
       return (
-        <Pressable
-          onPress={() => isSelectMode && handleToggleSelect(msg.id)}
-          style={{ alignItems: isOwn ? 'flex-end' : 'flex-start', marginBottom: 12 }}
-        >
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            {/* Checkbox in select mode - left side */}
-            {isSelectMode && !isOwn && (
-              <Pressable
-                onPress={() => handleToggleSelect(msg.id)}
-                style={{ padding: 4, marginRight: 8 }}
-              >
-                {isSelected ? (
-                  <CheckSquare size={20} color="#10B981" />
-                ) : (
-                  <Square size={20} color="#6B7280" />
-                )}
-              </Pressable>
-            )}
-
-            <View
-              style={{
-                maxWidth: '75%',
-                paddingHorizontal: 16,
-                paddingVertical: 10,
-                backgroundColor: isOwn ? '#10B981' : '#1E1E1E',
-                borderRadius: 16,
-                borderBottomRightRadius: isOwn ? 4 : 16,
-                borderBottomLeftRadius: isOwn ? 16 : 4,
-                flexShrink: 1,
-              }}
-            >
-              <Text style={{ color: isOwn ? '#FFFFFF' : '#FAFAFA', flexShrink: 1 }}>{msg.text}</Text>
+        <View>
+          {/* Date Separator */}
+          {showDateSeparator && (
+            <View style={{ alignItems: 'center', marginVertical: 16 }}>
+              <View style={{ backgroundColor: '#374151', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 8 }}>
+                <Text style={{ color: '#9CA3AF', fontSize: 12, fontWeight: '500' }}>
+                  {getDateLabel(msg.sentAt)}
+                </Text>
+              </View>
             </View>
+          )}
 
-            {/* Checkbox in select mode - right side for own messages */}
-            {isSelectMode && isOwn && (
-              <Pressable
-                onPress={() => handleToggleSelect(msg.id)}
-                style={{ padding: 4, marginLeft: 8 }}
-              >
-                {isSelected ? (
-                  <CheckSquare size={20} color="#10B981" />
-                ) : (
-                  <Square size={20} color="#6B7280" />
-                )}
-              </Pressable>
-            )}
-          </View>
-          <Text
+          <Pressable
+            onPress={() => isSelectMode && handleToggleSelect(msg.id)}
             style={{
-              color: '#6B7280',
-              fontSize: 12,
-              marginTop: 4,
-              paddingHorizontal: 4,
-              textAlign: isOwn ? 'right' : 'left',
+              alignItems: isOwn ? 'flex-end' : 'flex-start',
+              marginBottom: groupedWithNext ? 2 : 8,
+              marginTop: groupedWithPrev ? 0 : 4,
             }}
           >
-            {time}
-          </Text>
-        </Pressable>
+            <View style={{ flexDirection: 'row', alignItems: 'flex-end', maxWidth: '85%' }}>
+              {/* Checkbox in select mode - left side */}
+              {isSelectMode && !isOwn && (
+                <Pressable
+                  onPress={() => handleToggleSelect(msg.id)}
+                  style={{ padding: 4, marginRight: 8 }}
+                >
+                  {isSelected ? (
+                    <CheckSquare size={20} color="#10B981" />
+                  ) : (
+                    <Square size={20} color="#6B7280" />
+                  )}
+                </Pressable>
+              )}
+
+              {/* Message Bubble */}
+              <View
+                style={{
+                  backgroundColor: isOwn ? '#10B981' : '#1F2937',
+                  paddingHorizontal: 12,
+                  paddingTop: 8,
+                  paddingBottom: 6,
+                  borderRadius: 16,
+                  // Tail styling
+                  borderTopLeftRadius: !isOwn && !groupedWithPrev ? 4 : 16,
+                  borderTopRightRadius: isOwn && !groupedWithPrev ? 4 : 16,
+                  borderBottomLeftRadius: !isOwn && showTail ? 4 : 16,
+                  borderBottomRightRadius: isOwn && showTail ? 4 : 16,
+                  minWidth: 60,
+                }}
+              >
+                {/* Message text + inline timestamp */}
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+                  <Text
+                    style={{
+                      color: isOwn ? '#FFFFFF' : '#F3F4F6',
+                      fontSize: 15,
+                      lineHeight: 20,
+                      marginRight: 8,
+                      flexShrink: 1,
+                    }}
+                  >
+                    {msg.text}
+                  </Text>
+                  <Text
+                    style={{
+                      color: isOwn ? 'rgba(255,255,255,0.7)' : '#9CA3AF',
+                      fontSize: 11,
+                      marginLeft: 'auto',
+                      alignSelf: 'flex-end',
+                      marginBottom: 1,
+                    }}
+                  >
+                    {time}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Checkbox in select mode - right side for own messages */}
+              {isSelectMode && isOwn && (
+                <Pressable
+                  onPress={() => handleToggleSelect(msg.id)}
+                  style={{ padding: 4, marginLeft: 8 }}
+                >
+                  {isSelected ? (
+                    <CheckSquare size={20} color="#10B981" />
+                  ) : (
+                    <Square size={20} color="#6B7280" />
+                  )}
+                </Pressable>
+              )}
+            </View>
+          </Pressable>
+        </View>
       );
     },
-    [session?.did, isSelectMode, selectedMessages, handleToggleSelect]
+    [session?.did, isSelectMode, selectedMessages, handleToggleSelect, messages, shouldShowDateSeparator, isGroupedWithPrev, isGroupedWithNext, getDateLabel]
   );
 
   if (isLoadingConvo || isLoadingMessages) {
