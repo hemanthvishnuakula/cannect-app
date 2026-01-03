@@ -9,11 +9,11 @@
  */
 
 import React, { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react';
-import { View, Text, Pressable, Platform } from 'react-native';
+import { View, Text, Pressable } from 'react-native';
 import Animated, { SlideInUp, SlideOutUp } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { X, CheckCircle, AlertCircle, Info, RefreshCw } from 'lucide-react-native';
-import * as Haptics from 'expo-haptics';
+import { triggerImpact } from '@/lib/utils/haptics';
 import { onFederationError, type FederationError } from '@/lib/utils/federation-events';
 
 // ============================================================================
@@ -87,9 +87,7 @@ function Toast({ toast, onDismiss }: { toast: ToastMessage; onDismiss: () => voi
   }, [toast.duration, onDismiss]);
 
   const handleRetry = useCallback(() => {
-    if (Platform.OS !== 'web') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    }
+    triggerImpact('medium');
     toast.onRetry?.();
     onDismiss();
   }, [toast.onRetry, onDismiss]);

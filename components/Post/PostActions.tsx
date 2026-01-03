@@ -33,8 +33,8 @@ import {
   Share2,
 } from 'lucide-react-native';
 import { memo, useCallback, useState } from 'react';
-import * as Haptics from 'expo-haptics';
 import * as Clipboard from 'expo-clipboard';
+import { triggerImpact } from '@/lib/utils/haptics';
 import {
   useLikePost,
   useUnlikePost,
@@ -60,11 +60,9 @@ interface PostActionsProps {
   hideOptions?: boolean;
 }
 
-// Haptic helper
-const triggerHaptic = (style: Haptics.ImpactFeedbackStyle = Haptics.ImpactFeedbackStyle.Light) => {
-  if (Platform.OS !== 'web') {
-    Haptics.impactAsync(style);
-  }
+// Haptic helper - uses the unified utility
+const triggerHaptic = (style: 'light' | 'medium' | 'heavy' = 'light') => {
+  triggerImpact(style);
 };
 
 // Stop event propagation helper (works on web and native)

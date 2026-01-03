@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { Video, ResizeMode, AVPlaybackStatus, Audio } from 'expo-av';
 import { Play, Pause, Volume2, VolumeX, Maximize2 } from 'lucide-react-native';
-import * as Haptics from 'expo-haptics';
+import { triggerImpact } from '@/lib/utils/haptics';
 import Animated, {
   FadeIn,
   FadeOut,
@@ -96,9 +96,7 @@ export function VideoPlayer({
   const handlePlayPause = useCallback(async () => {
     if (!videoRef.current) return;
 
-    if (Platform.OS !== 'web') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
+    triggerImpact('light');
 
     if (isPlaying) {
       await videoRef.current.pauseAsync();
@@ -110,9 +108,7 @@ export function VideoPlayer({
   const handleMuteToggle = useCallback(async () => {
     if (!videoRef.current) return;
 
-    if (Platform.OS !== 'web') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
+    triggerImpact('light');
 
     const newMuted = !isMuted;
     setIsMuted(newMuted);
@@ -125,9 +121,7 @@ export function VideoPlayer({
 
   // Handler to load video on first tap (lazy loading)
   const handleLoadVideo = useCallback(() => {
-    if (Platform.OS !== 'web') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
+    triggerImpact('light');
     setIsVideoLoaded(true);
   }, []);
 

@@ -20,7 +20,6 @@ import {
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { X, Image as ImageIcon, Video as VideoIcon, Quote, Trash2 } from 'lucide-react-native';
-import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
 import { router, useLocalSearchParams } from 'expo-router';
 import { RichText } from '@atproto/api';
@@ -30,6 +29,7 @@ import * as atproto from '@/lib/atproto/agent';
 import { getOptimizedAvatarUrl } from '@/lib/utils/avatar';
 import { compressImageForPost } from '@/lib/utils/media-compression';
 import { MentionSuggestions } from '@/components/ui/MentionSuggestions';
+import { triggerImpact } from '@/lib/utils/haptics';
 
 const MAX_LENGTH = 300; // Bluesky character limit
 
@@ -283,9 +283,7 @@ export default function ComposeScreen() {
       mentionStartRef.current = -1;
 
       // Haptic feedback
-      if (Platform.OS !== 'web') {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      }
+      triggerImpact('light');
     },
     [content, cursorPosition]
   );

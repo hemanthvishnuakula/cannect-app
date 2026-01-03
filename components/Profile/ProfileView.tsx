@@ -10,17 +10,17 @@
  * - Other users: Follow/Unfollow button, Likes tab hidden (API limitation)
  */
 
-import { View, Text, Pressable, ActivityIndicator, RefreshControl, Platform } from 'react-native';
+import { View, Text, Pressable, ActivityIndicator, RefreshControl } from 'react-native';
 import { Image } from 'expo-image';
 import { FlashList } from '@shopify/flash-list';
 import { useRouter } from 'expo-router';
 import { LogOut, Edit3, MessageCircle } from 'lucide-react-native';
 import { useState, useMemo, useCallback } from 'react';
-import * as Haptics from 'expo-haptics';
 import { useAuthorFeed, useActorLikes, useStartConversation } from '@/lib/hooks';
 import { PostCard } from '@/components/Post';
 import { FollowButton, useToast } from '@/components/ui';
 import { getOptimizedAvatarUrl } from '@/lib/utils/avatar';
+import { triggerImpact } from '@/lib/utils/haptics';
 import type { AppBskyActorDefs } from '@atproto/api';
 
 type ProfileViewDetailed = AppBskyActorDefs.ProfileViewDetailed;
@@ -90,14 +90,8 @@ export function ProfileView({
   const currentQuery =
     activeTab === 'likes' ? likesQuery : activeTab === 'replies' ? repliesQuery : postsQuery;
 
-  const triggerHaptic = () => {
-    if (Platform.OS !== 'web') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
-  };
-
   const handleRefresh = useCallback(() => {
-    triggerHaptic();
+    triggerImpact('light');
     onRefresh?.();
     currentQuery.refetch();
   }, [onRefresh, currentQuery]);
@@ -289,9 +283,7 @@ function MessageButton({ did }: { did: string }) {
   const { mutate: startConversation, isPending } = useStartConversation();
 
   const handlePress = useCallback(() => {
-    if (Platform.OS !== 'web') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
+    triggerImpact('light');
 
     startConversation(did, {
       onSuccess: (convo) => {

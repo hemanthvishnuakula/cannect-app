@@ -16,6 +16,7 @@ import * as MediaLibrary from 'expo-media-library';
 import * as FileSystem from 'expo-file-system';
 import * as Haptics from 'expo-haptics';
 import { X, Download, Check } from 'lucide-react-native';
+import { triggerImpact } from '@/lib/utils/haptics';
 
 import { ZoomableImage } from './ZoomableImage';
 
@@ -90,7 +91,7 @@ export function MediaViewer({ isVisible, images, initialIndex, onClose }: MediaV
   }, []);
 
   const handleSwipeDown = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    triggerImpact('light');
     onClose();
   }, [onClose]);
 

@@ -26,11 +26,11 @@ import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft, Send } from 'lucide-react-native';
 import { Image } from 'expo-image';
-import * as Haptics from 'expo-haptics';
 import { ThreadPost, PostCard } from '@/components/Post';
 import { usePostThread, useCreatePost } from '@/lib/hooks';
 import { useAuthStore } from '@/lib/stores';
 import { getOptimizedAvatarUrl } from '@/lib/utils/avatar';
+import { triggerImpact } from '@/lib/utils/haptics';
 import type { AppBskyFeedDefs, AppBskyFeedPost } from '@atproto/api';
 
 type PostView = AppBskyFeedDefs.PostView;
@@ -99,17 +99,11 @@ export default function PostDetailsScreen() {
     }
   };
 
-  const triggerHaptic = () => {
-    if (Platform.OS !== 'web') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
-  };
-
   const handleQuickReply = useCallback(async () => {
     if (!thread?.post || !replyText.trim() || isSubmitting) return;
 
     const post = thread.post;
-    triggerHaptic();
+    triggerImpact('light');
     setIsSubmitting(true);
 
     try {

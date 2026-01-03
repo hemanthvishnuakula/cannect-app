@@ -24,8 +24,8 @@ import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { Leaf } from 'lucide-react-native';
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
-import * as Haptics from 'expo-haptics';
 import { useTimeline, useCannectFeed } from '@/lib/hooks';
+import { triggerImpact } from '@/lib/utils/haptics';
 import { OfflineBanner } from '@/components/OfflineBanner';
 import { MediaViewer, ComposeFAB } from '@/components/ui';
 import { PostCard, FeedSkeleton } from '@/components/Post';
@@ -82,9 +82,7 @@ export default function FeedScreen() {
 
   // === HANDLERS ===
   const handleTabChange = useCallback((feed: FeedType) => {
-    if (Platform.OS !== 'web') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
+    triggerImpact('light');
     setActiveFeed(feed);
     setTimeout(() => {
       const savedOffset = scrollOffsets.current[feed];
@@ -93,9 +91,7 @@ export default function FeedScreen() {
   }, []);
 
   const handleRefresh = useCallback(() => {
-    if (Platform.OS !== 'web') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
+    triggerImpact('light');
     currentQuery.refetch();
   }, [currentQuery]);
 

@@ -9,7 +9,6 @@ import {
   Pressable,
   RefreshControl,
   ActivityIndicator,
-  Platform,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -25,8 +24,8 @@ import {
 import { useFocusEffect, useRouter } from 'expo-router';
 import { getOptimizedAvatarUrl } from '@/lib/utils/avatar';
 import { useCallback } from 'react';
-import * as Haptics from 'expo-haptics';
 import { useNotifications, useMarkNotificationsRead } from '@/lib/hooks';
+import { triggerImpact } from '@/lib/utils/haptics';
 import type { AppBskyNotificationListNotifications } from '@atproto/api';
 
 type Notification = AppBskyNotificationListNotifications.Notification;
@@ -154,9 +153,7 @@ export default function NotificationsScreen() {
   );
 
   const handleRefresh = () => {
-    if (Platform.OS !== 'web') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
+    triggerImpact('light');
     notificationsQuery.refetch();
   };
 

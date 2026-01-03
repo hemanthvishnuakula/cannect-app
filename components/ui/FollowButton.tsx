@@ -11,11 +11,11 @@
  */
 
 import { useCallback } from 'react';
-import { View, Text, Pressable, ActivityIndicator, Platform } from 'react-native';
+import { View, Text, Pressable, ActivityIndicator } from 'react-native';
 import { UserPlus, UserMinus, Check } from 'lucide-react-native';
-import * as Haptics from 'expo-haptics';
 import { useFollow, useUnfollow } from '@/lib/hooks';
 import { useAuthStore } from '@/lib/stores/auth-store-atp';
+import { triggerImpact } from '@/lib/utils/haptics';
 import type { AppBskyActorDefs } from '@atproto/api';
 
 type ProfileView = AppBskyActorDefs.ProfileView;
@@ -36,9 +36,7 @@ export interface FollowButtonProps {
 }
 
 const triggerHaptic = () => {
-  if (Platform.OS !== 'web') {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-  }
+  triggerImpact('light');
 };
 
 export function FollowButton({

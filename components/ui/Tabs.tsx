@@ -1,7 +1,7 @@
 import { createContext, useContext } from 'react';
-import { View, Text, Pressable, Platform, type ViewProps, type PressableProps } from 'react-native';
+import { View, Text, Pressable, type ViewProps, type PressableProps } from 'react-native';
 import { cn } from '@/lib/utils';
-import * as Haptics from 'expo-haptics';
+import { triggerImpact } from '@/lib/utils/haptics';
 
 /**
  * Platinum Standard Tabs Component
@@ -75,10 +75,8 @@ export function TabsTrigger({ value, children, className, disabled, ...props }: 
   const handlePress = () => {
     if (disabled) return;
 
-    // Haptic feedback on tab change (expo-haptics is Web-safe, does nothing on Web)
-    if (Platform.OS !== 'web') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
+    // Haptic feedback on tab change
+    triggerImpact('light');
 
     onValueChange(value);
   };
