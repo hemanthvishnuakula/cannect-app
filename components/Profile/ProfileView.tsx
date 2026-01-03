@@ -287,7 +287,7 @@ export function ProfileView({
 function MessageButton({ did }: { did: string }) {
   const router = useRouter();
   const { showError } = useToast();
-  const { mutate: startConversation, isPending } = useStartConversation();
+  const { mutate: startConversation, isPending, reset } = useStartConversation();
 
   const handlePress = useCallback(() => {
     triggerImpact('light');
@@ -298,6 +298,8 @@ function MessageButton({ did }: { did: string }) {
       },
       onError: (error: any) => {
         console.error('[Chat] Failed to start conversation:', error);
+        // Explicitly reset mutation state
+        reset();
         const msg = error?.message || '';
         if (msg.includes('someone they follow')) {
           showError('This user only accepts messages from people they follow.');
@@ -306,7 +308,7 @@ function MessageButton({ did }: { did: string }) {
         }
       },
     });
-  }, [did, startConversation, router, showError]);
+  }, [did, startConversation, router, showError, reset]);
 
   return (
     <Pressable
