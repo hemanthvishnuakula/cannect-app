@@ -24,10 +24,9 @@ import {
   useMessages,
   useSendMessage,
   useMarkConvoRead,
-  useDeleteMessage,
   type ChatMessage,
 } from '@/lib/hooks';
-import { SwipeableMessage } from '@/components/messages';
+import { MessageBubble } from '@/components/messages';
 import { getAvatarWithFallback } from '@/lib/utils/avatar';
 import { triggerImpact } from '@/lib/utils/haptics';
 import * as atproto from '@/lib/atproto/agent';
@@ -42,7 +41,6 @@ export default function ChatScreen() {
   const { data: messagesData, isLoading: isLoadingMessages, refetch } = useMessages(convoId);
   const { mutate: sendMessage, isPending: isSending } = useSendMessage();
   const { mutate: markRead } = useMarkConvoRead();
-  const { mutate: deleteMessage } = useDeleteMessage();
 
   const session = atproto.getSession();
 
@@ -110,25 +108,11 @@ export default function ChatScreen() {
     }
   }, [otherMember?.handle, router]);
 
-  const handleDeleteMessage = useCallback(
-    (messageId: string) => {
-      if (!convoId) return;
-      deleteMessage({ convoId, messageId });
-    },
-    [convoId, deleteMessage]
-  );
-
   const renderMessage = useCallback(
     ({ item: msg }: { item: ChatMessage }) => {
-      return (
-        <SwipeableMessage
-          message={msg}
-          currentUserDid={session?.did}
-          onDelete={handleDeleteMessage}
-        />
-      );
+      return <MessageBubble message={msg} currentUserDid={session?.did} />;
     },
-    [session?.did, handleDeleteMessage]
+    [session?.did]
   );
 
   if (isLoadingConvo || isLoadingMessages) {

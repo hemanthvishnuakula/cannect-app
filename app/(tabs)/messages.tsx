@@ -10,7 +10,7 @@ import { View, Text, ActivityIndicator, FlatList, RefreshControl } from 'react-n
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { MessageCircle } from 'lucide-react-native';
-import { useConversations, useStartConversation, useLeaveConversation, type Conversation } from '@/lib/hooks';
+import { useConversations, useStartConversation, type Conversation } from '@/lib/hooks';
 import { useDebounce } from '@/lib/hooks/use-debounce';
 import { triggerImpact } from '@/lib/utils/haptics';
 import * as atproto from '@/lib/atproto/agent';
@@ -27,7 +27,6 @@ export default function MessagesTabScreen() {
 
   const { data: convosData, isLoading, refetch, isRefetching } = useConversations();
   const { mutate: startConversation, isPending: isStartingConvo } = useStartConversation();
-  const { mutate: leaveConversation } = useLeaveConversation();
 
   const conversations: Conversation[] =
     convosData?.pages?.flatMap((page: any) => page.convos || []) || [];
@@ -85,24 +84,16 @@ export default function MessagesTabScreen() {
     setSearchResults([]);
   }, []);
 
-  const handleDeleteConversation = useCallback(
-    (convoId: string) => {
-      leaveConversation(convoId);
-    },
-    [leaveConversation]
-  );
-
   const renderConversation = useCallback(
     ({ item: convo }: { item: Conversation }) => {
       return (
         <ConversationRow
           conversation={convo}
           onPress={() => openChat(convo)}
-          onDelete={handleDeleteConversation}
         />
       );
     },
-    [openChat, handleDeleteConversation]
+    [openChat]
   );
 
   const renderSearchResult = useCallback(

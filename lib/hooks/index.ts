@@ -92,8 +92,6 @@ export {
   useStartConversation,
   useSendMessage,
   useMarkConvoRead,
-  useLeaveConversation,
-  useDeleteMessage,
   useUnreadMessageCount,
   type ChatMember,
   type ChatMessage,

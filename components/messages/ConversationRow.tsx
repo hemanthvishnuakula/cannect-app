@@ -1,18 +1,15 @@
 /**
- * ConversationRow - Conversation list item with hover delete
+ * ConversationRow - Conversation list item
  *
  * Displays a conversation in the messages list with:
  * - Other user's avatar, name, handle
  * - Last message preview
  * - Timestamp
  * - Unread indicator
- * - Delete button on hover
  */
 
-import { useState } from 'react';
 import { View, Text, Pressable } from 'react-native';
 import { Image } from 'expo-image';
-import { Trash2 } from 'lucide-react-native';
 import { getAvatarWithFallback } from '@/lib/utils/avatar';
 import { formatConversationTime } from '@/lib/utils/date';
 import * as atproto from '@/lib/atproto/agent';
@@ -21,11 +18,9 @@ import type { Conversation } from '@/lib/hooks';
 export interface ConversationRowProps {
   conversation: Conversation;
   onPress: () => void;
-  onDelete?: (convoId: string) => void;
 }
 
-export function ConversationRow({ conversation, onPress, onDelete }: ConversationRowProps) {
-  const [isHovered, setIsHovered] = useState(false);
+export function ConversationRow({ conversation, onPress }: ConversationRowProps) {
   const session = atproto.getSession();
 
   // Get the OTHER member (not current user)
@@ -38,17 +33,10 @@ export function ConversationRow({ conversation, onPress, onDelete }: Conversatio
   const lastMessage = conversation.lastMessage;
   const hasUnread = conversation.unreadCount > 0;
 
-  const handleDelete = (e: any) => {
-    e?.stopPropagation?.();
-    onDelete?.(conversation.id);
-  };
-
   return (
     <View className="border-b border-border">
       <Pressable
         onPress={onPress}
-        onHoverIn={() => setIsHovered(true)}
-        onHoverOut={() => setIsHovered(false)}
         className={`flex-row items-center px-4 py-3 bg-background ${hasUnread ? 'bg-primary/5' : ''}`}
       >
         <Image
@@ -86,15 +74,6 @@ export function ConversationRow({ conversation, onPress, onDelete }: Conversatio
           <View className="ml-2 bg-primary w-6 h-6 rounded-full items-center justify-center">
             <Text className="text-white text-xs font-bold">{conversation.unreadCount}</Text>
           </View>
-        )}
-        {/* Delete button on hover */}
-        {onDelete && isHovered && (
-          <Pressable
-            onPress={handleDelete}
-            className="ml-2 p-2 bg-red-500/10 rounded-full hover:bg-red-500/20"
-          >
-            <Trash2 size={18} color="#EF4444" />
-          </Pressable>
         )}
       </Pressable>
     </View>
