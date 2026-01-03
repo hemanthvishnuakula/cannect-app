@@ -19,7 +19,7 @@ import { useState, useMemo, useCallback } from 'react';
 import * as Haptics from 'expo-haptics';
 import { useAuthorFeed, useActorLikes, useStartConversation } from '@/lib/hooks';
 import { PostCard } from '@/components/Post';
-import { FollowButton } from '@/components/ui';
+import { FollowButton, useToast } from '@/components/ui';
 import type { AppBskyActorDefs } from '@atproto/api';
 
 type ProfileViewDetailed = AppBskyActorDefs.ProfileViewDetailed;
@@ -283,6 +283,7 @@ export function ProfileView({
 
 function MessageButton({ did }: { did: string }) {
   const router = useRouter();
+  const { showError } = useToast();
   const { mutate: startConversation, isPending } = useStartConversation();
 
   const handlePress = useCallback(() => {
@@ -297,9 +298,10 @@ function MessageButton({ did }: { did: string }) {
       },
       onError: (error) => {
         console.error('[Chat] Failed to start conversation:', error);
+        showError('Could not start conversation. Please try again.');
       },
     });
-  }, [did, startConversation, router]);
+  }, [did, startConversation, router, showError]);
 
   return (
     <Pressable
