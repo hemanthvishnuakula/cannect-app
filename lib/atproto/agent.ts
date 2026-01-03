@@ -1003,11 +1003,14 @@ export interface VideoJobStatus {
   message?: string;
 }
 
+// Video Service DID constant
+const VIDEO_SERVICE_DID = 'did:web:video.bsky.app';
+
 /**
  * Get a service auth token for video upload
  * This is required because video uploads go to a separate service
  */
-async function getServiceAuthToken(lxm: string): Promise<string> {
+async function getServiceAuthToken(lxm: string, aud?: string): Promise<string> {
   const bskyAgent = getAgent();
   const session = bskyAgent.session;
   
@@ -1016,13 +1019,53 @@ async function getServiceAuthToken(lxm: string): Promise<string> {
   }
 
   // Get the service auth token from the PDS
+  // Use VIDEO_SERVICE_DID as the audience for video operations
   const response = await bskyAgent.com.atproto.server.getServiceAuth({
-    aud: `did:web:${new URL(VIDEO_SERVICE).hostname}`,
+    aud: aud || VIDEO_SERVICE_DID,
     lxm,
     exp: Math.floor(Date.now() / 1000) + 60 * 30, // 30 minutes
   });
 
   return response.data.token;
+}
+
+/**
+ * Check if video upload is available for this user
+ * This helps diagnose issues with video service access
+ */
+export async function checkVideoUploadLimits(): Promise<{ canUpload: boolean; message?: string; error?: string }> {
+  try {
+    const token = await getServiceAuthToken('app.bsky.video.getUploadLimits', VIDEO_SERVICE_DID);
+    console.log('[Video] Got limits token, length:', token.length);
+    
+    const response = await fetch(
+      `${VIDEO_SERVICE}/xrpc/app.bsky.video.getUploadLimits`,
+      {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      }
+    );
+    
+    console.log('[Video] getUploadLimits response:', response.status);
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('[Video] getUploadLimits failed:', response.status, errorText);
+      return { canUpload: false, error: `${response.status}: ${errorText}` };
+    }
+    
+    const limits = await response.json();
+    console.log('[Video] Upload limits:', limits);
+    
+    return { 
+      canUpload: limits.canUpload !== false,
+      message: limits.message,
+    };
+  } catch (error: any) {
+    console.error('[Video] checkVideoUploadLimits error:', error);
+    return { canUpload: false, error: error.message };
+  }
 }
 
 /**
