@@ -163,6 +163,38 @@ export function useMarkConvoRead() {
 }
 
 /**
+ * Leave/delete a conversation
+ */
+export function useLeaveConversation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (convoId: string) => {
+      await atproto.leaveConversation(convoId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['conversations'] });
+    },
+  });
+}
+
+/**
+ * Delete a message (for self only)
+ */
+export function useDeleteMessage() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ convoId, messageId }: { convoId: string; messageId: string }) => {
+      await atproto.deleteMessageForSelf(convoId, messageId);
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['messages', variables.convoId] });
+    },
+  });
+}
+
+/**
  * Get total unread message count
  */
 export function useUnreadMessageCount() {

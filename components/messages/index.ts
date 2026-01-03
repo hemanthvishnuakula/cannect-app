@@ -3,3 +3,4 @@
  */
 
 export { ConversationRow } from './ConversationRow';
+export { SwipeableMessage } from './SwipeableMessage';

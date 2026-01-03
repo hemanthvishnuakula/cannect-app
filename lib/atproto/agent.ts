@@ -1155,4 +1155,21 @@ export async function updateConvoRead(convoId: string) {
   return chatRequest('POST', 'chat.bsky.convo.updateRead', undefined, { convoId });
 }
 
+/**
+ * Leave/delete a conversation
+ */
+export async function leaveConversation(convoId: string) {
+  return chatRequest('POST', 'chat.bsky.convo.leaveConvo', undefined, { convoId });
+}
+
+/**
+ * Delete a message (for self only)
+ */
+export async function deleteMessageForSelf(convoId: string, messageId: string) {
+  return chatRequest('POST', 'chat.bsky.convo.deleteMessageForSelf', undefined, {
+    convoId,
+    messageId,
+  });
+}
+
 export { RichText };

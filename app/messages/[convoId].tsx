@@ -25,8 +25,10 @@ import {
   useMessages,
   useSendMessage,
   useMarkConvoRead,
+  useDeleteMessage,
   type ChatMessage,
 } from '@/lib/hooks';
+import { SwipeableMessage } from '@/components/messages/SwipeableMessage';
 import { getAvatarUrl } from '@/lib/utils/avatar';
 import * as atproto from '@/lib/atproto/agent';
 
@@ -40,6 +42,7 @@ export default function ChatScreen() {
   const { data: messagesData, isLoading: isLoadingMessages, refetch } = useMessages(convoId);
   const { mutate: sendMessage, isPending: isSending } = useSendMessage();
   const { mutate: markRead } = useMarkConvoRead();
+  const { mutate: deleteMessage } = useDeleteMessage();
 
   const session = atproto.getSession();
 
@@ -111,11 +114,25 @@ export default function ChatScreen() {
     }
   }, [otherMember?.handle, router]);
 
+  const handleDeleteMessage = useCallback(
+    (messageId: string) => {
+      if (!convoId) return;
+      deleteMessage({ convoId, messageId });
+    },
+    [convoId, deleteMessage]
+  );
+
   const renderMessage = useCallback(
     ({ item: msg }: { item: ChatMessage }) => {
-      return <MessageBubble message={msg} currentUserDid={session?.did} />;
+      return (
+        <SwipeableMessage
+          message={msg}
+          currentUserDid={session?.did}
+          onDelete={handleDeleteMessage}
+        />
+      );
     },
-    [session?.did]
+    [session?.did, handleDeleteMessage]
   );
 
   if (isLoadingConvo || isLoadingMessages) {
@@ -270,42 +287,6 @@ function ChatHeader({
           )}
         </View>
       </Pressable>
-    </View>
-  );
-}
-
-// ============================================================
-// MESSAGE BUBBLE
-// ============================================================
-
-function MessageBubble({
-  message,
-  currentUserDid,
-}: {
-  message: ChatMessage;
-  currentUserDid?: string;
-}) {
-  const isOwn = currentUserDid === message.sender?.did;
-
-  const time = new Date(message.sentAt).toLocaleTimeString([], {
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-
-  return (
-    <View className={`mb-3 ${isOwn ? 'items-end' : 'items-start'}`}>
-      <View
-        className={`max-w-[80%] px-4 py-2.5 ${
-          isOwn
-            ? 'bg-primary rounded-2xl rounded-br-md'
-            : 'bg-surface-elevated rounded-2xl rounded-bl-md'
-        }`}
-      >
-        <Text className={`text-base ${isOwn ? 'text-white' : 'text-text-primary'}`}>
-          {message.text}
-        </Text>
-      </View>
-      <Text className="text-text-muted text-xs mt-1 px-1">{time}</Text>
     </View>
   );
 }
