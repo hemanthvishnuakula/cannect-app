@@ -8,6 +8,7 @@ export { ToastProvider, useToast, useFederationToast } from './Toast';
 export { FollowButton, FollowingBadge } from './FollowButton';
 export { ComposeFAB } from './ComposeFAB';
 export { MediaViewer } from './MediaViewer';
+export { SearchBar } from './SearchBar';
 
 // Re-export skeletons for backwards compatibility
 export {
