@@ -1,21 +1,22 @@
 import { Tabs, Redirect } from 'expo-router';
-import { Home, Search, PlusSquare, Bell, User } from 'lucide-react-native';
+import { Home, Search, MessageCircle, Bell, User } from 'lucide-react-native';
 import { View, ActivityIndicator } from 'react-native';
 import { useEffect } from 'react';
 import { useAuthStore } from '@/lib/stores';
-import { useUnreadNotificationCount, usePWA } from '@/lib/hooks';
+import { useUnreadNotificationCount, useUnreadMessageCount, usePWA } from '@/lib/hooks';
 
 export default function TabsLayout() {
   const { isLoading, isAuthenticated } = useAuthStore();
-  const { data: unreadCount } = useUnreadNotificationCount();
+  const { data: unreadNotifCount } = useUnreadNotificationCount();
+  const { data: unreadMsgCount } = useUnreadMessageCount();
   const { setBadge } = usePWA();
 
   // 💎 DIAMOND: Update app badge when unread count changes
   useEffect(() => {
-    if (unreadCount !== undefined) {
-      setBadge(unreadCount);
+    if (unreadNotifCount !== undefined) {
+      setBadge(unreadNotifCount);
     }
-  }, [unreadCount, setBadge]);
+  }, [unreadNotifCount, setBadge]);
 
   // Show loading while checking auth
   if (isLoading) {
@@ -68,9 +69,18 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="messages"
+        options={{
+          tabBarIcon: ({ color, size }) => <MessageCircle size={size} color={color} />,
+          tabBarBadge:
+            unreadMsgCount && unreadMsgCount > 0 ? (unreadMsgCount > 99 ? '99+' : unreadMsgCount) : undefined,
+          tabBarBadgeStyle: { backgroundColor: '#10B981', fontSize: 10 },
+        }}
+      />
+      <Tabs.Screen
         name="compose"
         options={{
-          tabBarIcon: ({ color, size }) => <PlusSquare size={size} color={color} />,
+          href: null, // Hide from tab bar (accessed via FAB)
         }}
       />
       <Tabs.Screen
@@ -78,7 +88,7 @@ export default function TabsLayout() {
         options={{
           tabBarIcon: ({ color, size }) => <Bell size={size} color={color} />,
           tabBarBadge:
-            unreadCount && unreadCount > 0 ? (unreadCount > 99 ? '99+' : unreadCount) : undefined,
+            unreadNotifCount && unreadNotifCount > 0 ? (unreadNotifCount > 99 ? '99+' : unreadNotifCount) : undefined,
           tabBarBadgeStyle: { backgroundColor: '#EF4444', fontSize: 10 },
         }}
       />

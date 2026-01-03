@@ -15,6 +15,7 @@ import { useSearchUsers, useSuggestedUsers, useSearchPosts, useDebounce } from '
 import { useAuthStore } from '@/lib/stores';
 import { PostCard } from '@/components/Post';
 import { UserRow } from '@/components/Profile';
+import { ComposeFAB } from '@/components/ui';
 import type { AppBskyActorDefs, AppBskyFeedDefs } from '@atproto/api';
 
 type ProfileView = AppBskyActorDefs.ProfileView;
@@ -299,6 +300,9 @@ export default function SearchScreen() {
           contentContainerStyle={{ paddingBottom: 20 }}
         />
       )}
+
+      {/* Floating Compose Button */}
+      <ComposeFAB />
     </SafeAreaView>
   );
 }

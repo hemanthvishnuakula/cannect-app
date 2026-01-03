@@ -27,7 +27,7 @@ import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import * as Haptics from 'expo-haptics';
 import { useTimeline, useCannectFeed } from '@/lib/hooks';
 import { OfflineBanner } from '@/components/OfflineBanner';
-import { MediaViewer } from '@/components/ui/MediaViewer';
+import { MediaViewer, ComposeFAB } from '@/components/ui';
 import { PostCard, FeedSkeleton } from '@/components/Post';
 import type { AppBskyFeedDefs } from '@atproto/api';
 
@@ -316,6 +316,9 @@ export default function FeedScreen() {
         initialIndex={mediaViewerIndex}
         onClose={() => setMediaViewerVisible(false)}
       />
+
+      {/* Floating Compose Button */}
+      <ComposeFAB />
     </SafeAreaView>
   );
 }
