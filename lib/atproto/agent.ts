@@ -1065,57 +1065,51 @@ export async function uploadVideo(
   console.log('[Video] Uploading to:', uploadUrl.toString());
   console.log('[Video] Data size:', data.byteLength, 'bytes');
 
-  // Upload using XMLHttpRequest for progress tracking on web
-  return new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
+  // Try fetch API instead of XHR - may work better with HTTP/2
+  try {
+    onProgress?.(0);
     
-    xhr.upload.addEventListener('progress', (e) => {
-      if (e.lengthComputable) {
-        const progress = e.loaded / e.total;
-        onProgress?.(progress);
-        console.log('[Video] Upload progress:', Math.round(progress * 100) + '%');
-      }
+    const response = await fetch(uploadUrl.toString(), {
+      method: 'POST',
+      headers: {
+        'Content-Type': mimeType,
+        'Authorization': `Bearer ${token}`,
+      },
+      body: data,
     });
 
-    xhr.onloadend = () => {
-      if (xhr.readyState === 4) {
-        console.log('[Video] XHR completed, status:', xhr.status);
-        if (xhr.status >= 200 && xhr.status < 300) {
-          try {
-            const response = JSON.parse(xhr.responseText);
-            console.log('[Video] Upload response:', response);
-            if (response.jobId) {
-              resolve(response as VideoJobStatus);
-            } else if (response.jobStatus) {
-              resolve(response.jobStatus as VideoJobStatus);
-            } else {
-              reject(new Error(response.error || response.message || 'Upload failed - no job ID'));
-            }
-          } catch (e) {
-            reject(new Error('Failed to parse upload response'));
-          }
-        } else {
-          console.error('[Video] Upload failed:', xhr.status, xhr.responseText);
-          try {
-            const error = JSON.parse(xhr.responseText);
-            reject(new Error(error.message || error.error || `Upload failed: ${xhr.status}`));
-          } catch {
-            reject(new Error(`Upload failed: ${xhr.status}`));
-          }
+    console.log('[Video] Fetch response status:', response.status);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('[Video] Upload failed:', response.status, errorText);
+      try {
+        const error = JSON.parse(errorText);
+        throw new Error(error.message || error.error || `Upload failed: ${response.status}`);
+      } catch (e) {
+        if (e instanceof SyntaxError) {
+          throw new Error(`Upload failed: ${response.status} - ${errorText}`);
         }
+        throw e;
       }
-    };
+    }
 
-    xhr.onerror = () => {
-      console.error('[Video] XHR error - status:', xhr.status, 'readyState:', xhr.readyState);
-      reject(new Error('Network error during upload'));
-    };
-
-    xhr.open('POST', uploadUrl.toString());
-    xhr.setRequestHeader('Content-Type', mimeType);
-    xhr.setRequestHeader('Authorization', `Bearer ${token}`);
-    xhr.send(data);
-  });
+    onProgress?.(1);
+    
+    const result = await response.json();
+    console.log('[Video] Upload response:', result);
+    
+    if (result.jobId) {
+      return result as VideoJobStatus;
+    } else if (result.jobStatus) {
+      return result.jobStatus as VideoJobStatus;
+    } else {
+      throw new Error(result.error || result.message || 'Upload failed - no job ID');
+    }
+  } catch (error: any) {
+    console.error('[Video] Upload error:', error);
+    throw new Error(error.message || 'Network error during upload');
+  }
 }
 
 /**
