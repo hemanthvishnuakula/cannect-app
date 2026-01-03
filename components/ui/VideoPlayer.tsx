@@ -29,8 +29,6 @@ interface VideoPlayerProps {
   onFullscreen?: () => void;
   /** If true, video loads immediately. If false (default), shows thumbnail until tapped. */
   autoLoad?: boolean;
-  /** Fallback URL for PDS blob when HLS fails (for Cannect users' videos) */
-  fallbackUrl?: string;
 }
 
 export function VideoPlayer({
@@ -42,7 +40,6 @@ export function VideoPlayer({
   loop = true,
   onFullscreen,
   autoLoad = false, // Default to NOT loading video until user taps
-  fallbackUrl,
 }: VideoPlayerProps) {
   const videoRef = useRef<Video>(null);
   const [status, setStatus] = useState<AVPlaybackStatus | null>(null);
@@ -53,7 +50,6 @@ export function VideoPlayer({
   const [isMuted, setIsMuted] = useState(initialMuted);
   const [isMounted, setIsMounted] = useState(false);
   const [isVideoLoaded, setIsVideoLoaded] = useState(autoLoad); // Only load video when user taps
-  const [useFallback, setUseFallback] = useState(false); // Use fallback URL when HLS fails
 
   // Derived state (moved before hooks that depend on them)
   const isPlaying = status?.isLoaded && status.isPlaying;
@@ -225,9 +221,9 @@ export function VideoPlayer({
       {/* Video - autoplay since user explicitly tapped to load */}
       <Video
         ref={videoRef}
-        source={{ uri: useFallback && fallbackUrl ? fallbackUrl : url }}
+        source={{ uri: url }}
         posterSource={thumbnailUrl ? { uri: thumbnailUrl } : undefined}
-        usePoster={!!thumbnailUrl && !useFallback}
+        usePoster={!!thumbnailUrl}
         posterStyle={{ resizeMode: 'cover' }}
         style={StyleSheet.absoluteFill}
         resizeMode={ResizeMode.CONTAIN}
@@ -239,19 +235,9 @@ export function VideoPlayer({
           if (s.isLoaded) setIsLoading(false);
         }}
         onError={(error) => {
-          console.error('Video error:', error);
-          // If HLS fails and we have a fallback, try PDS blob
-          if (!useFallback && fallbackUrl) {
-            console.log('[VideoPlayer] HLS failed, trying PDS blob fallback');
-            setUseFallback(true);
-            setIsLoading(true);
-          } else if (useFallback) {
-            // Both HLS and PDS blob failed - video might still be processing
-            console.log('[VideoPlayer] Both URLs failed, video may be processing');
-            setIsProcessing(true);
-          } else {
-            setHasError(true);
-          }
+          console.log('[VideoPlayer] HLS not ready, video is processing');
+          // HLS not available yet = video still processing
+          setIsProcessing(true);
         }}
       />
 
