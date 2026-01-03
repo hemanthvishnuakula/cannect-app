@@ -8,12 +8,12 @@ import { View, Text, Pressable, RefreshControl, ActivityIndicator } from 'react-
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { FlashList } from '@shopify/flash-list';
 import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
-import { ArrowLeft } from 'lucide-react-native';
 import { useMemo, useCallback } from 'react';
 import { useProfile, useFollowing } from '@/lib/hooks';
 import { useAuthStore } from '@/lib/stores';
 import { UserRow } from '@/components/Profile';
 import { UserListSkeleton } from '@/components/skeletons';
+import { BackButton } from '@/components/ui';
 import type { AppBskyActorDefs } from '@atproto/api';
 
 type ProfileView = AppBskyActorDefs.ProfileView;
@@ -37,14 +37,6 @@ export default function FollowingScreen() {
     return followingQuery.data?.pages?.flatMap((page) => page.follows) || [];
   }, [followingQuery.data]);
 
-  const handleBack = () => {
-    if (router.canGoBack()) {
-      router.back();
-    } else {
-      router.replace(`/user/${handle}`);
-    }
-  };
-
   const handleUserPress = (user: ProfileView) => {
     router.push(`/user/${user.handle}`);
   };
@@ -63,11 +55,7 @@ export default function FollowingScreen() {
           headerTitle: 'Following',
           headerStyle: { backgroundColor: '#0A0A0A' },
           headerTintColor: '#FAFAFA',
-          headerLeft: () => (
-            <Pressable onPress={handleBack} className="p-2 -ml-2 active:opacity-70">
-              <ArrowLeft size={24} color="#FAFAFA" />
-            </Pressable>
-          ),
+          headerLeft: () => <BackButton fallbackRoute={`/user/${handle}`} />,
         }}
       />
 

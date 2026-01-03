@@ -8,11 +8,11 @@
 import { View, Text, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
-import { ArrowLeft } from 'lucide-react-native';
 import { useProfile } from '@/lib/hooks';
 import { useAuthStore } from '@/lib/stores';
 import { ProfileView } from '@/components/Profile/ProfileView';
 import { ProfileSkeleton } from '@/components/skeletons';
+import { BackButton } from '@/components/ui';
 
 export default function UserProfileScreen() {
   const { handle } = useLocalSearchParams<{ handle: string }>();
@@ -22,14 +22,6 @@ export default function UserProfileScreen() {
   const profileQuery = useProfile(handle || '');
   const profileData = profileQuery.data;
   const isOwnProfile = profileData?.did === myDid;
-
-  const handleBack = () => {
-    if (router.canGoBack()) {
-      router.back();
-    } else {
-      router.replace('/feed');
-    }
-  };
 
   // Loading state - only show skeleton on initial load, not refetch
   if (profileQuery.isLoading && !profileData) {
@@ -42,11 +34,7 @@ export default function UserProfileScreen() {
             headerStyle: { backgroundColor: '#0A0A0A' },
             headerTintColor: '#FAFAFA',
             contentStyle: { backgroundColor: '#0A0A0A' },
-            headerLeft: () => (
-              <Pressable onPress={handleBack} className="p-2 -ml-2 active:opacity-70">
-                <ArrowLeft size={24} color="#FAFAFA" />
-              </Pressable>
-            ),
+            headerLeft: () => <BackButton />,
           }}
         />
         <ProfileSkeleton />
@@ -65,11 +53,7 @@ export default function UserProfileScreen() {
             headerStyle: { backgroundColor: '#0A0A0A' },
             headerTintColor: '#FAFAFA',
             contentStyle: { backgroundColor: '#0A0A0A' },
-            headerLeft: () => (
-              <Pressable onPress={handleBack} className="p-2 -ml-2 active:opacity-70">
-                <ArrowLeft size={24} color="#FAFAFA" />
-              </Pressable>
-            ),
+            headerLeft: () => <BackButton />,
           }}
         />
         <View className="flex-1 items-center justify-center px-6">
@@ -95,11 +79,7 @@ export default function UserProfileScreen() {
           headerStyle: { backgroundColor: '#0A0A0A' },
           headerTintColor: '#FAFAFA',
           contentStyle: { backgroundColor: '#0A0A0A' },
-          headerLeft: () => (
-            <Pressable onPress={handleBack} className="p-2 -ml-2 active:opacity-70">
-              <ArrowLeft size={24} color="#FAFAFA" />
-            </Pressable>
-          ),
+          headerLeft: () => <BackButton />,
         }}
       />
 

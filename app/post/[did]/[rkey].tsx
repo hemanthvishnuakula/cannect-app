@@ -24,9 +24,10 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ArrowLeft, Send } from 'lucide-react-native';
+import { Send } from 'lucide-react-native';
 import { Image } from 'expo-image';
 import { ThreadPost, PostCard } from '@/components/Post';
+import { BackButton } from '@/components/ui';
 import { usePostThread, useCreatePost } from '@/lib/hooks';
 import { useAuthStore } from '@/lib/stores';
 import { getOptimizedAvatarUrl } from '@/lib/utils/avatar';
@@ -91,26 +92,6 @@ export default function PostDetailsScreen() {
     }
   }, []);
 
-  const handleBack = useCallback(() => {
-    triggerImpact('light');
-    
-    // On web, check history length directly for more reliability
-    if (Platform.OS === 'web') {
-      if (typeof window !== 'undefined' && window.history.length > 1) {
-        router.back();
-      } else {
-        router.replace('/feed');
-      }
-    } else {
-      // Native - use router.canGoBack()
-      if (router.canGoBack()) {
-        router.back();
-      } else {
-        router.replace('/feed');
-      }
-    }
-  }, [router]);
-
   const handleQuickReply = useCallback(async () => {
     if (!thread?.post || !replyText.trim() || isSubmitting) return;
 
@@ -158,15 +139,7 @@ export default function PostDetailsScreen() {
             headerStyle: { backgroundColor: '#0A0A0A' },
             headerTintColor: '#FAFAFA',
             contentStyle: { backgroundColor: '#0A0A0A' },
-            headerLeft: () => (
-              <Pressable
-                onPress={handleBack}
-                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1, padding: 8, marginLeft: -8 })}
-              >
-                <ArrowLeft size={24} color="#FAFAFA" />
-              </Pressable>
-            ),
+            headerLeft: () => <BackButton />,
           }}
         />
         <View className="flex-1 items-center justify-center">
@@ -187,15 +160,7 @@ export default function PostDetailsScreen() {
             headerStyle: { backgroundColor: '#0A0A0A' },
             headerTintColor: '#FAFAFA',
             contentStyle: { backgroundColor: '#0A0A0A' },
-            headerLeft: () => (
-              <Pressable
-                onPress={handleBack}
-                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1, padding: 8, marginLeft: -8 })}
-              >
-                <ArrowLeft size={24} color="#FAFAFA" />
-              </Pressable>
-            ),
+            headerLeft: () => <BackButton />,
           }}
         />
         <View className="flex-1 items-center justify-center px-6">
@@ -231,15 +196,7 @@ export default function PostDetailsScreen() {
           headerStyle: { backgroundColor: '#0A0A0A' },
           headerTintColor: '#FAFAFA',
           contentStyle: { backgroundColor: '#0A0A0A' },
-          headerLeft: () => (
-            <Pressable
-              onPress={handleBack}
-              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-              style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1, padding: 8, marginLeft: -8 })}
-            >
-              <ArrowLeft size={24} color="#FAFAFA" />
-            </Pressable>
-          ),
+          headerLeft: () => <BackButton />,
         }}
       />
       <ScrollView

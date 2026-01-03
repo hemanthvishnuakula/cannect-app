@@ -1,4 +1,5 @@
 export { Avatar } from './Avatar';
+export { BackButton } from './BackButton';
 export { Button } from './Button';
 export { Loading } from './Loading';
 export { Tabs, TabsList, TabsTrigger, TabsContent } from './Tabs';
