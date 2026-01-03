@@ -878,6 +878,16 @@ export async function getCannectFeed(cursor?: string, limit = 50) {
       limit,
     });
 
+    // DEBUG: Log first post's viewer state
+    if (result.data.feed.length > 0) {
+      const firstPost = result.data.feed[0];
+      console.log('[getCannectFeed DEBUG] First post viewer:', {
+        uri: firstPost.post.uri.slice(-30),
+        viewer: firstPost.post.viewer,
+        hasSession: !!bskyAgent.session,
+      });
+    }
+
     return {
       data: {
         feed: result.data.feed,
