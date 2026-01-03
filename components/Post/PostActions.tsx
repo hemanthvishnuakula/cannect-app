@@ -326,8 +326,8 @@ export const PostActions = memo(function PostActions({
     }
   }, [post.uri, post.cid]);
 
-  // Icon sizes based on variant (20px min for better tap targets)
-  const iconSize = variant === 'compact' ? 20 : 22;
+  // Icon sizes based on variant (smaller to not compete with author name)
+  const iconSize = variant === 'compact' ? 18 : 20;
 
   // Shared hitSlop for all buttons
   const buttonHitSlop = { top: 12, bottom: 12, left: 12, right: 12 };
