@@ -1075,7 +1075,12 @@ async function chatRequest(
   if (method === 'GET' && params) {
     Object.entries(params).forEach(([key, value]) => {
       if (value !== undefined) {
-        url.searchParams.append(key, String(value));
+        // Handle arrays (e.g., members=[did1, did2] -> members=did1&members=did2)
+        if (Array.isArray(value)) {
+          value.forEach((v) => url.searchParams.append(key, String(v)));
+        } else {
+          url.searchParams.append(key, String(value));
+        }
       }
     });
   }
@@ -1129,7 +1134,7 @@ export async function getMessages(convoId: string, cursor?: string, limit: numbe
  */
 export async function getConvoForMembers(members: string[]) {
   return chatRequest('GET', 'chat.bsky.convo.getConvoForMembers', {
-    members: members.join(','),
+    members: members, // Pass as array, chatRequest will handle it
   });
 }
 
