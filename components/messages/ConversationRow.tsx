@@ -10,7 +10,8 @@
 
 import { View, Text, Pressable } from 'react-native';
 import { Image } from 'expo-image';
-import { getAvatarWithFallback } from '@/lib/utils/avatar';
+import { useState } from 'react';
+import { getOptimizedAvatarWithFallback, getFallbackAvatarUrl } from '@/lib/utils/avatar';
 import { formatConversationTime } from '@/lib/utils/date';
 import * as atproto from '@/lib/atproto/agent';
 import type { Conversation } from '@/lib/hooks';
@@ -22,6 +23,7 @@ export interface ConversationRowProps {
 
 export function ConversationRow({ conversation, onPress }: ConversationRowProps) {
   const session = atproto.getSession();
+  const [avatarError, setAvatarError] = useState(false);
 
   // Get the OTHER member (not current user)
   const otherMember =
@@ -33,6 +35,11 @@ export function ConversationRow({ conversation, onPress }: ConversationRowProps)
   const lastMessage = conversation.lastMessage;
   const hasUnread = conversation.unreadCount > 0;
 
+  // Use fallback if avatar fails to load or is missing
+  const avatarUrl = avatarError
+    ? getFallbackAvatarUrl(displayName)
+    : getOptimizedAvatarWithFallback(avatar, displayName, 52);
+
   return (
     <View className="border-b border-border">
       <Pressable
@@ -40,10 +47,11 @@ export function ConversationRow({ conversation, onPress }: ConversationRowProps)
         className={`flex-row items-center px-4 py-3 bg-background ${hasUnread ? 'bg-primary/5' : ''}`}
       >
         <Image
-          source={{ uri: getAvatarWithFallback(avatar, displayName) }}
+          source={{ uri: avatarUrl }}
           style={{ width: 52, height: 52, borderRadius: 26 }}
           contentFit="cover"
           cachePolicy="memory-disk"
+          onError={() => setAvatarError(true)}
         />
         <View className="flex-1 ml-3">
           <View className="flex-row items-center justify-between">

@@ -32,7 +32,7 @@ import {
   useDeleteMessage,
   type ChatMessage,
 } from '@/lib/hooks';
-import { getAvatarWithFallback } from '@/lib/utils/avatar';
+import { getOptimizedAvatarWithFallback } from '@/lib/utils/avatar';
 import { triggerImpact } from '@/lib/utils/haptics';
 import * as atproto from '@/lib/atproto/agent';
 
@@ -384,7 +384,7 @@ export default function ChatScreen() {
             <View className="items-center justify-center py-8">
               <View className="w-20 h-20 rounded-full bg-surface-elevated items-center justify-center mb-4">
                 <Image
-                  source={{ uri: getAvatarWithFallback(avatar, displayName) }}
+                  source={{ uri: getOptimizedAvatarWithFallback(avatar, displayName, 60) }}
                   style={{ width: 60, height: 60, borderRadius: 30 }}
                   contentFit="cover"
                   cachePolicy="memory-disk"
@@ -472,7 +472,7 @@ function ChatHeader({
         className="flex-row items-center flex-1 active:opacity-70"
       >
         <Image
-          source={{ uri: getAvatarWithFallback(avatar, displayName) }}
+          source={{ uri: getOptimizedAvatarWithFallback(avatar, displayName, 40) }}
           style={{ width: 40, height: 40, borderRadius: 20 }}
           contentFit="cover"
           cachePolicy="memory-disk"
