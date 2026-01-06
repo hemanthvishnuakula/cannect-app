@@ -35,6 +35,7 @@ import {
 } from 'lucide-react-native';
 import { memo, useCallback, useState } from 'react';
 import * as Clipboard from 'expo-clipboard';
+import * as Haptics from 'expo-haptics';
 import { triggerImpact } from '@/lib/utils/haptics';
 import {
   useLikePost,
@@ -257,11 +258,45 @@ export const PostActions = memo(function PostActions({
     setOptionsMenuVisible(false);
   }, [getPostUrl, post.author.handle, record.text]);
 
-  // Delete post
+  // Delete post with confirmation
   const handleDelete = useCallback(() => {
     triggerHaptic(Haptics.ImpactFeedbackStyle.Heavy);
     setOptionsMenuVisible(false);
-    deletePostMutation.mutate(post.uri);
+    
+    const performDelete = async () => {
+      try {
+        await deletePostMutation.mutateAsync(post.uri);
+        if (Platform.OS === 'web') {
+          // Optional: Could show a success toast here
+        } else {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        }
+      } catch (error: any) {
+        console.error('[Delete] Failed to delete post:', error);
+        const message = error?.message || 'Failed to delete post. Please try again.';
+        if (Platform.OS === 'web') {
+          window.alert(message);
+        } else {
+          Alert.alert('Error', message);
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        }
+      }
+    };
+    
+    if (Platform.OS === 'web') {
+      if (window.confirm('Delete this post? This cannot be undone.')) {
+        performDelete();
+      }
+    } else {
+      Alert.alert(
+        'Delete Post',
+        'Are you sure you want to delete this post? This cannot be undone.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Delete', style: 'destructive', onPress: performDelete },
+        ]
+      );
+    }
   }, [post.uri, deletePostMutation]);
 
   // Report post

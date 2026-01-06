@@ -11,11 +11,11 @@
  */
 
 import { useCallback } from 'react';
-import { View, Text, Pressable, ActivityIndicator } from 'react-native';
+import { View, Text, Pressable, ActivityIndicator, Platform, Alert } from 'react-native';
 import { UserPlus, UserMinus, Check } from 'lucide-react-native';
 import { useFollow, useUnfollow } from '@/lib/hooks';
 import { useAuthStore } from '@/lib/stores/auth-store-atp';
-import { triggerImpact } from '@/lib/utils/haptics';
+import { triggerImpact, triggerNotification } from '@/lib/utils/haptics';
 import type { AppBskyActorDefs } from '@atproto/api';
 
 type ProfileView = AppBskyActorDefs.ProfileView;
@@ -70,8 +70,18 @@ export function FollowButton({
         await followMutation.mutateAsync(profile.did);
         onFollow?.();
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Follow action failed:', error);
+      triggerNotification('error');
+      
+      const action = isFollowing ? 'unfollow' : 'follow';
+      const message = error?.message || `Failed to ${action} user. Please try again.`;
+      
+      if (Platform.OS === 'web') {
+        window.alert(message);
+      } else {
+        Alert.alert('Error', message);
+      }
     }
   }, [
     isFollowing,
