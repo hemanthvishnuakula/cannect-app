@@ -246,6 +246,19 @@ export async function createAccount(opts: {
     inviteCode: opts.inviteCode,
   });
 
+  // Create initial profile record so AppView can properly index the user
+  // Without this, users won't appear in feeds and searches
+  try {
+    await bskyAgent.upsertProfile((existing) => ({
+      ...existing,
+      displayName: opts.handle, // Use username as initial display name
+    }));
+    console.log('[Agent] Created initial profile record for new user');
+  } catch (profileError) {
+    // Log but don't fail registration if profile creation fails
+    console.warn('[Agent] Failed to create initial profile:', profileError);
+  }
+
   return {
     did: result.data.did,
     handle: result.data.handle,
