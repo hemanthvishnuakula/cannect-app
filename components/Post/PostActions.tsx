@@ -35,8 +35,7 @@ import {
 } from 'lucide-react-native';
 import { memo, useCallback, useState } from 'react';
 import * as Clipboard from 'expo-clipboard';
-import * as Haptics from 'expo-haptics';
-import { triggerImpact } from '@/lib/utils/haptics';
+import { triggerImpact, triggerNotification } from '@/lib/utils/haptics';
 import {
   useLikePost,
   useUnlikePost,
@@ -155,7 +154,7 @@ export const PostActions = memo(function PostActions({
   const handleRepost = useCallback(async () => {
     // Prevent double-tap: check both local and mutation pending state
     if (isRepostLoading || repostMutation.isPending || unrepostMutation.isPending) return;
-    triggerHaptic(Haptics.ImpactFeedbackStyle.Medium);
+    triggerHaptic('medium');
     setIsRepostLoading(true);
     setRepostMenuVisible(false);
 
@@ -260,25 +259,21 @@ export const PostActions = memo(function PostActions({
 
   // Delete post with confirmation
   const handleDelete = useCallback(() => {
-    triggerHaptic(Haptics.ImpactFeedbackStyle.Heavy);
+    triggerHaptic('heavy');
     setOptionsMenuVisible(false);
     
     const performDelete = async () => {
       try {
         await deletePostMutation.mutateAsync(post.uri);
-        if (Platform.OS === 'web') {
-          // Optional: Could show a success toast here
-        } else {
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        }
+        triggerNotification('success');
       } catch (error: any) {
         console.error('[Delete] Failed to delete post:', error);
         const message = error?.message || 'Failed to delete post. Please try again.';
+        triggerNotification('error');
         if (Platform.OS === 'web') {
           window.alert(message);
         } else {
           Alert.alert('Error', message);
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
         }
       }
     };
