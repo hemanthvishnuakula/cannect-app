@@ -84,8 +84,8 @@ async function cleanup() {
 
       const authorHandle = post.author?.handle || '';
 
-      // Skip cannect.space users - always keep
-      if (authorHandle.endsWith('.cannect.space')) {
+      // Skip Cannect users - always keep
+      if (authorHandle.endsWith('.cannect.space') || authorHandle.endsWith('.pds.cannect.space')) {
         cannectUsers.push(dbPost.uri);
         toKeep.push({ uri: dbPost.uri, reason: 'cannect_user' });
         continue;

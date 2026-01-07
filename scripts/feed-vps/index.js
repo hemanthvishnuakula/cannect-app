@@ -27,36 +27,44 @@ const { verifyWithAI } = require('./ai-filter');
 const PORT = process.env.FEEDGEN_PORT || 3000;
 const HOSTNAME = process.env.FEEDGEN_HOSTNAME || 'feed.cannect.space';
 const PUBLISHER_DID = process.env.FEEDGEN_PUBLISHER_DID;
-const CANNECT_PDS_URL = 'https://cannect.space';
+const CANNECT_PDS_URLS = [
+  'https://cannect.space',
+  'https://pds.cannect.space'
+];
 
 // =============================================================================
-// Cannect.space User DID Cache
+// Cannect User DID Cache
 // =============================================================================
 
-// Set of DIDs that belong to cannect.space users
+// Set of DIDs that belong to Cannect users (from all PDSes)
 const cannectUserDIDs = new Set();
 
 async function refreshCannectUsers() {
   try {
-    console.log('[Users] Fetching cannect.space users...');
-    const response = await fetch(`${CANNECT_PDS_URL}/xrpc/com.atproto.sync.listRepos?limit=1000`);
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
-    }
-    const data = await response.json();
-
+    console.log('[Users] Fetching users from all Cannect PDSes...');
     const oldCount = cannectUserDIDs.size;
     cannectUserDIDs.clear();
 
-    for (const repo of data.repos || []) {
-      if (repo.did) {
-        cannectUserDIDs.add(repo.did);
+    for (const pdsUrl of CANNECT_PDS_URLS) {
+      try {
+        const response = await fetch(`${pdsUrl}/xrpc/com.atproto.sync.listRepos?limit=1000`);
+        if (!response.ok) {
+          console.warn(`[Users] Failed to fetch from ${pdsUrl}: HTTP ${response.status}`);
+          continue;
+        }
+        const data = await response.json();
+        for (const repo of data.repos || []) {
+          if (repo.did) cannectUserDIDs.add(repo.did);
+        }
+        console.log(`[Users] Loaded from ${pdsUrl}: ${data.repos?.length || 0} users`);
+      } catch (err) {
+        console.warn(`[Users] Failed to fetch from ${pdsUrl}:`, err.message);
       }
     }
 
-    console.log(`[Users] Loaded ${cannectUserDIDs.size} cannect.space users (was ${oldCount})`);
+    console.log(`[Users] Total: ${cannectUserDIDs.size} Cannect users (was ${oldCount})`);
   } catch (err) {
-    console.error('[Users] Failed to fetch cannect.space users:', err.message);
+    console.error('[Users] Failed to fetch users:', err.message);
   }
 }
 
@@ -111,6 +119,7 @@ app.use((req, res, next) => {
     'https://cannect-vps-proxy.vercel.app',
     'https://cannect-proxy.vercel.app',
     'https://cannect.space',
+    'https://pds.cannect.space',
     'http://localhost:8081',
     'http://localhost:19006',
   ];

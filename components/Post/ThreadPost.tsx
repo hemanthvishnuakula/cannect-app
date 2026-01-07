@@ -56,8 +56,8 @@ export function ThreadPost({ post, onImagePress }: ThreadPostProps) {
     router.push(`/user/${author.handle}`);
   };
 
-  // Check if cannect.space user
-  const isCannectUser = author.handle.endsWith('.cannect.space');
+  // Check if cannect.space or pds.cannect.space user
+  const isCannectUser = author.handle.endsWith('.cannect.space') || author.handle.endsWith('.pds.cannect.space');
 
   // Truncate long handles
   const displayHandle =

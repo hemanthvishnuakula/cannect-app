@@ -454,8 +454,8 @@ function calculateContextScore(text) {
  * @returns {{ include: boolean, reason: string, needsAI?: boolean }}
  */
 function shouldIncludePost(authorHandle, text) {
-  // Rule 1: Always include cannect.space users (no AI needed - trusted users)
-  if (authorHandle && authorHandle.endsWith('.cannect.space')) {
+  // Rule 1: Always include Cannect users (no AI needed - trusted users)
+  if (authorHandle && (authorHandle.endsWith('.cannect.space') || authorHandle.endsWith('.pds.cannect.space'))) {
     return { include: true, reason: 'cannect_user', needsAI: false };
   }
 

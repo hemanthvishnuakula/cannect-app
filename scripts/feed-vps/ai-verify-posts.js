@@ -161,8 +161,8 @@ async function main() {
         continue;
       }
       
-      // Skip cannect.space users - they're always valid
-      if (post.author_handle?.endsWith('.cannect.space')) {
+      // Skip Cannect users - they're always valid
+      if (post.author_handle?.endsWith('.cannect.space') || post.author_handle?.endsWith('.pds.cannect.space')) {
         console.log(`[${checked}/${posts.length}] CANNECT USER: @${post.author_handle}`);
         truePositives.push({ uri: post.uri, text, reason: 'cannect_user' });
         continue;

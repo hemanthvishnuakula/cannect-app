@@ -190,7 +190,7 @@ export function PostCard({
                 {author.displayName || author.handle}
               </Text>
               {/* Network badge - cannect (green) or global */}
-              {author.handle.endsWith('.cannect.space') ? (
+              {(author.handle.endsWith('.cannect.space') || author.handle.endsWith('.pds.cannect.space')) ? (
                 <View className="ml-2 px-2 py-0.5 rounded-full bg-primary/20 flex-shrink-0">
                   <Text className="text-primary text-xs font-medium">cannect</Text>
                 </View>

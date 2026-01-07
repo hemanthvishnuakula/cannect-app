@@ -20,6 +20,7 @@ const CACHE_BYPASS_PATTERNS = [
   'bsky.network',
   'bsky.app',
   'cannect.space/xrpc',
+  'pds.cannect.space/xrpc',
   'cloudflare',
   'imagedelivery.net',
   'videodelivery.net',

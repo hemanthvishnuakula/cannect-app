@@ -169,7 +169,11 @@ export async function sharePost(post: {
   uri: string;
   authorHandle: string;
 }): Promise<boolean> {
-  const postUrl = `https://cannect.space/post/${post.uri.split('/').pop()}`;
+  // Use appropriate domain based on user's PDS
+  const domain = post.authorHandle.endsWith('.pds.cannect.space')
+    ? 'pds.cannect.space'
+    : 'cannect.space';
+  const postUrl = `https://${domain}/post/${post.uri.split('/').pop()}`;
 
   return share({
     title: `Post by @${post.authorHandle}`,

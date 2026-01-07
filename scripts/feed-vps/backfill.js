@@ -1,8 +1,8 @@
 /**
- * Backfill Script - Import old posts from cannect.space users
+ * Backfill Script - Import old posts from Cannect users
  *
  * This script:
- * 1. Fetches all cannect.space users from the PDS
+ * 1. Fetches all Cannect users from both PDSes
  * 2. For each user, fetches their recent posts
  * 3. Inserts them into the feed database (safe - uses INSERT OR REPLACE)
  *
@@ -11,22 +11,35 @@
 
 const db = require('./db');
 
-const CANNECT_PDS_URL = 'https://cannect.space';
+const CANNECT_PDS_URLS = [
+  'https://cannect.space',
+  'https://pds.cannect.space'
+];
 const POSTS_PER_USER = 100; // Max posts to fetch per user
 
 async function getCannectUsers() {
-  console.log('[Backfill] Fetching cannect.space users...');
-
-  const response = await fetch(`${CANNECT_PDS_URL}/xrpc/com.atproto.sync.listRepos?limit=1000`);
-  if (!response.ok) {
-    throw new Error(`Failed to fetch users: HTTP ${response.status}`);
+  console.log('[Backfill] Fetching users from all Cannect PDSes...');
+  
+  const allUsers = [];
+  
+  for (const pdsUrl of CANNECT_PDS_URLS) {
+    try {
+      const response = await fetch(`${pdsUrl}/xrpc/com.atproto.sync.listRepos?limit=1000`);
+      if (!response.ok) {
+        console.warn(`[Backfill] Failed to fetch from ${pdsUrl}: HTTP ${response.status}`);
+        continue;
+      }
+      const data = await response.json();
+      const users = data.repos || [];
+      console.log(`[Backfill] Found ${users.length} users on ${pdsUrl}`);
+      allUsers.push(...users);
+    } catch (err) {
+      console.warn(`[Backfill] Error fetching from ${pdsUrl}:`, err.message);
+    }
   }
 
-  const data = await response.json();
-  const users = data.repos || [];
-
-  console.log(`[Backfill] Found ${users.length} users`);
-  return users;
+  console.log(`[Backfill] Total: ${allUsers.length} users`);
+  return allUsers;
 }
 
 async function getUserPosts(did) {
