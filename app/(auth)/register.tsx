@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { Link, router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ArrowLeft, Mail, Lock, Eye, EyeOff, Globe, User } from 'lucide-react-native';
+import { ArrowLeft, Mail, Lock, Eye, EyeOff, User } from 'lucide-react-native';
 import { useCreateAccount } from '@/lib/hooks';
 
 export default function RegisterScreen() {
@@ -90,16 +90,7 @@ export default function RegisterScreen() {
 
           <View className="flex-1 px-6 pt-8">
             <Text className="text-3xl font-bold text-text-primary mb-2">Create Account</Text>
-            <Text className="text-text-secondary mb-4 text-base">Join Cannect today</Text>
-
-            {/* PDS info badge */}
-            <View className="flex-row items-center bg-primary/10 border border-primary/30 rounded-xl px-4 py-3 mb-6">
-              <Globe size={16} color="#10B981" />
-              <Text className="text-text-secondary text-sm ml-2 flex-1">
-                Your account is on <Text className="text-primary font-semibold">cannect.space</Text>{' '}
-                PDS
-              </Text>
-            </View>
+            <Text className="text-text-secondary mb-8 text-base">Join Cannect today</Text>
 
             {error && (
               <View className="bg-accent-error/20 border border-accent-error/50 rounded-xl p-4 mb-6">
@@ -134,7 +125,6 @@ export default function RegisterScreen() {
                   autoCorrect={false}
                   className="flex-1 py-4 px-3 text-text-primary text-base"
                 />
-                <Text className="text-text-muted text-sm">.cannect.space</Text>
               </View>
 
               {/* Email */}
