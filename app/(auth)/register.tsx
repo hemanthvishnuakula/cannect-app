@@ -162,10 +162,6 @@ export default function RegisterScreen() {
                 </Pressable>
               </View>
             </View>
-
-            <Text className="text-text-muted text-xs mt-4 text-center">
-              Your handle will be @{username || 'username'}.cannect.space
-            </Text>
           </View>
 
           <View className="px-6 pb-8">
