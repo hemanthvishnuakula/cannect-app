@@ -237,3 +237,40 @@ export function useIsAuthenticated() {
   const { isAuthenticated, isLoading } = useAuthStore();
   return { isAuthenticated, isLoading };
 }
+
+/**
+ * Check if an email exists on the legacy PDS (cannect.space)
+ * Used to prevent duplicate accounts when user already has an account on old PDS
+ */
+export async function checkEmailExistsOnLegacyPds(email: string): Promise<boolean> {
+  try {
+    // Try to request password reset - if it succeeds or gives specific error, email exists
+    const response = await fetch('https://cannect.space/xrpc/com.atproto.server.requestPasswordReset', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+    
+    // 200 = email exists and reset email sent
+    // 400 with "Account not found" = email doesn't exist
+    if (response.ok) {
+      return true; // Email exists
+    }
+    
+    const data = await response.json().catch(() => ({}));
+    // If we get "Account not found" or similar, the email doesn't exist
+    if (data.message?.toLowerCase().includes('not found') || 
+        data.message?.toLowerCase().includes('no account')) {
+      return false;
+    }
+    
+    // For other errors (rate limit, etc), assume email might exist to be safe
+    // But don't block registration for transient errors
+    console.warn('[checkEmailExistsOnLegacyPds] Unexpected response:', data);
+    return false;
+  } catch (err) {
+    console.warn('[checkEmailExistsOnLegacyPds] Error checking email:', err);
+    // On network error, don't block registration
+    return false;
+  }
+}

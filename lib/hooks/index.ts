@@ -13,6 +13,7 @@ export {
   useCreateAccount,
   useCurrentDid,
   useIsAuthenticated,
+  checkEmailExistsOnLegacyPds,
 } from './use-atp-auth';
 
 // Feed & Posts

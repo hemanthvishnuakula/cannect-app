@@ -12,7 +12,7 @@ import {
 import { Link, router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft, Mail, Lock, Eye, EyeOff, User } from 'lucide-react-native';
-import { useCreateAccount } from '@/lib/hooks';
+import { useCreateAccount, checkEmailExistsOnLegacyPds } from '@/lib/hooks';
 
 export default function RegisterScreen() {
   const [displayName, setDisplayName] = useState('');
@@ -21,6 +21,7 @@ export default function RegisterScreen() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isChecking, setIsChecking] = useState(false);
 
   const createAccount = useCreateAccount();
 
@@ -45,6 +46,16 @@ export default function RegisterScreen() {
     }
 
     try {
+      // Check if email exists on legacy PDS first
+      setIsChecking(true);
+      const existsOnLegacy = await checkEmailExistsOnLegacyPds(email);
+      setIsChecking(false);
+      
+      if (existsOnLegacy) {
+        setError('An account with this email already exists. Please sign in instead.');
+        return;
+      }
+
       await createAccount.mutateAsync({
         email,
         password,
@@ -167,10 +178,10 @@ export default function RegisterScreen() {
           <View className="px-6 pb-8">
             <Pressable
               onPress={handleRegister}
-              disabled={createAccount.isPending}
-              className={`py-4 rounded-2xl bg-primary ${createAccount.isPending ? 'opacity-50' : ''}`}
+              disabled={createAccount.isPending || isChecking}
+              className={`py-4 rounded-2xl bg-primary ${createAccount.isPending || isChecking ? 'opacity-50' : ''}`}
             >
-              {createAccount.isPending ? (
+              {createAccount.isPending || isChecking ? (
                 <ActivityIndicator color="#fff" />
               ) : (
                 <Text className="text-white text-center font-semibold text-lg">Create Account</Text>
