@@ -678,11 +678,26 @@ function isCannectUser(handle: string): boolean {
 }
 
 /**
+ * Get the PDS URL for a Cannect user based on their handle
+ * - user.pds.cannect.space -> https://pds.cannect.space
+ * - user.cannect.space -> https://cannect.space (legacy)
+ */
+function getPdsUrlForHandle(handle: string): string {
+  if (handle.endsWith('.pds.cannect.space')) {
+    return PDS_SERVICE; // https://pds.cannect.space
+  }
+  return PDS_SERVICE_LEGACY; // https://cannect.space
+}
+
+/**
  * Fetch profile record directly from PDS for Cannect users
  * This ensures users see their own profile updates immediately
  * even if the Bluesky relay hasn't synced yet
  */
-async function getProfileFromPds(did: string): Promise<{
+async function getProfileFromPds(
+  did: string,
+  pdsUrl: string
+): Promise<{
   displayName?: string;
   description?: string;
   avatar?: { ref: { $link: string }; mimeType: string };
@@ -690,7 +705,7 @@ async function getProfileFromPds(did: string): Promise<{
 } | null> {
   try {
     const response = await fetch(
-      `${PDS_SERVICE}/xrpc/com.atproto.repo.getRecord?repo=${encodeURIComponent(did)}&collection=app.bsky.actor.profile&rkey=self`
+      `${pdsUrl}/xrpc/com.atproto.repo.getRecord?repo=${encodeURIComponent(did)}&collection=app.bsky.actor.profile&rkey=self`
     );
 
     if (!response.ok) {
@@ -719,7 +734,8 @@ export async function getProfile(actor: string) {
   const handle = result.data.handle || actor;
   if (isCannectUser(handle)) {
     const did = result.data.did;
-    const pdsProfile = await getProfileFromPds(did);
+    const pdsUrl = getPdsUrlForHandle(handle);
+    const pdsProfile = await getProfileFromPds(did, pdsUrl);
 
     if (pdsProfile) {
       // Merge PDS data into the result, preferring PDS values for profile fields
@@ -730,12 +746,12 @@ export async function getProfile(actor: string) {
       if (pdsProfile.description !== undefined) {
         result.data.description = pdsProfile.description;
       }
-      // For avatar/banner, construct the blob URL from PDS
+      // For avatar/banner, construct the blob URL from the correct PDS
       if (pdsProfile.avatar?.ref?.$link) {
-        result.data.avatar = `${PDS_SERVICE}/xrpc/com.atproto.sync.getBlob?did=${encodeURIComponent(did)}&cid=${pdsProfile.avatar.ref.$link}`;
+        result.data.avatar = `${pdsUrl}/xrpc/com.atproto.sync.getBlob?did=${encodeURIComponent(did)}&cid=${pdsProfile.avatar.ref.$link}`;
       }
       if (pdsProfile.banner?.ref?.$link) {
-        result.data.banner = `${PDS_SERVICE}/xrpc/com.atproto.sync.getBlob?did=${encodeURIComponent(did)}&cid=${pdsProfile.banner.ref.$link}`;
+        result.data.banner = `${pdsUrl}/xrpc/com.atproto.sync.getBlob?did=${encodeURIComponent(did)}&cid=${pdsProfile.banner.ref.$link}`;
       }
       console.log('[getProfile] Merged PDS data for Cannect user:', did.substring(0, 20));
     }
@@ -832,7 +848,8 @@ export async function getProfiles(dids: string[]) {
           isCannectUser(profile.handle) &&
           (profile.avatar || profile.banner || profile.displayName)
         ) {
-          const pdsProfile = await getProfileFromPds(profile.did);
+          const pdsUrl = getPdsUrlForHandle(profile.handle);
+          const pdsProfile = await getProfileFromPds(profile.did, pdsUrl);
           if (pdsProfile) {
             // Merge PDS data
             if (pdsProfile.displayName !== undefined) {
@@ -842,10 +859,10 @@ export async function getProfiles(dids: string[]) {
               profile.description = pdsProfile.description;
             }
             if (pdsProfile.avatar?.ref?.$link) {
-              profile.avatar = `${PDS_SERVICE}/xrpc/com.atproto.sync.getBlob?did=${encodeURIComponent(profile.did)}&cid=${pdsProfile.avatar.ref.$link}`;
+              profile.avatar = `${pdsUrl}/xrpc/com.atproto.sync.getBlob?did=${encodeURIComponent(profile.did)}&cid=${pdsProfile.avatar.ref.$link}`;
             }
             if (pdsProfile.banner?.ref?.$link) {
-              profile.banner = `${PDS_SERVICE}/xrpc/com.atproto.sync.getBlob?did=${encodeURIComponent(profile.did)}&cid=${pdsProfile.banner.ref.$link}`;
+              profile.banner = `${pdsUrl}/xrpc/com.atproto.sync.getBlob?did=${encodeURIComponent(profile.did)}&cid=${pdsProfile.banner.ref.$link}`;
             }
           }
         }
