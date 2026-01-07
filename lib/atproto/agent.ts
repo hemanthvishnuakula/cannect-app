@@ -13,11 +13,82 @@ import { Platform } from 'react-native';
 // Storage keys
 const SESSION_KEY = 'atproto_session';
 
-// Cannect's own PDS
+// Cannect's PDS endpoints
 const PDS_SERVICE = 'https://cannect.space';
+const PDS_SERVICE_NEW = 'https://pds.cannect.space';
 
 // Bluesky AppView for content hydration
 const _BSKY_APPVIEW = 'https://public.api.bsky.app';
+
+/**
+ * Resolve a user's PDS endpoint from their handle or DID
+ * This is needed for users who have migrated between PDS instances
+ */
+async function resolvePdsEndpoint(identifier: string): Promise<string> {
+  try {
+    // If it's an email, we can't resolve - try default PDS first
+    if (identifier.includes('@') && !identifier.includes('.cannect.space')) {
+      return PDS_SERVICE;
+    }
+
+    // Determine which PDS to query based on handle suffix
+    if (identifier.endsWith('.pds.cannect.space')) {
+      return PDS_SERVICE_NEW;
+    }
+
+    // For handles like user.cannect.space or DIDs, resolve via PLC directory
+    let did = identifier;
+    if (!identifier.startsWith('did:')) {
+      // Resolve handle to DID first
+      const handle = identifier.includes('.') ? identifier : `${identifier}.cannect.space`;
+      try {
+        const resolveResp = await fetch(
+          `https://plc.directory/${encodeURIComponent(handle)}/.well-known/atproto-did`
+        );
+        if (!resolveResp.ok) {
+          // Try resolving via the PDS
+          const pdsResolve = await fetch(
+            `${PDS_SERVICE}/xrpc/com.atproto.identity.resolveHandle?handle=${encodeURIComponent(handle)}`
+          );
+          if (pdsResolve.ok) {
+            const data = await pdsResolve.json();
+            did = data.did;
+          } else {
+            // Try new PDS
+            const newPdsResolve = await fetch(
+              `${PDS_SERVICE_NEW}/xrpc/com.atproto.identity.resolveHandle?handle=${encodeURIComponent(handle)}`
+            );
+            if (newPdsResolve.ok) {
+              const data = await newPdsResolve.json();
+              did = data.did;
+            } else {
+              return PDS_SERVICE; // Default
+            }
+          }
+        }
+      } catch {
+        return PDS_SERVICE; // Default on error
+      }
+    }
+
+    // Now resolve DID to get PDS endpoint
+    if (did.startsWith('did:plc:')) {
+      const plcResp = await fetch(`https://plc.directory/${did}`);
+      if (plcResp.ok) {
+        const plcDoc = await plcResp.json();
+        const pdsService = plcDoc.service?.find((s: any) => s.id === '#atproto_pds');
+        if (pdsService?.serviceEndpoint) {
+          console.log('[Agent] Resolved PDS endpoint:', pdsService.serviceEndpoint);
+          return pdsService.serviceEndpoint;
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('[Agent] Failed to resolve PDS endpoint:', err);
+  }
+
+  return PDS_SERVICE; // Default to original PDS
+}
 
 // Singleton agent instance
 let agent: BskyAgent | null = null;
@@ -203,13 +274,33 @@ export function getAgent(): BskyAgent {
  * Initialize agent and restore session from storage
  */
 export async function initializeAgent(): Promise<BskyAgent> {
-  const bskyAgent = getAgent();
-
   const storedSession = await getStoredSession();
   console.log(
     '[Agent] initializeAgent - stored session:',
-    storedSession ? `did:${storedSession.did?.substring(8, 20)}` : 'none'
+    storedSession ? `did:${storedSession.did?.substring(8, 20)}` : 'none',
+    storedSession?.pdsEndpoint ? `pds:${storedSession.pdsEndpoint}` : ''
   );
+
+  // If we have a stored session with a PDS endpoint, use that
+  if (storedSession?.pdsEndpoint && storedSession.pdsEndpoint !== PDS_SERVICE) {
+    console.log('[Agent] Using stored PDS endpoint:', storedSession.pdsEndpoint);
+    agent = new BskyAgent({
+      service: storedSession.pdsEndpoint,
+      persistSession: (evt, sess) => {
+        console.log('[Agent] persistSession event:', evt);
+        if (evt === 'expired') {
+          clearSession();
+          notifySessionExpired();
+        } else if (sess) {
+          storeSession({ ...sess, pdsEndpoint: storedSession.pdsEndpoint });
+        } else {
+          clearSession();
+        }
+      },
+    });
+  }
+
+  const bskyAgent = getAgent();
 
   if (storedSession) {
     try {
@@ -232,6 +323,7 @@ export async function createAccount(opts: {
   email: string;
   password: string;
   handle: string;
+  displayName?: string;
   inviteCode?: string;
 }): Promise<{ did: string; handle: string }> {
   const bskyAgent = getAgent();
@@ -248,12 +340,13 @@ export async function createAccount(opts: {
 
   // Create initial profile record so AppView can properly index the user
   // Without this, users won't appear in feeds and searches
+  const displayName = opts.displayName || opts.handle;
   try {
     await bskyAgent.upsertProfile((existing) => ({
       ...existing,
-      displayName: opts.handle, // Use username as initial display name
+      displayName,
     }));
-    console.log('[Agent] Created initial profile record for new user');
+    console.log('[Agent] Created initial profile record with displayName:', displayName);
   } catch (profileError) {
     // Log but don't fail registration if profile creation fails
     console.warn('[Agent] Failed to create initial profile:', profileError);
@@ -267,10 +360,50 @@ export async function createAccount(opts: {
 
 /**
  * Login with identifier (handle or email) and password
+ * Automatically resolves the correct PDS for the user
  */
 export async function login(identifier: string, password: string): Promise<void> {
-  const bskyAgent = getAgent();
-  await bskyAgent.login({ identifier, password });
+  // Resolve which PDS this user belongs to
+  const pdsEndpoint = await resolvePdsEndpoint(identifier);
+  console.log('[Agent] Login - resolved PDS:', pdsEndpoint, 'for identifier:', identifier);
+
+  // If the user is on a different PDS than current agent, recreate agent
+  if (agent && (agent as any).service?.toString() !== pdsEndpoint) {
+    console.log('[Agent] Switching PDS from', (agent as any).service, 'to', pdsEndpoint);
+    agent = null;
+  }
+
+  // Create agent for the correct PDS
+  if (!agent) {
+    agent = new BskyAgent({
+      service: pdsEndpoint,
+      persistSession: (evt, sess) => {
+        console.log(
+          '[Agent] persistSession event:',
+          evt,
+          sess?.did ? `did:${sess.did.substring(8, 20)}` : 'no session'
+        );
+
+        if (evt === 'expired') {
+          console.warn('[Agent] 🔴 Session EXPIRED - user must re-login');
+          clearSession();
+          notifySessionExpired();
+        } else if (evt === 'create' || evt === 'update') {
+          console.log('[Agent] ✅ Session created/updated, storing...');
+          // Store the PDS endpoint along with the session
+          storeSession({ ...sess, pdsEndpoint });
+        } else if (sess) {
+          storeSession({ ...sess, pdsEndpoint });
+        } else {
+          console.log('[Agent] ⚠️ Clearing session (no session data)');
+          clearSession();
+        }
+      },
+    });
+  }
+
+  await agent.login({ identifier, password });
+  resetExpiryState();
 }
 
 /**

@@ -11,10 +11,11 @@ import {
 } from 'react-native';
 import { Link, router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ArrowLeft, Mail, Lock, Eye, EyeOff, Globe } from 'lucide-react-native';
+import { ArrowLeft, Mail, Lock, Eye, EyeOff, Globe, User } from 'lucide-react-native';
 import { useCreateAccount } from '@/lib/hooks';
 
 export default function RegisterScreen() {
+  const [displayName, setDisplayName] = useState('');
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -48,6 +49,7 @@ export default function RegisterScreen() {
         email,
         password,
         handle: normalizedUsername,
+        displayName: displayName.trim() || normalizedUsername,
       });
 
       // Success - redirect to feed
@@ -106,6 +108,20 @@ export default function RegisterScreen() {
             )}
 
             <View className="gap-4">
+              {/* Display Name */}
+              <View className="bg-surface-elevated border border-border rounded-xl flex-row items-center px-4">
+                <User size={20} color="#6B6B6B" />
+                <TextInput
+                  placeholder="Display Name (e.g. John Doe)"
+                  placeholderTextColor="#6B6B6B"
+                  value={displayName}
+                  onChangeText={setDisplayName}
+                  autoCapitalize="words"
+                  autoCorrect={false}
+                  className="flex-1 py-4 px-3 text-text-primary text-base"
+                />
+              </View>
+
               {/* Username */}
               <View className="bg-surface-elevated border border-border rounded-xl flex-row items-center px-4">
                 <Text className="text-text-muted text-lg font-medium">@</Text>

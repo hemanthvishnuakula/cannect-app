@@ -194,15 +194,17 @@ export function useCreateAccount() {
       email,
       password,
       handle,
+      displayName,
       inviteCode,
     }: {
       email: string;
       password: string;
       handle: string;
+      displayName?: string;
       inviteCode?: string;
     }) => {
       setLoading(true);
-      const result = await atproto.createAccount({ email, password, handle, inviteCode });
+      const result = await atproto.createAccount({ email, password, handle, displayName, inviteCode });
       const session = atproto.getSession();
       if (!session) {
         throw new Error('Account created but no session returned');
