@@ -1059,18 +1059,85 @@ export async function getCannectFeed(cursor?: string, limit = 50) {
 
 /**
  * Request password reset - sends email with reset token
+ * Tries both PDS instances since we don't know which one has the account
  */
 export async function requestPasswordReset(email: string): Promise<void> {
-  const bskyAgent = getAgent();
-  await bskyAgent.com.atproto.server.requestPasswordReset({ email });
+  const endpoints = [PDS_SERVICE, PDS_SERVICE_LEGACY];
+  let lastError: Error | null = null;
+
+  for (const endpoint of endpoints) {
+    try {
+      const response = await fetch(
+        `${endpoint}/xrpc/com.atproto.server.requestPasswordReset`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email }),
+        }
+      );
+
+      if (response.ok) {
+        console.log('[Agent] Password reset requested via:', endpoint);
+        return; // Success - email sent
+      }
+
+      const data = await response.json().catch(() => ({}));
+      // If account not found on this PDS, try next one
+      if (
+        data.message?.toLowerCase().includes('not found') ||
+        data.message?.toLowerCase().includes('no account')
+      ) {
+        continue;
+      }
+
+      // Other error - throw it
+      throw new Error(data.message || 'Failed to request password reset');
+    } catch (err: any) {
+      lastError = err;
+      // Network error - try next endpoint
+      continue;
+    }
+  }
+
+  // If we get here, neither PDS had the account
+  throw lastError || new Error('Account not found');
 }
 
 /**
  * Reset password using token from email
+ * The token is tied to a specific PDS, so we try both
  */
 export async function resetPassword(token: string, password: string): Promise<void> {
-  const bskyAgent = getAgent();
-  await bskyAgent.com.atproto.server.resetPassword({ token, password });
+  const endpoints = [PDS_SERVICE, PDS_SERVICE_LEGACY];
+  let lastError: Error | null = null;
+
+  for (const endpoint of endpoints) {
+    try {
+      const response = await fetch(`${endpoint}/xrpc/com.atproto.server.resetPassword`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, password }),
+      });
+
+      if (response.ok) {
+        console.log('[Agent] Password reset successful via:', endpoint);
+        return;
+      }
+
+      const data = await response.json().catch(() => ({}));
+      // Invalid token on this PDS - try next
+      if (data.message?.toLowerCase().includes('invalid') || data.error === 'InvalidToken') {
+        continue;
+      }
+
+      throw new Error(data.message || 'Failed to reset password');
+    } catch (err: any) {
+      lastError = err;
+      continue;
+    }
+  }
+
+  throw lastError || new Error('Invalid or expired reset token');
 }
 
 /**

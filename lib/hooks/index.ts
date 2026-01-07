@@ -14,6 +14,7 @@ export {
   useCurrentDid,
   useIsAuthenticated,
   checkEmailExistsOnLegacyPds,
+  checkUsernameExistsOnLegacyPds,
 } from './use-atp-auth';
 
 // Feed & Posts

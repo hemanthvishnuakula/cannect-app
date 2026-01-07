@@ -274,3 +274,31 @@ export async function checkEmailExistsOnLegacyPds(email: string): Promise<boolea
     return false;
   }
 }
+
+/**
+ * Check if a username exists on the legacy PDS (cannect.space)
+ * Ensures username uniqueness across all our PDS instances for future migration
+ */
+export async function checkUsernameExistsOnLegacyPds(username: string): Promise<boolean> {
+  try {
+    // Build the full handle for legacy PDS
+    const handle = `${username.toLowerCase()}.cannect.space`;
+    
+    // Try to resolve the handle
+    const response = await fetch(
+      `https://cannect.space/xrpc/com.atproto.identity.resolveHandle?handle=${encodeURIComponent(handle)}`
+    );
+    
+    if (response.ok) {
+      // Handle exists and resolved to a DID
+      return true;
+    }
+    
+    // 400 with "Unable to resolve handle" = doesn't exist
+    return false;
+  } catch (err) {
+    console.warn('[checkUsernameExistsOnLegacyPds] Error checking username:', err);
+    // On network error, don't block registration
+    return false;
+  }
+}
