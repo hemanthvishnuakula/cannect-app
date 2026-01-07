@@ -1283,7 +1283,8 @@ async function chatRequest(
   }
 
   // Get the agent's actual PDS service URL (not the hardcoded one)
-  const agentService = (bskyAgent as any).service?.toString() || PDS_SERVICE;
+  // Remove trailing slash to avoid double slashes in URL
+  const agentService = ((bskyAgent as any).service?.toString() || PDS_SERVICE).replace(/\/$/, '');
   const url = new URL(`${agentService}/xrpc/${endpoint}`);
 
   // Add query params for GET
