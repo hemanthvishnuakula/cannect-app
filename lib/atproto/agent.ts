@@ -14,8 +14,8 @@ import { Platform } from 'react-native';
 const SESSION_KEY = 'atproto_session';
 
 // Cannect's PDS endpoints
-const PDS_SERVICE = 'https://cannect.space';
-const PDS_SERVICE_NEW = 'https://pds.cannect.space';
+const PDS_SERVICE_LEGACY = 'https://cannect.space';
+const PDS_SERVICE = 'https://pds.cannect.space';
 
 // Bluesky AppView for content hydration
 const _BSKY_APPVIEW = 'https://public.api.bsky.app';
@@ -26,14 +26,14 @@ const _BSKY_APPVIEW = 'https://public.api.bsky.app';
  */
 async function resolvePdsEndpoint(identifier: string): Promise<string> {
   try {
-    // If it's an email, we can't resolve - try default PDS first
+    // If it's an email, we can't resolve - try legacy PDS first (most existing users are there)
     if (identifier.includes('@') && !identifier.includes('.cannect.space')) {
-      return PDS_SERVICE;
+      return PDS_SERVICE_LEGACY;
     }
 
     // Determine which PDS to query based on handle suffix
     if (identifier.endsWith('.pds.cannect.space')) {
-      return PDS_SERVICE_NEW;
+      return PDS_SERVICE;
     }
 
     // For handles like user.cannect.space or DIDs, resolve via PLC directory
@@ -48,7 +48,7 @@ async function resolvePdsEndpoint(identifier: string): Promise<string> {
         if (!resolveResp.ok) {
           // Try resolving via the PDS
           const pdsResolve = await fetch(
-            `${PDS_SERVICE}/xrpc/com.atproto.identity.resolveHandle?handle=${encodeURIComponent(handle)}`
+            `${PDS_SERVICE_LEGACY}/xrpc/com.atproto.identity.resolveHandle?handle=${encodeURIComponent(handle)}`
           );
           if (pdsResolve.ok) {
             const data = await pdsResolve.json();
@@ -56,7 +56,7 @@ async function resolvePdsEndpoint(identifier: string): Promise<string> {
           } else {
             // Try new PDS
             const newPdsResolve = await fetch(
-              `${PDS_SERVICE_NEW}/xrpc/com.atproto.identity.resolveHandle?handle=${encodeURIComponent(handle)}`
+              `${PDS_SERVICE}/xrpc/com.atproto.identity.resolveHandle?handle=${encodeURIComponent(handle)}`
             );
             if (newPdsResolve.ok) {
               const data = await newPdsResolve.json();
@@ -87,7 +87,7 @@ async function resolvePdsEndpoint(identifier: string): Promise<string> {
     console.warn('[Agent] Failed to resolve PDS endpoint:', err);
   }
 
-  return PDS_SERVICE; // Default to original PDS
+  return PDS_SERVICE_LEGACY; // Default to legacy PDS for existing users
 }
 
 // Singleton agent instance
@@ -328,8 +328,8 @@ export async function createAccount(opts: {
 }): Promise<{ did: string; handle: string }> {
   const bskyAgent = getAgent();
 
-  // Handle should be username.cannect.space for our PDS
-  const fullHandle = opts.handle.includes('.') ? opts.handle : `${opts.handle}.cannect.space`;
+  // Handle should be username.pds.cannect.space for our PDS
+  const fullHandle = opts.handle.includes('.') ? opts.handle : `${opts.handle}.pds.cannect.space`;
 
   const result = await bskyAgent.createAccount({
     email: opts.email,
