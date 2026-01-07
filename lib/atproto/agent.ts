@@ -1282,7 +1282,9 @@ async function chatRequest(
     throw new Error('Not authenticated');
   }
 
-  const url = new URL(`${PDS_SERVICE}/xrpc/${endpoint}`);
+  // Get the agent's actual PDS service URL (not the hardcoded one)
+  const agentService = (bskyAgent as any).service?.toString() || PDS_SERVICE;
+  const url = new URL(`${agentService}/xrpc/${endpoint}`);
 
   // Add query params for GET
   if (method === 'GET' && params) {
