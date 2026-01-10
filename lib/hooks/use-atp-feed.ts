@@ -55,9 +55,15 @@ const BLOCKED_LABELS = new Set([
 /**
  * Keyword-based content filtering for unlabeled explicit content
  * These keywords will trigger filtering even if the post isn't labeled
+ * 
+ * Removed overly broad terms that cause false positives:
+ * - 'sex', 'sexy' - too common in casual/news contexts
+ * - 'minor' - matches "minor issue", "G minor", etc.
+ * - 'cp' - matches other abbreviations (cerebral palsy)
+ * - 'fuck' variants - casual profanity, not sexual
  */
 const BLOCKED_KEYWORDS = [
-  // Sexual content - explicit terms
+  // Sexual content - explicit terms only
   'nude',
   'nudes',
   'naked',
@@ -69,8 +75,6 @@ const BLOCKED_KEYWORDS = [
   'boobs',
   'tits',
   'titties',
-  'sex',
-  'sexy',
   'horny',
   'cum',
   'cumshot',
@@ -89,11 +93,9 @@ const BLOCKED_KEYWORDS = [
   'erotic',
   'masturbat',
   // Child safety - CSAM indicators
-  'cp',
   'pedo',
   'pedophile',
   'underage',
-  'minor',
   'jailbait',
   'loli',
   'shota',
