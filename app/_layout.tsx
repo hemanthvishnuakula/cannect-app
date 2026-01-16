@@ -216,6 +216,11 @@ export default function RootLayout() {
           } catch (profileErr) {
             console.warn('[RootLayout] Failed to fetch profile:', profileErr);
           }
+
+          // Background task: ensure user follows founder (for existing users)
+          atproto.ensureFollowingFounder().catch((err) => {
+            console.warn('[RootLayout] Founder follow check failed:', err);
+          });
         } else {
           console.log('[RootLayout] ⚠️ No session found');
           setLoading(false);
