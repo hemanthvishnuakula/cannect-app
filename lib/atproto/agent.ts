@@ -352,6 +352,16 @@ export async function createAccount(opts: {
     console.warn('[Agent] Failed to create initial profile:', profileError);
   }
 
+  // Auto-follow the founder so new users see Cannect content immediately
+  const FOUNDER_DID = 'did:plc:75x5kjjh32aunyomuh33nuh7'; // hemanthvishnuakula.cannect.space
+  try {
+    await bskyAgent.follow(FOUNDER_DID);
+    console.log('[Agent] New user auto-followed founder');
+  } catch (followError) {
+    // Don't fail registration if auto-follow fails
+    console.warn('[Agent] Failed to auto-follow founder:', followError);
+  }
+
   return {
     did: result.data.did,
     handle: result.data.handle,
