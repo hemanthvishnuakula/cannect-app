@@ -487,8 +487,11 @@ export const FOUNDER_DID = 'did:plc:75x5kjjh32aunyomuh33nuh7'; // hemanthvishnua
  * Runs silently in the background - failures are logged but don't affect the user
  */
 export async function ensureFollowingFounder(): Promise<void> {
+  console.log('[Agent] 🔍 ensureFollowingFounder called, hasChecked:', hasCheckedFounderFollow);
+  
   // Only check once per session to avoid spamming the API
   if (hasCheckedFounderFollow) {
+    console.log('[Agent] Already checked this session, skipping');
     return;
   }
   hasCheckedFounderFollow = true;
@@ -501,6 +504,8 @@ export async function ensureFollowingFounder(): Promise<void> {
     return;
   }
 
+  console.log('[Agent] Checking if user', bskyAgent.session.did.substring(0, 20), 'follows founder');
+
   // Don't follow yourself
   if (bskyAgent.session.did === FOUNDER_DID) {
     console.log('[Agent] User is founder, skipping self-follow');
@@ -509,7 +514,9 @@ export async function ensureFollowingFounder(): Promise<void> {
 
   try {
     // Check if already following the founder
+    console.log('[Agent] Fetching founder profile to check follow status...');
     const profile = await bskyAgent.getProfile({ actor: FOUNDER_DID });
+    console.log('[Agent] Founder profile fetched, viewer.following:', profile.data.viewer?.following);
     
     if (profile.data.viewer?.following) {
       console.log('[Agent] User already follows founder');
@@ -517,11 +524,12 @@ export async function ensureFollowingFounder(): Promise<void> {
     }
 
     // Not following - auto-follow
+    console.log('[Agent] User does NOT follow founder, auto-following...');
     await bskyAgent.follow(FOUNDER_DID);
     console.log('[Agent] ✅ Existing user now follows founder');
   } catch (err) {
     // Silent failure - don't disrupt the user experience
-    console.warn('[Agent] Failed to ensure founder follow:', err);
+    console.error('[Agent] ❌ Failed to ensure founder follow:', err);
   }
 }
 
