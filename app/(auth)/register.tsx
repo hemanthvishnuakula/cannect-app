@@ -12,7 +12,11 @@ import {
 import { Link, router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft, Mail, Lock, Eye, EyeOff, User } from 'lucide-react-native';
-import { useCreateAccount, checkEmailExistsOnLegacyPds, checkUsernameExistsOnLegacyPds } from '@/lib/hooks';
+import {
+  useCreateAccount,
+  checkEmailExistsOnLegacyPds,
+  checkUsernameExistsOnLegacyPds,
+} from '@/lib/hooks';
 
 export default function RegisterScreen() {
   const [displayName, setDisplayName] = useState('');
@@ -53,14 +57,16 @@ export default function RegisterScreen() {
         checkUsernameExistsOnLegacyPds(normalizedUsername),
       ]);
       setIsChecking(false);
-      
+
       if (emailExists) {
         setError('An account with this email already exists. Please sign in instead.');
         return;
       }
-      
+
       if (usernameExists) {
-        setError(`The username "${normalizedUsername}" is already taken on Cannect. Please choose another.`);
+        setError(
+          `The username "${normalizedUsername}" is already taken on Cannect. Please choose another.`
+        );
         return;
       }
 

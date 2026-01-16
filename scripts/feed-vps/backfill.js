@@ -11,17 +11,14 @@
 
 const db = require('./db');
 
-const CANNECT_PDS_URLS = [
-  'https://cannect.space',
-  'https://pds.cannect.space'
-];
+const CANNECT_PDS_URLS = ['https://cannect.space', 'https://pds.cannect.space'];
 const POSTS_PER_USER = 100; // Max posts to fetch per user
 
 async function getCannectUsers() {
   console.log('[Backfill] Fetching users from all Cannect PDSes...');
-  
+
   const allUsers = [];
-  
+
   for (const pdsUrl of CANNECT_PDS_URLS) {
     try {
       const response = await fetch(`${pdsUrl}/xrpc/com.atproto.sync.listRepos?limit=1000`);

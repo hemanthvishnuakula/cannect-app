@@ -73,10 +73,10 @@ export function FollowButton({
     } catch (error: any) {
       console.error('Follow action failed:', error);
       triggerNotification('error');
-      
+
       const action = isFollowing ? 'unfollow' : 'follow';
       const message = error?.message || `Failed to ${action} user. Please try again.`;
-      
+
       if (Platform.OS === 'web') {
         window.alert(message);
       } else {

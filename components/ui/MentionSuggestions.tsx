@@ -128,7 +128,8 @@ export const MentionSuggestions = memo(function MentionSuggestions({
           </View>
 
           {/* Network badge */}
-          {(user.handle.endsWith('.cannect.space') || user.handle.endsWith('.pds.cannect.space')) && (
+          {(user.handle.endsWith('.cannect.space') ||
+            user.handle.endsWith('.pds.cannect.space')) && (
             <View className="px-2 py-0.5 rounded-full bg-primary/20">
               <Text className="text-primary text-xs font-medium">cannect</Text>
             </View>

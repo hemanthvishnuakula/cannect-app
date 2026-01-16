@@ -261,7 +261,7 @@ export const PostActions = memo(function PostActions({
   const handleDelete = useCallback(() => {
     triggerHaptic('heavy');
     setOptionsMenuVisible(false);
-    
+
     const performDelete = async () => {
       try {
         await deletePostMutation.mutateAsync(post.uri);
@@ -277,7 +277,7 @@ export const PostActions = memo(function PostActions({
         }
       }
     };
-    
+
     if (Platform.OS === 'web') {
       if (window.confirm('Delete this post? This cannot be undone.')) {
         performDelete();

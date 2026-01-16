@@ -90,6 +90,21 @@ const HIGH_CONFIDENCE_KEYWORDS = [
   'stoned af',
   'baked af',
 
+  // "High" in cannabis context (moved from medium)
+  'getting high',
+  'got high',
+  'so high',
+  'im high',
+  "i'm high",
+  'super high',
+  'too high',
+  'high rn',
+  'high right now',
+  'high as fuck',
+  'high as hell',
+  'this high',
+  'that high',
+
   // Products (specific)
   'live rosin',
   'live resin',
@@ -168,19 +183,19 @@ const MEDIUM_CONFIDENCE_KEYWORDS = [
   'kush', // Could be name/slang
   'indica', // Need context
   'sativa', // Need context
-  'hybrid', // Very generic
+  // 'hybrid', // REMOVED - too generic, triggers on cars
   'terpenes', // Could be perfume/essential oils
   'terps', // Slang, need context
   'edibles', // Could be any food
   'blunt', // Could be "blunt statement"
   'joint', // Could be "joint effort"
-  'bong', // Need context
+  // 'bong', // REMOVED - Filipino politician name "Bong Revilla"
   'dabs', // Could be dance move
   'stoner', // Need context
   'stoned', // Could be biblical
   'baked', // Could be cooking
-  'high', // Very generic
-  '420', // Could be just a number
+  // 'high', // REMOVED - too many false positives (weather, prices, scores)
+  // '420', // REMOVED - Japanese yen (420万), scores, dates
   'flower', // Very generic (gardening)
   'nug', // Need context
   'nugs', // Need context
@@ -188,8 +203,8 @@ const MEDIUM_CONFIDENCE_KEYWORDS = [
   'pre-roll', // Need context
   'preroll', // Need context
   // Note: 'hash' removed - matches 'hash browns', 'hashtag', etc.
-  'bowl', // Very generic
-  'pipe', // Very generic
+  // 'bowl', // REMOVED - too generic (food, sports)
+  // 'pipe', // REMOVED - too generic (plumbing)
   'grinder', // Could be coffee
 ];
 
@@ -322,6 +337,14 @@ const POSITIVE_CONTEXT_SIGNALS = [
 
 // Negative signals: Terms that indicate false positive
 const NEGATIVE_CONTEXT_SIGNALS = [
+  // Weather bots (High: XX Low: XX pattern)
+  { pattern: /\bHigh:\s*\d+.*Low:\s*\d+/i, weight: -10 },
+  { pattern: /\bHigh\s+\w+\s+Advisory/i, weight: -10 },
+  { pattern: /\bClimate:\s*High/i, weight: -10 },
+  // Product spam (Amazon-style descriptions)
+  { pattern: /\b(inches|inch)\s*[-–]\s*(high|tall|wide)/i, weight: -8 },
+  { pattern: /\b(for|with)\s+(dogs?|cats?|pets?)\b/i, weight: -6 },
+  { pattern: /\b(mattress|chair|desk|table|lamp|mirror|cabinet)\b/i, weight: -6 },
   // Astronomy (northern lights false positive)
   {
     pattern: /\b(nasa|astronomy|aurora|borealis|space|constellation|nebula|observatory)\b/i,
@@ -358,7 +381,8 @@ const NEGATIVE_CONTEXT_SIGNALS = [
   },
   // Automotive (hybrid SUV, joint venture)
   {
-    pattern: /\b(suv|sedan|vehicle|car|automotive|huawei|tesla|toyota|honda|ford|plug-in|electric\s+vehicle|ev)\b/i,
+    pattern:
+      /\b(suv|sedan|vehicle|car|automotive|huawei|tesla|toyota|honda|ford|plug-in|electric\s+vehicle|ev)\b/i,
     weight: -5,
   },
   // Idioms
@@ -455,7 +479,10 @@ function calculateContextScore(text) {
  */
 function shouldIncludePost(authorHandle, text) {
   // Rule 1: Always include Cannect users (no AI needed - trusted users)
-  if (authorHandle && (authorHandle.endsWith('.cannect.space') || authorHandle.endsWith('.pds.cannect.space'))) {
+  if (
+    authorHandle &&
+    (authorHandle.endsWith('.cannect.space') || authorHandle.endsWith('.pds.cannect.space'))
+  ) {
     return { include: true, reason: 'cannect_user', needsAI: false };
   }
 
@@ -467,8 +494,11 @@ function shouldIncludePost(authorHandle, text) {
   const contextScore = calculateContextScore(text);
 
   // Rule 2: High confidence keywords → AI verification
-  // Even "cannabis" or "dispensary" can be false positives (Victorian dispensary building)
+  // Skip AI if strongly negative context (obvious false positive)
   if (HIGH_CONFIDENCE_REGEX.test(text)) {
+    if (contextScore < -5) {
+      return { include: false, reason: 'high_conf_negative_ctx', needsAI: false };
+    }
     return { include: false, reason: 'high_confidence', needsAI: true };
   }
 
@@ -482,18 +512,24 @@ function shouldIncludePost(authorHandle, text) {
   if (mediumMatches) {
     const uniqueMatches = [...new Set(mediumMatches.map((m) => m.toLowerCase()))];
 
-    // 2+ different medium keywords → AI verification
-    if (uniqueMatches.length >= 2) {
+    // Skip AI entirely if context is clearly negative (false positive signals present)
+    if (contextScore < -3) {
+      return { include: false, reason: 'negative_context', needsAI: false };
+    }
+
+    // 2+ different medium keywords + not negative context → AI verification
+    if (uniqueMatches.length >= 2 && contextScore >= 0) {
       return { include: false, reason: 'multi_medium', needsAI: true };
     }
-    
-    // Single medium + positive context → AI verification
-    if (uniqueMatches.length === 1 && contextScore > 0) {
+
+    // Single medium + STRONG positive context (3+) → AI verification
+    // Raised threshold from 0 to 3 to reduce false positives
+    if (uniqueMatches.length === 1 && contextScore >= 3) {
       return { include: false, reason: 'medium_with_context', needsAI: true };
     }
   }
 
-  // Rule 5: No keyword match or single medium alone → Reject
+  // Rule 5: No keyword match or weak context → Reject
   return { include: false, reason: 'no_match', needsAI: false };
 }
 

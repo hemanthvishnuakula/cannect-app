@@ -7,7 +7,6 @@
 
 import { useEffect, useCallback } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import * as Sentry from '@sentry/react-native';
 import { useAuthStore } from '@/lib/stores/auth-store-atp';
 import * as atproto from '@/lib/atproto/agent';
 
@@ -105,12 +104,6 @@ export function useAuth() {
         followsCount: profileData.followsCount,
         postsCount: profileData.postsCount,
       });
-
-      // 🔐 Set Sentry user context for error tracking
-      Sentry.setUser({
-        id: profileData.did,
-        username: profileData.handle,
-      });
     }
   }, [profileData, setProfile]);
 
@@ -118,8 +111,6 @@ export function useAuth() {
     await atproto.logout();
     clear();
     queryClient.clear();
-    // 🔐 Clear Sentry user context on logout
-    Sentry.setUser(null);
   }, [clear, queryClient]);
 
   return {
@@ -204,7 +195,13 @@ export function useCreateAccount() {
       inviteCode?: string;
     }) => {
       setLoading(true);
-      const result = await atproto.createAccount({ email, password, handle, displayName, inviteCode });
+      const result = await atproto.createAccount({
+        email,
+        password,
+        handle,
+        displayName,
+        inviteCode,
+      });
       const session = atproto.getSession();
       if (!session) {
         throw new Error('Account created but no session returned');
@@ -245,25 +242,30 @@ export function useIsAuthenticated() {
 export async function checkEmailExistsOnLegacyPds(email: string): Promise<boolean> {
   try {
     // Try to request password reset - if it succeeds or gives specific error, email exists
-    const response = await fetch('https://cannect.space/xrpc/com.atproto.server.requestPasswordReset', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email }),
-    });
-    
+    const response = await fetch(
+      'https://cannect.space/xrpc/com.atproto.server.requestPasswordReset',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      }
+    );
+
     // 200 = email exists and reset email sent
     // 400 with "Account not found" = email doesn't exist
     if (response.ok) {
       return true; // Email exists
     }
-    
+
     const data = await response.json().catch(() => ({}));
     // If we get "Account not found" or similar, the email doesn't exist
-    if (data.message?.toLowerCase().includes('not found') || 
-        data.message?.toLowerCase().includes('no account')) {
+    if (
+      data.message?.toLowerCase().includes('not found') ||
+      data.message?.toLowerCase().includes('no account')
+    ) {
       return false;
     }
-    
+
     // For other errors (rate limit, etc), assume email might exist to be safe
     // But don't block registration for transient errors
     console.warn('[checkEmailExistsOnLegacyPds] Unexpected response:', data);
@@ -283,17 +285,17 @@ export async function checkUsernameExistsOnLegacyPds(username: string): Promise<
   try {
     // Build the full handle for legacy PDS
     const handle = `${username.toLowerCase()}.cannect.space`;
-    
+
     // Try to resolve the handle
     const response = await fetch(
       `https://cannect.space/xrpc/com.atproto.identity.resolveHandle?handle=${encodeURIComponent(handle)}`
     );
-    
+
     if (response.ok) {
       // Handle exists and resolved to a DID
       return true;
     }
-    
+
     // 400 with "Unable to resolve handle" = doesn't exist
     return false;
   } catch (err) {

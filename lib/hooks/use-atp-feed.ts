@@ -55,7 +55,7 @@ const BLOCKED_LABELS = new Set([
 /**
  * Keyword-based content filtering for unlabeled explicit content
  * These keywords will trigger filtering even if the post isn't labeled
- * 
+ *
  * Removed overly broad terms that cause false positives:
  * - 'sex', 'sexy' - too common in casual/news contexts
  * - 'minor' - matches "minor issue", "G minor", etc.

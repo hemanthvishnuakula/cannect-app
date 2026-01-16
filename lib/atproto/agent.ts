@@ -1084,14 +1084,11 @@ export async function requestPasswordReset(email: string): Promise<void> {
 
   for (const endpoint of endpoints) {
     try {
-      const response = await fetch(
-        `${endpoint}/xrpc/com.atproto.server.requestPasswordReset`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email }),
-        }
-      );
+      const response = await fetch(`${endpoint}/xrpc/com.atproto.server.requestPasswordReset`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
 
       if (response.ok) {
         console.log('[Agent] Password reset requested via:', endpoint);

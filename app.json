@@ -51,15 +51,6 @@
         {
           "color": "#10B981"
         }
-      ],
-      "@sentry/react-native",
-      [
-        "@sentry/react-native/expo",
-        {
-          "url": "https://sentry.io/",
-          "project": "react-native",
-          "organization": "hemanthva-ventures"
-        }
       ]
     ],
     "experiments": {
