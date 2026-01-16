@@ -27,10 +27,7 @@ const { verifyWithAI } = require('./ai-filter');
 const PORT = process.env.FEEDGEN_PORT || 3000;
 const HOSTNAME = process.env.FEEDGEN_HOSTNAME || 'feed.cannect.space';
 const PUBLISHER_DID = process.env.FEEDGEN_PUBLISHER_DID;
-const CANNECT_PDS_URLS = [
-  'https://cannect.space',
-  'https://pds.cannect.space'
-];
+const CANNECT_PDS_URLS = ['https://cannect.space', 'https://pds.cannect.space'];
 
 // =============================================================================
 // Cannect User DID Cache
@@ -190,6 +187,49 @@ app.post('/api/notify-post', strictLimiter, async (req, res) => {
   } catch (err) {
     console.error('[Notify] Error:', err.message);
     return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// =============================================================================
+// oEmbed Proxy - Fetch video metadata for YouTube URLs (CORS-safe)
+// =============================================================================
+
+app.get('/api/oembed', generalLimiter, async (req, res) => {
+  try {
+    const { url } = req.query;
+
+    if (!url) {
+      return res.status(400).json({ error: 'Missing url parameter' });
+    }
+
+    // Only allow YouTube URLs for security
+    const isYouTube = /^https?:\/\/(www\.|m\.)?(youtube\.com|youtu\.be)\//i.test(url);
+    if (!isYouTube) {
+      return res.status(400).json({ error: 'Only YouTube URLs are supported' });
+    }
+
+    // Fetch from YouTube's oEmbed endpoint
+    const oembedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`;
+    const response = await fetch(oembedUrl, {
+      headers: { 'User-Agent': 'Cannect/1.0' },
+    });
+
+    if (!response.ok) {
+      return res.status(response.status).json({ error: 'Failed to fetch video metadata' });
+    }
+
+    const data = await response.json();
+
+    // Return only the fields we need
+    res.json({
+      title: data.title || 'YouTube Video',
+      author_name: data.author_name || '',
+      thumbnail_url: data.thumbnail_url || '',
+      provider_name: data.provider_name || 'YouTube',
+    });
+  } catch (err) {
+    console.error('[oEmbed] Error:', err.message);
+    return res.status(500).json({ error: 'Failed to fetch metadata' });
   }
 });
 
@@ -364,7 +404,7 @@ function handleNewPost(did, commit) {
   // If post needs AI verification (ambiguous content)
   if (result.needsAI && text) {
     // Process async - don't block the main event loop
-    processWithAI(uri, cid, did, handle, text, indexedAt, result.reason).catch(err => {
+    processWithAI(uri, cid, did, handle, text, indexedAt, result.reason).catch((err) => {
       console.error(`[AI-Filter] Error processing post:`, err.message);
     });
   }
@@ -376,13 +416,13 @@ function handleNewPost(did, commit) {
 async function processWithAI(uri, cid, did, handle, text, indexedAt, reason) {
   try {
     const aiResult = await verifyWithAI(text);
-    
+
     if (aiResult.error) {
       // If AI fails, don't include (conservative approach)
       console.log(`[AI-Filter] Error for "${text.substring(0, 40)}..." - skipping`);
       return;
     }
-    
+
     if (aiResult.isCannabis) {
       db.addPost(uri, cid, did, handle, indexedAt);
       stats.indexed++;

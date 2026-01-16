@@ -10,6 +10,7 @@
  * - YouTube link fallback (when no embed but text contains YouTube URL)
  */
 
+import React from 'react';
 import { View, Text, Pressable, Linking } from 'react-native';
 import { Image } from 'expo-image';
 import { ExternalLink, Play } from 'lucide-react-native';
@@ -376,9 +377,32 @@ function RecordWithMedia({
 
 /**
  * YouTube Preview - Renders a YouTube video preview card
- * Uses YouTube's predictable thumbnail URL pattern (no API call needed)
+ * Fetches real title via our oEmbed proxy API
  */
 function YouTubePreview({ videoId, url }: { videoId: string; url: string }) {
+  const [metadata, setMetadata] = React.useState<{
+    title: string;
+    author_name: string;
+  } | null>(null);
+
+  // Fetch metadata on mount
+  React.useEffect(() => {
+    const fetchMetadata = async () => {
+      try {
+        const response = await fetch(
+          `https://feed.cannect.space/api/oembed?url=${encodeURIComponent(url)}`
+        );
+        if (response.ok) {
+          const data = await response.json();
+          setMetadata(data);
+        }
+      } catch (err) {
+        // Silently fail - we'll show fallback
+      }
+    };
+    fetchMetadata();
+  }, [url]);
+
   const handlePress = () => {
     Linking.openURL(url);
   };
@@ -412,9 +436,14 @@ function YouTubePreview({ videoId, url }: { videoId: string; url: string }) {
         </View>
       </View>
       <View className="p-3">
-        <Text className="text-text-primary font-medium" numberOfLines={1}>
-          YouTube Video
+        <Text className="text-text-primary font-medium" numberOfLines={2}>
+          {metadata?.title || 'YouTube Video'}
         </Text>
+        {metadata?.author_name && (
+          <Text className="text-text-muted text-sm mt-0.5" numberOfLines={1}>
+            {metadata.author_name}
+          </Text>
+        )}
         <View className="flex-row items-center mt-1">
           <ExternalLink size={12} color="#6B7280" />
           <Text className="text-text-muted text-xs ml-1">youtube.com</Text>
