@@ -7,11 +7,12 @@
  * - Link previews (external)
  * - Quote posts
  * - Record with media (quote + images/video)
+ * - YouTube link fallback (when no embed but text contains YouTube URL)
  */
 
 import { View, Text, Pressable, Linking } from 'react-native';
 import { Image } from 'expo-image';
-import { ExternalLink } from 'lucide-react-native';
+import { ExternalLink, Play } from 'lucide-react-native';
 import { VideoPlayer } from '@/components/ui/VideoPlayer';
 import { getOptimizedAvatarUrl } from '@/lib/utils/avatar';
 import type {
@@ -28,15 +29,64 @@ const stopEvent = (e: any) => {
   e?.stopPropagation?.();
 };
 
+/**
+ * Extract YouTube video ID from various YouTube URL formats
+ * Supports: youtube.com/watch?v=, youtu.be/, youtube.com/embed/, m.youtube.com, etc.
+ */
+function extractYouTubeVideoId(text: string): { videoId: string; url: string } | null {
+  if (!text) return null;
+
+  // Regex patterns for YouTube URLs
+  const patterns = [
+    // youtube.com/watch?v=VIDEO_ID
+    /(?:https?:\/\/)?(?:www\.|m\.)?youtube\.com\/watch\?[^\s]*v=([a-zA-Z0-9_-]{11})/,
+    // youtu.be/VIDEO_ID
+    /(?:https?:\/\/)?youtu\.be\/([a-zA-Z0-9_-]{11})/,
+    // youtube.com/embed/VIDEO_ID
+    /(?:https?:\/\/)?(?:www\.)?youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/,
+    // youtube.com/v/VIDEO_ID
+    /(?:https?:\/\/)?(?:www\.)?youtube\.com\/v\/([a-zA-Z0-9_-]{11})/,
+  ];
+
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+    if (match && match[1]) {
+      // Extract the full URL for linking
+      const urlMatch = text.match(
+        /https?:\/\/(?:www\.|m\.)?(?:youtube\.com|youtu\.be)[^\s]*/
+      );
+      return {
+        videoId: match[1],
+        url: urlMatch ? urlMatch[0] : `https://youtube.com/watch?v=${match[1]}`,
+      };
+    }
+  }
+
+  return null;
+}
+
 interface PostEmbedsProps {
   embed: any; // The post.embed object
   onImagePress?: (images: string[], index: number) => void;
   /** Full width mode for card layout */
   fullWidth?: boolean;
+  /** Post text - used to detect YouTube URLs when no embed exists */
+  text?: string;
 }
 
-export function PostEmbeds({ embed, onImagePress, fullWidth = false }: PostEmbedsProps) {
-  if (!embed) return null;
+export function PostEmbeds({ embed, onImagePress, fullWidth = false, text }: PostEmbedsProps) {
+  // If no embed, check for YouTube URL in text
+  if (!embed) {
+    const youtube = extractYouTubeVideoId(text || '');
+    if (youtube) {
+      return (
+        <View className={fullWidth ? 'px-4' : 'mt-3'}>
+          <YouTubePreview videoId={youtube.videoId} url={youtube.url} />
+        </View>
+      );
+    }
+    return null;
+  }
 
   const embedType = embed.$type;
 
@@ -321,5 +371,55 @@ function RecordWithMedia({
         </View>
       )}
     </>
+  );
+}
+
+/**
+ * YouTube Preview - Renders a YouTube video preview card
+ * Uses YouTube's predictable thumbnail URL pattern (no API call needed)
+ */
+function YouTubePreview({ videoId, url }: { videoId: string; url: string }) {
+  const handlePress = () => {
+    Linking.openURL(url);
+  };
+
+  // YouTube provides predictable thumbnail URLs
+  const thumbnailUrl = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+
+  return (
+    <Pressable
+      onPressIn={stopEvent}
+      onPress={(e) => {
+        stopEvent(e);
+        handlePress();
+      }}
+      className="mt-2 border border-border rounded-xl overflow-hidden"
+    >
+      <View className="relative">
+        <Image
+          source={{ uri: thumbnailUrl }}
+          className="w-full h-44 bg-surface-elevated"
+          contentFit="cover"
+          transition={200}
+          cachePolicy="memory-disk"
+          recyclingKey={thumbnailUrl}
+        />
+        {/* Play button overlay */}
+        <View className="absolute inset-0 items-center justify-center">
+          <View className="bg-red-600 rounded-full p-3">
+            <Play size={24} color="#FFFFFF" fill="#FFFFFF" />
+          </View>
+        </View>
+      </View>
+      <View className="p-3">
+        <Text className="text-text-primary font-medium" numberOfLines={1}>
+          YouTube Video
+        </Text>
+        <View className="flex-row items-center mt-1">
+          <ExternalLink size={12} color="#6B7280" />
+          <Text className="text-text-muted text-xs ml-1">youtube.com</Text>
+        </View>
+      </View>
+    </Pressable>
   );
 }

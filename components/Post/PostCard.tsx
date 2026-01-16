@@ -190,7 +190,8 @@ export function PostCard({
                 {author.displayName || author.handle}
               </Text>
               {/* Network badge - cannect (green) or global */}
-              {(author.handle.endsWith('.cannect.space') || author.handle.endsWith('.pds.cannect.space')) ? (
+              {author.handle.endsWith('.cannect.space') ||
+              author.handle.endsWith('.pds.cannect.space') ? (
                 <View className="ml-2 px-2 py-0.5 rounded-full bg-primary/20 flex-shrink-0">
                   <Text className="text-primary text-xs font-medium">cannect</Text>
                 </View>
@@ -233,7 +234,7 @@ export function PostCard({
           )}
 
           {/* Embeds (images, video, link preview, quote) */}
-          <PostEmbeds embed={post.embed} onImagePress={onImagePress} />
+          <PostEmbeds embed={post.embed} onImagePress={onImagePress} text={record.text} />
 
           {/* Action buttons with built-in optimistic mutations */}
           <PostActions post={post} variant="compact" />

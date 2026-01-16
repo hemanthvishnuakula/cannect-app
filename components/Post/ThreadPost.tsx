@@ -57,7 +57,8 @@ export function ThreadPost({ post, onImagePress }: ThreadPostProps) {
   };
 
   // Check if cannect.space or pds.cannect.space user
-  const isCannectUser = author.handle.endsWith('.cannect.space') || author.handle.endsWith('.pds.cannect.space');
+  const isCannectUser =
+    author.handle.endsWith('.cannect.space') || author.handle.endsWith('.pds.cannect.space');
 
   // Truncate long handles
   const displayHandle =
@@ -118,7 +119,7 @@ export function ThreadPost({ post, onImagePress }: ThreadPostProps) {
       <RichText text={record.text} facets={record.facets} className="text-lg leading-6 mb-4" />
 
       {/* Embeds */}
-      <PostEmbeds embed={post.embed} onImagePress={onImagePress} />
+      <PostEmbeds embed={post.embed} onImagePress={onImagePress} text={record.text} />
 
       {/* Action buttons with counts */}
       <PostActions post={post} variant="expanded" />
