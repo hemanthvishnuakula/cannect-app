@@ -59,6 +59,11 @@ export function useAuth() {
         if (mounted && agent.session) {
           console.log('[useAuth] ✅ Setting session in store');
           setSession(agent.session);
+          
+          // Background task: ensure user follows founder (for existing users)
+          atproto.ensureFollowingFounder().catch(() => {
+            // Silent failure - already logged in agent.ts
+          });
         } else if (mounted) {
           console.log('[useAuth] No session, setting loading=false');
           setLoading(false);
@@ -147,6 +152,11 @@ export function useLogin() {
       atproto.resetExpiryState();
       setSession(session);
       queryClient.invalidateQueries();
+      
+      // Background task: ensure user follows founder
+      atproto.ensureFollowingFounder().catch(() => {
+        // Silent failure - already logged in agent.ts
+      });
     },
     onError: (error) => {
       setLoading(false);

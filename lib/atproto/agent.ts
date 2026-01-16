@@ -353,7 +353,6 @@ export async function createAccount(opts: {
   }
 
   // Auto-follow the founder so new users see Cannect content immediately
-  const FOUNDER_DID = 'did:plc:75x5kjjh32aunyomuh33nuh7'; // hemanthvishnuakula.cannect.space
   try {
     await bskyAgent.follow(FOUNDER_DID);
     console.log('[Agent] New user auto-followed founder');
@@ -424,6 +423,8 @@ export async function logout(): Promise<void> {
   // BskyAgent doesn't have a logout method, just clear session
   agent = null;
   await clearSession();
+  // Reset founder follow check so next login will re-check
+  hasCheckedFounderFollow = false;
 }
 
 /**
@@ -470,6 +471,65 @@ export async function refreshSession(): Promise<void> {
 
     throw err;
   }
+}
+
+// Track if we've already checked founder follow status this session
+let hasCheckedFounderFollow = false;
+
+/**
+ * Founder DID - auto-follow on signup and session restore
+ */
+export const FOUNDER_DID = 'did:plc:75x5kjjh32aunyomuh33nuh7'; // hemanthvishnuakula.cannect.space
+
+/**
+ * Ensure the current user follows the founder
+ * Called on app startup for existing users to gradually get all users following
+ * Runs silently in the background - failures are logged but don't affect the user
+ */
+export async function ensureFollowingFounder(): Promise<void> {
+  // Only check once per session to avoid spamming the API
+  if (hasCheckedFounderFollow) {
+    return;
+  }
+  hasCheckedFounderFollow = true;
+
+  const bskyAgent = getAgent();
+
+  // Must have a session
+  if (!bskyAgent.session?.did) {
+    console.log('[Agent] No session, skipping founder follow check');
+    return;
+  }
+
+  // Don't follow yourself
+  if (bskyAgent.session.did === FOUNDER_DID) {
+    console.log('[Agent] User is founder, skipping self-follow');
+    return;
+  }
+
+  try {
+    // Check if already following the founder
+    const profile = await bskyAgent.getProfile({ actor: FOUNDER_DID });
+    
+    if (profile.data.viewer?.following) {
+      console.log('[Agent] User already follows founder');
+      return;
+    }
+
+    // Not following - auto-follow
+    await bskyAgent.follow(FOUNDER_DID);
+    console.log('[Agent] ✅ Existing user now follows founder');
+  } catch (err) {
+    // Silent failure - don't disrupt the user experience
+    console.warn('[Agent] Failed to ensure founder follow:', err);
+  }
+}
+
+/**
+ * Reset founder follow check (call on logout so next login re-checks)
+ */
+export function resetFounderFollowCheck(): void {
+  hasCheckedFounderFollow = false;
 }
 
 /**
