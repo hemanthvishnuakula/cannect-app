@@ -368,11 +368,86 @@ export async function createAccount(opts: {
 }
 
 /**
+ * Helper to create an agent for a specific PDS endpoint
+ */
+function createAgentForPds(pdsEndpoint: string): BskyAgent {
+  return new BskyAgent({
+    service: pdsEndpoint,
+    persistSession: (evt, sess) => {
+      console.log(
+        '[Agent] persistSession event:',
+        evt,
+        sess?.did ? `did:${sess.did.substring(8, 20)}` : 'no session'
+      );
+
+      if (evt === 'expired') {
+        console.warn('[Agent] 🔴 Session EXPIRED - user must re-login');
+        clearSession();
+        notifySessionExpired();
+      } else if (evt === 'create' || evt === 'update') {
+        console.log('[Agent] ✅ Session created/updated, storing...');
+        // Store the PDS endpoint along with the session
+        storeSession({ ...sess, pdsEndpoint });
+      } else if (sess) {
+        storeSession({ ...sess, pdsEndpoint });
+      } else {
+        console.log('[Agent] ⚠️ Clearing session (no session data)');
+        clearSession();
+      }
+    },
+  });
+}
+
+/**
  * Login with identifier (handle or email) and password
  * Automatically resolves the correct PDS for the user
+ * For email login, tries both PDSes since we can't resolve email to PDS directly
  */
 export async function login(identifier: string, password: string): Promise<void> {
-  // Resolve which PDS this user belongs to
+  const isEmail = identifier.includes('@') && !identifier.includes('.cannect.space');
+
+  // For email login, we need to try both PDSes since email can't be resolved
+  if (isEmail) {
+    console.log('[Agent] Email login detected, trying both PDSes...');
+
+    // Try legacy PDS first (most users are there)
+    try {
+      console.log('[Agent] Trying legacy PDS:', PDS_SERVICE_LEGACY);
+      const legacyAgent = createAgentForPds(PDS_SERVICE_LEGACY);
+      await legacyAgent.login({ identifier, password });
+      agent = legacyAgent;
+      resetExpiryState();
+      console.log('[Agent] ✅ Login successful on legacy PDS');
+      return;
+    } catch (legacyErr: any) {
+      console.log('[Agent] Legacy PDS login failed:', legacyErr?.message || legacyErr);
+      // If it's not an auth error (wrong password), don't try the other PDS
+      if (legacyErr?.status === 401 && legacyErr?.message?.includes('Invalid identifier')) {
+        // User doesn't exist on legacy PDS, try new PDS
+        console.log('[Agent] User not found on legacy PDS, trying new PDS...');
+      } else if (legacyErr?.status === 401) {
+        // Wrong password - don't try other PDS, throw the error
+        throw legacyErr;
+      }
+    }
+
+    // Try new PDS
+    try {
+      console.log('[Agent] Trying new PDS:', PDS_SERVICE);
+      const newAgent = createAgentForPds(PDS_SERVICE);
+      await newAgent.login({ identifier, password });
+      agent = newAgent;
+      resetExpiryState();
+      console.log('[Agent] ✅ Login successful on new PDS');
+      return;
+    } catch (newErr: any) {
+      console.log('[Agent] New PDS login failed:', newErr?.message || newErr);
+      // Throw the last error
+      throw newErr;
+    }
+  }
+
+  // For handle/DID login, resolve the PDS first
   const pdsEndpoint = await resolvePdsEndpoint(identifier);
   console.log('[Agent] Login - resolved PDS:', pdsEndpoint, 'for identifier:', identifier);
 
@@ -384,31 +459,7 @@ export async function login(identifier: string, password: string): Promise<void>
 
   // Create agent for the correct PDS
   if (!agent) {
-    agent = new BskyAgent({
-      service: pdsEndpoint,
-      persistSession: (evt, sess) => {
-        console.log(
-          '[Agent] persistSession event:',
-          evt,
-          sess?.did ? `did:${sess.did.substring(8, 20)}` : 'no session'
-        );
-
-        if (evt === 'expired') {
-          console.warn('[Agent] 🔴 Session EXPIRED - user must re-login');
-          clearSession();
-          notifySessionExpired();
-        } else if (evt === 'create' || evt === 'update') {
-          console.log('[Agent] ✅ Session created/updated, storing...');
-          // Store the PDS endpoint along with the session
-          storeSession({ ...sess, pdsEndpoint });
-        } else if (sess) {
-          storeSession({ ...sess, pdsEndpoint });
-        } else {
-          console.log('[Agent] ⚠️ Clearing session (no session data)');
-          clearSession();
-        }
-      },
-    });
+    agent = createAgentForPds(pdsEndpoint);
   }
 
   await agent.login({ identifier, password });
