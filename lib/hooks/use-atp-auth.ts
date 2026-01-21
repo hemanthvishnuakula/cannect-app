@@ -131,10 +131,10 @@ export function useAuth() {
 }
 
 /**
- * Login mutation
+ * Login mutation - fetches profile during login for faster UX
  */
 export function useLogin() {
-  const { setSession, setLoading } = useAuthStore();
+  const { setSession, setProfile, setLoading } = useAuthStore();
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -145,12 +145,40 @@ export function useLogin() {
       if (!session) {
         throw new Error('Login failed - no session returned');
       }
-      return session;
+
+      // Prefetch profile during login for faster UX
+      // This runs in parallel with the navigation
+      let profile = null;
+      try {
+        const { data } = await atproto.getProfile(session.did);
+        profile = {
+          did: data.did,
+          handle: data.handle,
+          displayName: data.displayName,
+          description: data.description,
+          avatar: data.avatar,
+          banner: data.banner,
+          followersCount: data.followersCount,
+          followsCount: data.followsCount,
+          postsCount: data.postsCount,
+        };
+      } catch (err) {
+        console.warn('[Login] Profile prefetch failed:', err);
+        // Don't fail login if profile fetch fails
+      }
+
+      return { session, profile };
     },
-    onSuccess: (session) => {
+    onSuccess: ({ session, profile }) => {
       // Reset expiry notification state on successful login
       atproto.resetExpiryState();
       setSession(session);
+
+      // Set profile immediately if prefetched
+      if (profile) {
+        setProfile(profile);
+      }
+
       queryClient.invalidateQueries();
 
       // Background task: ensure user follows founder

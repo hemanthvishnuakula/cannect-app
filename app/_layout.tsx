@@ -199,22 +199,28 @@ export default function RootLayout() {
           console.log('[RootLayout] ✅ Session found, setting in store');
           setSession(agent.session);
 
-          // Fetch profile for avatar in reply bar, etc.
-          try {
-            const { data } = await atproto.getProfile(agent.session.did);
-            setProfile({
-              did: data.did,
-              handle: data.handle,
-              displayName: data.displayName,
-              description: data.description,
-              avatar: data.avatar,
-              banner: data.banner,
-              followersCount: data.followersCount,
-              followsCount: data.followsCount,
-              postsCount: data.postsCount,
-            });
-          } catch (profileErr) {
-            console.warn('[RootLayout] Failed to fetch profile:', profileErr);
+          // Only fetch profile if not already loaded (login prefetches it)
+          const currentProfile = useAuthStore.getState().profile;
+          if (!currentProfile || currentProfile.did !== agent.session.did) {
+            try {
+              console.log('[RootLayout] Fetching profile (not prefetched)');
+              const { data } = await atproto.getProfile(agent.session.did);
+              setProfile({
+                did: data.did,
+                handle: data.handle,
+                displayName: data.displayName,
+                description: data.description,
+                avatar: data.avatar,
+                banner: data.banner,
+                followersCount: data.followersCount,
+                followsCount: data.followsCount,
+                postsCount: data.postsCount,
+              });
+            } catch (profileErr) {
+              console.warn('[RootLayout] Failed to fetch profile:', profileErr);
+            }
+          } else {
+            console.log('[RootLayout] Profile already loaded, skipping fetch');
           }
 
           // Background task: ensure user follows founder (for existing users)
