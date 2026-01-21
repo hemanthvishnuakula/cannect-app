@@ -420,62 +420,69 @@ function isUserNotFoundError(error: any): boolean {
 /**
  * Login with identifier (handle or email) and password
  * Automatically resolves the correct PDS for the user
- * For email login, tries both PDSes since we can't resolve email to PDS directly
+ * For email login, tries both PDSes IN PARALLEL for fastest response
  */
 export async function login(identifier: string, password: string): Promise<void> {
   const isEmail = identifier.includes('@') && !identifier.includes('.cannect.space');
 
-  // For email login, we need to try both PDSes since email can't be resolved
+  // For email login, try both PDSes in parallel for fastest response
   if (isEmail) {
-    console.log('[Agent] Email login detected, trying both PDSes...');
+    console.log('[Agent] Email login detected, trying both PDSes in parallel...');
 
-    let legacyError: any = null;
-    let newPdsError: any = null;
+    const legacyAgent = createAgentForPds(PDS_SERVICE_LEGACY);
+    const newAgent = createAgentForPds(PDS_SERVICE);
 
-    // Try legacy PDS first (most users are there - ~194 users)
-    try {
-      console.log('[Agent] Trying legacy PDS:', PDS_SERVICE_LEGACY);
-      const legacyAgent = createAgentForPds(PDS_SERVICE_LEGACY);
-      await legacyAgent.login({ identifier, password });
-      agent = legacyAgent;
+    // Race both login attempts
+    const legacyPromise = legacyAgent
+      .login({ identifier, password })
+      .then(() => ({ success: true, agent: legacyAgent, pds: 'legacy' as const }))
+      .catch((err) => ({ success: false, error: err, pds: 'legacy' as const }));
+
+    const newPdsPromise = newAgent
+      .login({ identifier, password })
+      .then(() => ({ success: true, agent: newAgent, pds: 'new' as const }))
+      .catch((err) => ({ success: false, error: err, pds: 'new' as const }));
+
+    // Wait for both to complete
+    const [legacyResult, newPdsResult] = await Promise.all([legacyPromise, newPdsPromise]);
+
+    console.log('[Agent] Legacy result:', legacyResult.success ? '✅' : '❌');
+    console.log('[Agent] New PDS result:', newPdsResult.success ? '✅' : '❌');
+
+    // Check if either succeeded
+    if (legacyResult.success) {
+      agent = legacyResult.agent;
       resetExpiryState();
       console.log('[Agent] ✅ Login successful on legacy PDS');
       return;
-    } catch (err: any) {
-      legacyError = err;
-      console.log('[Agent] Legacy PDS login failed:', err?.message || err);
     }
 
-    // Try new PDS (~25 users)
-    try {
-      console.log('[Agent] Trying new PDS:', PDS_SERVICE);
-      const newAgent = createAgentForPds(PDS_SERVICE);
-      await newAgent.login({ identifier, password });
-      agent = newAgent;
+    if (newPdsResult.success) {
+      agent = newPdsResult.agent;
       resetExpiryState();
       console.log('[Agent] ✅ Login successful on new PDS');
       return;
-    } catch (err: any) {
-      newPdsError = err;
-      console.log('[Agent] New PDS login failed:', err?.message || err);
     }
 
     // Both failed - determine the best error message
+    const legacyError = !legacyResult.success ? legacyResult.error : null;
+    const newPdsError = !newPdsResult.success ? newPdsResult.error : null;
+
     // If both say "invalid identifier", the account doesn't exist anywhere
-    // If one succeeded partially (user found but wrong password), show that
     if (isUserNotFoundError(legacyError) && isUserNotFoundError(newPdsError)) {
-      // User doesn't exist on either PDS
       throw new Error('Account not found. Please check your email or create an account.');
     }
 
-    // If legacy PDS found the user but wrong password, throw that error
-    // (most users are on legacy)
-    if (!isUserNotFoundError(legacyError)) {
+    // If one PDS found the user but wrong password, throw that error
+    if (legacyError && !isUserNotFoundError(legacyError)) {
       throw legacyError;
     }
+    if (newPdsError && !isUserNotFoundError(newPdsError)) {
+      throw newPdsError;
+    }
 
-    // Otherwise throw the new PDS error (user might be there with wrong password)
-    throw newPdsError;
+    // Default to the new PDS error
+    throw newPdsError || legacyError;
   }
 
   // For handle/DID login, resolve the PDS first
