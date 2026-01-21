@@ -138,6 +138,7 @@ export function useLogin() {
   const queryClient = useQueryClient();
 
   return useMutation({
+    retry: 0, // Don't retry auth errors - wrong password won't succeed on retry
     mutationFn: async ({ identifier, password }: { identifier: string; password: string }) => {
       setLoading(true);
       await atproto.login(identifier, password);
@@ -201,6 +202,7 @@ export function useLogout() {
   const queryClient = useQueryClient();
 
   return useMutation({
+    retry: 0,
     mutationFn: async () => {
       await atproto.logout();
     },
@@ -219,6 +221,7 @@ export function useCreateAccount() {
   const queryClient = useQueryClient();
 
   return useMutation({
+    retry: 0,
     mutationFn: async ({
       email,
       password,
