@@ -399,6 +399,25 @@ function createAgentForPds(pdsEndpoint: string): BskyAgent {
 }
 
 /**
+ * Check if an error indicates "user not found" vs "wrong password"
+ * AT Protocol returns "Invalid identifier or password" for both cases,
+ * but we can infer by trying both PDSes
+ */
+function isUserNotFoundError(error: any): boolean {
+  const message = (error?.message || '').toLowerCase();
+  const errorCode = (error?.error || '').toLowerCase();
+
+  // AT Protocol typically returns this generic message
+  return (
+    message.includes('invalid identifier') ||
+    message.includes('account not found') ||
+    message.includes('user not found') ||
+    errorCode === 'authenticationrequired' ||
+    errorCode === 'accountnotfound'
+  );
+}
+
+/**
  * Login with identifier (handle or email) and password
  * Automatically resolves the correct PDS for the user
  * For email login, tries both PDSes since we can't resolve email to PDS directly
@@ -410,7 +429,10 @@ export async function login(identifier: string, password: string): Promise<void>
   if (isEmail) {
     console.log('[Agent] Email login detected, trying both PDSes...');
 
-    // Try legacy PDS first (most users are there)
+    let legacyError: any = null;
+    let newPdsError: any = null;
+
+    // Try legacy PDS first (most users are there - ~194 users)
     try {
       console.log('[Agent] Trying legacy PDS:', PDS_SERVICE_LEGACY);
       const legacyAgent = createAgentForPds(PDS_SERVICE_LEGACY);
@@ -419,19 +441,12 @@ export async function login(identifier: string, password: string): Promise<void>
       resetExpiryState();
       console.log('[Agent] ✅ Login successful on legacy PDS');
       return;
-    } catch (legacyErr: any) {
-      console.log('[Agent] Legacy PDS login failed:', legacyErr?.message || legacyErr);
-      // If it's not an auth error (wrong password), don't try the other PDS
-      if (legacyErr?.status === 401 && legacyErr?.message?.includes('Invalid identifier')) {
-        // User doesn't exist on legacy PDS, try new PDS
-        console.log('[Agent] User not found on legacy PDS, trying new PDS...');
-      } else if (legacyErr?.status === 401) {
-        // Wrong password - don't try other PDS, throw the error
-        throw legacyErr;
-      }
+    } catch (err: any) {
+      legacyError = err;
+      console.log('[Agent] Legacy PDS login failed:', err?.message || err);
     }
 
-    // Try new PDS
+    // Try new PDS (~25 users)
     try {
       console.log('[Agent] Trying new PDS:', PDS_SERVICE);
       const newAgent = createAgentForPds(PDS_SERVICE);
@@ -440,11 +455,27 @@ export async function login(identifier: string, password: string): Promise<void>
       resetExpiryState();
       console.log('[Agent] ✅ Login successful on new PDS');
       return;
-    } catch (newErr: any) {
-      console.log('[Agent] New PDS login failed:', newErr?.message || newErr);
-      // Throw the last error
-      throw newErr;
+    } catch (err: any) {
+      newPdsError = err;
+      console.log('[Agent] New PDS login failed:', err?.message || err);
     }
+
+    // Both failed - determine the best error message
+    // If both say "invalid identifier", the account doesn't exist anywhere
+    // If one succeeded partially (user found but wrong password), show that
+    if (isUserNotFoundError(legacyError) && isUserNotFoundError(newPdsError)) {
+      // User doesn't exist on either PDS
+      throw new Error('Account not found. Please check your email or create an account.');
+    }
+
+    // If legacy PDS found the user but wrong password, throw that error
+    // (most users are on legacy)
+    if (!isUserNotFoundError(legacyError)) {
+      throw legacyError;
+    }
+
+    // Otherwise throw the new PDS error (user might be there with wrong password)
+    throw newPdsError;
   }
 
   // For handle/DID login, resolve the PDS first
