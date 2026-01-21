@@ -53,9 +53,7 @@ function extractYouTubeVideoId(text: string): { videoId: string; url: string } |
     const match = text.match(pattern);
     if (match && match[1]) {
       // Extract the full URL for linking
-      const urlMatch = text.match(
-        /https?:\/\/(?:www\.|m\.)?(?:youtube\.com|youtu\.be)[^\s]*/
-      );
+      const urlMatch = text.match(/https?:\/\/(?:www\.|m\.)?(?:youtube\.com|youtu\.be)[^\s]*/);
       return {
         videoId: match[1],
         url: urlMatch ? urlMatch[0] : `https://youtube.com/watch?v=${match[1]}`,

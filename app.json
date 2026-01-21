@@ -41,18 +41,7 @@
       "orientation": "portrait",
       "lang": "en"
     },
-    "plugins": [
-      "expo-router",
-      "expo-secure-store",
-      "expo-image-picker",
-      "expo-font",
-      [
-        "expo-notifications",
-        {
-          "color": "#10B981"
-        }
-      ]
-    ],
+    "plugins": ["expo-router", "expo-secure-store", "expo-image-picker"],
     "experiments": {
       "typedRoutes": true
     },
