@@ -69,7 +69,7 @@ export default function LoginScreen() {
               <View className="bg-surface-elevated border border-border rounded-xl flex-row items-center px-4">
                 <Mail size={20} color="#6B6B6B" />
                 <TextInput
-                  placeholder="Email or handle"
+                  placeholder="Email"
                   placeholderTextColor="#6B6B6B"
                   value={email}
                   onChangeText={setEmail}

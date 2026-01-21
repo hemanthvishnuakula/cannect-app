@@ -418,90 +418,66 @@ function isUserNotFoundError(error: any): boolean {
 }
 
 /**
- * Login with identifier (handle or email) and password
- * Automatically resolves the correct PDS for the user
- * For email login, tries both PDSes IN PARALLEL for fastest response
+ * Login with email and password
+ * Tries both PDSes in parallel for fastest response
  */
-export async function login(identifier: string, password: string): Promise<void> {
-  const isEmail = identifier.includes('@') && !identifier.includes('.cannect.space');
+export async function login(email: string, password: string): Promise<void> {
+  console.log('[Agent] Email login, trying both PDSes in parallel...');
 
-  // For email login, try both PDSes in parallel for fastest response
-  if (isEmail) {
-    console.log('[Agent] Email login detected, trying both PDSes in parallel...');
+  const legacyAgent = createAgentForPds(PDS_SERVICE_LEGACY);
+  const newAgent = createAgentForPds(PDS_SERVICE);
 
-    const legacyAgent = createAgentForPds(PDS_SERVICE_LEGACY);
-    const newAgent = createAgentForPds(PDS_SERVICE);
+  // Race both login attempts
+const legacyPromise = legacyAgent
+    .login({ identifier: email, password })
+    .then(() => ({ success: true, agent: legacyAgent, pds: 'legacy' as const }))
+    .catch((err) => ({ success: false, error: err, pds: 'legacy' as const }));
 
-    // Race both login attempts
-    const legacyPromise = legacyAgent
-      .login({ identifier, password })
-      .then(() => ({ success: true, agent: legacyAgent, pds: 'legacy' as const }))
-      .catch((err) => ({ success: false, error: err, pds: 'legacy' as const }));
+  const newPdsPromise = newAgent
+    .login({ identifier: email, password })
+    .then(() => ({ success: true, agent: newAgent, pds: 'new' as const }))
+    .catch((err) => ({ success: false, error: err, pds: 'new' as const }));
 
-    const newPdsPromise = newAgent
-      .login({ identifier, password })
-      .then(() => ({ success: true, agent: newAgent, pds: 'new' as const }))
-      .catch((err) => ({ success: false, error: err, pds: 'new' as const }));
+  // Wait for both to complete
+  const [legacyResult, newPdsResult] = await Promise.all([legacyPromise, newPdsPromise]);
 
-    // Wait for both to complete
-    const [legacyResult, newPdsResult] = await Promise.all([legacyPromise, newPdsPromise]);
+  console.log('[Agent] Legacy result:', legacyResult.success ? '✅' : '❌');
+  console.log('[Agent] New PDS result:', newPdsResult.success ? '✅' : '❌');
 
-    console.log('[Agent] Legacy result:', legacyResult.success ? '✅' : '❌');
-    console.log('[Agent] New PDS result:', newPdsResult.success ? '✅' : '❌');
-
-    // Check if either succeeded
-    if (legacyResult.success) {
-      agent = legacyResult.agent;
-      resetExpiryState();
-      console.log('[Agent] ✅ Login successful on legacy PDS');
-      return;
-    }
-
-    if (newPdsResult.success) {
-      agent = newPdsResult.agent;
-      resetExpiryState();
-      console.log('[Agent] ✅ Login successful on new PDS');
-      return;
-    }
-
-    // Both failed - determine the best error message
-    const legacyError = !legacyResult.success ? legacyResult.error : null;
-    const newPdsError = !newPdsResult.success ? newPdsResult.error : null;
-
-    // If both say "invalid identifier", the account doesn't exist anywhere
-    if (isUserNotFoundError(legacyError) && isUserNotFoundError(newPdsError)) {
-      throw new Error('Account not found. Please check your email or create an account.');
-    }
-
-    // If one PDS found the user but wrong password, throw that error
-    if (legacyError && !isUserNotFoundError(legacyError)) {
-      throw legacyError;
-    }
-    if (newPdsError && !isUserNotFoundError(newPdsError)) {
-      throw newPdsError;
-    }
-
-    // Default to the new PDS error
-    throw newPdsError || legacyError;
+  // Check if either succeeded
+  if (legacyResult.success) {
+    agent = legacyResult.agent;
+    resetExpiryState();
+    console.log('[Agent] ✅ Login successful on legacy PDS');
+    return;
   }
 
-  // For handle/DID login, resolve the PDS first
-  const pdsEndpoint = await resolvePdsEndpoint(identifier);
-  console.log('[Agent] Login - resolved PDS:', pdsEndpoint, 'for identifier:', identifier);
-
-  // If the user is on a different PDS than current agent, recreate agent
-  if (agent && (agent as any).service?.toString() !== pdsEndpoint) {
-    console.log('[Agent] Switching PDS from', (agent as any).service, 'to', pdsEndpoint);
-    agent = null;
+  if (newPdsResult.success) {
+    agent = newPdsResult.agent;
+    resetExpiryState();
+    console.log('[Agent] ✅ Login successful on new PDS');
+    return;
   }
 
-  // Create agent for the correct PDS
-  if (!agent) {
-    agent = createAgentForPds(pdsEndpoint);
+  // Both failed - determine the best error message
+  const legacyError = !legacyResult.success ? legacyResult.error : null;
+  const newPdsError = !newPdsResult.success ? newPdsResult.error : null;
+
+  // If both say "invalid identifier", the account doesn't exist anywhere
+  if (isUserNotFoundError(legacyError) && isUserNotFoundError(newPdsError)) {
+    throw new Error('Account not found. Please check your email or create an account.');
   }
 
-  await agent.login({ identifier, password });
-  resetExpiryState();
+  // If one PDS found the user but wrong password, throw that error
+  if (legacyError && !isUserNotFoundError(legacyError)) {
+    throw legacyError;
+  }
+  if (newPdsError && !isUserNotFoundError(newPdsError)) {
+    throw newPdsError;
+  }
+
+  // Default to the new PDS error
+  throw newPdsError || legacyError;
 }
 
 /**
