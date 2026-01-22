@@ -803,7 +803,7 @@ export const PostActions = memo(function PostActions({
                 </View>
                 <View className="flex-1">
                   <Text className={`text-lg font-semibold ${isBoosted ? 'text-orange-500' : 'text-text-primary'}`}>
-                    {isBoosted ? 'Remove Boost' : '🚀 Boost Post'}
+                    {isBoosted ? 'Remove Boost' : 'Boost Post'}
                   </Text>
                   <Text className="text-text-muted text-sm">
                     {isBoosted ? 'Stop promoting this post' : 'Show more in feeds for 24 hours'}
