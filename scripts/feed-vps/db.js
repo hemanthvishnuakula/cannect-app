@@ -101,8 +101,6 @@ const getBoostsByAuthor = db.prepare(`
 const cleanExpiredBoosts = db.prepare(`
   DELETE FROM boosts WHERE expires_at < unixepoch()
 `);
-  DELETE FROM posts WHERE created_at < unixepoch() - ?
-`);
 
 /**
  * Add a post to the feed
@@ -245,7 +243,5 @@ module.exports = {
   isPostBoosted,
   getBoostInfo,
   getAuthorBoosts,
-  close,
-};
   close,
 };
