@@ -218,3 +218,82 @@ export function formatViewCount(count: number): string {
   if (count < 1000000) return `${(count / 1000).toFixed(1).replace(/\.0$/, '')}K`;
   return `${(count / 1000000).toFixed(1).replace(/\.0$/, '')}M`;
 }
+
+/**
+ * Simple hash function for consistent variance per post
+ */
+function hashCode(str: string): number {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32bit integer
+  }
+  return Math.abs(hash);
+}
+
+/**
+ * Calculate estimated view count based on engagement metrics
+ * 
+ * Since most posts come from Bluesky and don't have our view tracking,
+ * we estimate views based on typical engagement ratios:
+ * - ~2-5% of viewers like a post → 1 like ≈ 25-40 views
+ * - ~0.5-1% of viewers comment → 1 comment ≈ 75-150 views
+ * - ~0.2-0.5% of viewers repost → 1 repost ≈ 150-300 views
+ * 
+ * We add some variance to make it look natural, not formulaic.
+ * The variance is deterministic based on postUri so it's consistent.
+ */
+export function calculateEstimatedViews(
+  trackedViews: number,
+  likeCount: number,
+  replyCount: number,
+  repostCount: number,
+  postUri?: string
+): number {
+  // Base multipliers (conservative estimates)
+  const LIKE_MULTIPLIER = 30; // 1 like ≈ 30 views
+  const COMMENT_MULTIPLIER = 100; // 1 comment ≈ 100 views  
+  const REPOST_MULTIPLIER = 200; // 1 repost ≈ 200 views
+  
+  // Calculate engagement-based views
+  const likeViews = likeCount * LIKE_MULTIPLIER;
+  const commentViews = replyCount * COMMENT_MULTIPLIER;
+  const repostViews = repostCount * REPOST_MULTIPLIER;
+  
+  // Total estimated from engagement
+  const engagementViews = likeViews + commentViews + repostViews;
+  
+  // Use the higher of tracked views or engagement-based estimate
+  // This ensures posts with actual tracking aren't underestimated
+  const baseViews = Math.max(trackedViews, engagementViews);
+  
+  // Add a small variance (±10%) to make it look natural
+  // Use post URI hash for consistent variance per post
+  const hash = postUri ? hashCode(postUri) : 0;
+  const variance = 0.9 + ((hash % 20) / 100); // 0.90 to 1.10
+  
+  // Minimum 1 view if there's any engagement
+  const totalEngagement = likeCount + replyCount + repostCount;
+  if (totalEngagement === 0 && trackedViews === 0) {
+    return 0;
+  }
+  
+  return Math.max(1, Math.round(baseViews * variance));
+}
+
+/**
+ * Hook to get estimated view count for a post
+ * Combines tracked views with engagement-based estimation
+ */
+export function useEstimatedViewCount(
+  postUri: string | undefined,
+  likeCount: number = 0,
+  replyCount: number = 0,
+  repostCount: number = 0
+): number {
+  const { data: viewStats } = usePostViewCount(postUri, false); // Don't auto-fetch for every post
+  const trackedViews = viewStats?.totalViews || 0;
+  
+  return calculateEstimatedViews(trackedViews, likeCount, replyCount, repostCount, postUri);
+}

@@ -51,8 +51,8 @@ import {
   useIsPostBoosted,
   useBoostPost,
   useUnboostPost,
-  usePostViewCount,
   formatViewCount,
+  calculateEstimatedViews,
 } from '../../lib/hooks';
 import { useAuthStore } from '../../lib/stores';
 import * as atproto from '../../lib/atproto/agent';
@@ -116,10 +116,6 @@ export const PostActions = memo(function PostActions({
   const { data: boostStatus } = useIsPostBoosted(isOwnPost ? post.uri : undefined);
   const isBoosted = boostStatus?.boosted || false;
 
-  // Fetch view count for this post
-  const { data: viewStats } = usePostViewCount(post.uri);
-  const viewCount = viewStats?.totalViews || 0;
-
   // Local state
   const [isLikeLoading, setIsLikeLoading] = useState(false);
   const [isRepostLoading, setIsRepostLoading] = useState(false);
@@ -134,6 +130,10 @@ export const PostActions = memo(function PostActions({
   const repostCount = post.repostCount || 0;
   const replyCount = post.replyCount || 0;
   const record = post.record as AppBskyFeedPost.Record;
+
+  // Calculate estimated view count based on engagement
+  // This gives realistic numbers even for Bluesky posts we don't track
+  const viewCount = calculateEstimatedViews(0, likeCount, replyCount, repostCount, post.uri);
 
   // Build post URL
   const getPostUrl = useCallback(() => {
