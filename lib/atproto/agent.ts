@@ -297,8 +297,11 @@ export function getAgent(): BskyAgent {
           storeSession(sess);
         } else if (sess) {
           storeSession(sess);
+        } else if (evt === 'create-failed') {
+          // Login failed - don't clear session
+          console.log('[Agent] ⚠️ Login failed (not clearing session)');
         } else {
-          console.log('[Agent] ⚠️ Clearing session (no session data)');
+          console.log('[Agent] ⚠️ Clearing session (no session data, event:', evt, ')');
           clearSession();
         }
       },
@@ -427,8 +430,13 @@ function createAgentForPds(pdsEndpoint: string): BskyAgent {
         storeSession({ ...sess, pdsEndpoint });
       } else if (sess) {
         storeSession({ ...sess, pdsEndpoint });
+      } else if (evt === 'create-failed') {
+        // Login failed on this PDS - DON'T clear session!
+        // Another PDS login might have succeeded and stored a session.
+        console.log('[Agent] ⚠️ Login failed on this PDS (ignoring, not clearing session)');
       } else {
-        console.log('[Agent] ⚠️ Clearing session (no session data)');
+        // Only clear if we really have no session and it's not a create-failed
+        console.log('[Agent] ⚠️ Clearing session (no session data, event:', evt, ')');
         clearSession();
       }
     },
