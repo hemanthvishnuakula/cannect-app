@@ -961,17 +961,45 @@ export async function getSuggestions(cursor?: string, limit = 10) {
 }
 
 /**
- * List all repos (users) on Cannect PDS
+ * List all repos (users) on both Cannect PDSes
+ * Fetches from both legacy (cannect.space) and new (pds.cannect.space) PDSes
  */
 export async function listPdsRepos(limit = 100): Promise<string[]> {
-  try {
-    const response = await fetch(`${PDS_SERVICE}/xrpc/com.atproto.sync.listRepos?limit=${limit}`);
-    if (!response.ok) {
-      console.error('[listPdsRepos] Failed:', response.status, response.statusText);
+  const fetchFromPds = async (pdsUrl: string): Promise<string[]> => {
+    try {
+      const response = await fetch(`${pdsUrl}/xrpc/com.atproto.sync.listRepos?limit=${limit}`);
+      if (!response.ok) {
+        console.error(`[listPdsRepos] Failed for ${pdsUrl}:`, response.status);
+        return [];
+      }
+      const data = await response.json();
+      return data.repos?.map((repo: { did: string }) => repo.did) || [];
+    } catch (error) {
+      console.error(`[listPdsRepos] Error for ${pdsUrl}:`, error);
       return [];
     }
-    const data = await response.json();
-    return data.repos?.map((repo: { did: string }) => repo.did) || [];
+  };
+
+  try {
+    // Fetch from both PDSes in parallel
+    const [legacyDids, newDids] = await Promise.all([
+      fetchFromPds(PDS_SERVICE_LEGACY),
+      fetchFromPds(PDS_SERVICE),
+    ]);
+
+    // Combine and deduplicate
+    const allDids = [...new Set([...legacyDids, ...newDids])];
+    
+    // Validate DIDs - must be proper did:plc: format
+    const validDids = allDids.filter(did => 
+      did && 
+      typeof did === 'string' && 
+      did.startsWith('did:plc:') && 
+      did.length > 12
+    );
+    
+    console.log(`[listPdsRepos] Got ${validDids.length} valid DIDs (legacy: ${legacyDids.length}, new: ${newDids.length})`);
+    return validDids;
   } catch (error) {
     console.error('[listPdsRepos] Error:', error);
     return [];
@@ -985,10 +1013,28 @@ export async function listPdsRepos(limit = 100): Promise<string[]> {
  */
 export async function getProfiles(dids: string[]) {
   const bskyAgent = getAgent();
+  
+  // Validate and filter DIDs before making API call
+  const validDids = dids.filter(did => 
+    did && 
+    typeof did === 'string' && 
+    (did.startsWith('did:plc:') || did.startsWith('did:web:')) && 
+    did.length > 10
+  );
+  
+  if (validDids.length === 0) {
+    console.log('[getProfiles] No valid DIDs to fetch');
+    return [];
+  }
+  
+  if (validDids.length !== dids.length) {
+    console.log(`[getProfiles] Filtered out ${dids.length - validDids.length} invalid DIDs`);
+  }
+  
   // API limit is 25 actors at a time
   const chunks = [];
-  for (let i = 0; i < dids.length; i += 25) {
-    chunks.push(dids.slice(i, i + 25));
+  for (let i = 0; i < validDids.length; i += 25) {
+    chunks.push(validDids.slice(i, i + 25));
   }
 
   try {
@@ -1038,7 +1084,7 @@ export async function getProfiles(dids: string[]) {
     console.error('[getProfiles] Batch failed, trying individual:', error);
     // Fallback: fetch profiles individually using our enhanced getProfile
     const profiles = [];
-    for (const did of dids) {
+    for (const did of validDids) {
       try {
         const result = await getProfile(did);
         if (result.data) {
