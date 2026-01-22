@@ -26,6 +26,7 @@ import { Leaf } from 'lucide-react-native';
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { useTimeline, useCannectFeed } from '@/lib/hooks';
 import { triggerImpact } from '@/lib/utils/haptics';
+import { scrollToTop } from '@/lib/utils/scroll-to-top';
 import { OfflineBanner } from '@/components/OfflineBanner';
 import { MediaViewer, ComposeFAB, ErrorState, EmptyState } from '@/components/ui';
 import { PostCard, FeedSkeleton } from '@/components/Post';
@@ -109,6 +110,20 @@ export default function FeedScreen() {
   // Web refresh hint
   const [showRefreshHint, setShowRefreshHint] = useState(false);
   const refreshHintTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const webScrollRef = useRef<ScrollView>(null);
+
+  // Scroll to top when tab is pressed while already on this screen
+  useEffect(() => {
+    return scrollToTop.subscribe('feed', () => {
+      if (Platform.OS === 'web') {
+        webScrollRef.current?.scrollTo({ y: 0, animated: true });
+      } else {
+        listRef.current?.scrollToOffset({ offset: 0, animated: true });
+      }
+      // Reset saved offset
+      scrollOffsets.current[activeFeed] = 0;
+    });
+  }, [activeFeed]);
 
   useEffect(() => {
     if (showRefreshHint && Platform.OS === 'web') {
@@ -139,10 +154,7 @@ export default function FeedScreen() {
   if (feedError) {
     return (
       <SafeAreaView className="flex-1 bg-background" edges={['top']}>
-        <ErrorState
-          message={feedError}
-          onRetry={handleRefresh}
-        />
+        <ErrorState message={feedError} onRetry={handleRefresh} />
       </SafeAreaView>
     );
   }
@@ -188,6 +200,7 @@ export default function FeedScreen() {
       ) : Platform.OS === 'web' ? (
         /* Web: Use ScrollView */
         <ScrollView
+          ref={webScrollRef}
           style={{ flex: 1 }}
           contentContainerStyle={{ paddingBottom: 20 }}
           refreshControl={

@@ -16,9 +16,10 @@ import {
 } from 'lucide-react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { getOptimizedAvatarWithFallback } from '@/lib/utils/avatar';
-import { useCallback } from 'react';
+import { useCallback, useRef, useEffect } from 'react';
 import { useNotifications, useMarkNotificationsRead } from '@/lib/hooks';
 import { triggerImpact } from '@/lib/utils/haptics';
+import { scrollToTop } from '@/lib/utils/scroll-to-top';
 import type { AppBskyNotificationListNotifications } from '@atproto/api';
 
 type Notification = AppBskyNotificationListNotifications.Notification;
@@ -132,8 +133,16 @@ function NotificationItem({ notification }: { notification: Notification }) {
 export default function NotificationsScreen() {
   const notificationsQuery = useNotifications();
   const markAsRead = useMarkNotificationsRead();
+  const listRef = useRef<FlatList>(null);
 
   const notifications = notificationsQuery.data?.pages?.flatMap((page) => page.notifications) || [];
+
+  // Scroll to top when tab is pressed while already on this screen
+  useEffect(() => {
+    return scrollToTop.subscribe('notifications', () => {
+      listRef.current?.scrollToOffset({ offset: 0, animated: true });
+    });
+  }, []);
 
   // Mark all as read when screen is focused (after 2 second delay)
   useFocusEffect(
@@ -176,6 +185,7 @@ export default function NotificationsScreen() {
         <Text className="text-3xl font-bold text-text-primary">Notifications</Text>
       </View>
       <FlatList
+        ref={listRef}
         data={notifications}
         keyExtractor={(item, index) => `${item.uri}-${index}`}
         renderItem={({ item }) => <NotificationItem notification={item} />}

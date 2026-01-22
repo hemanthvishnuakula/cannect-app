@@ -5,7 +5,7 @@
  * Renders the messages list directly with user search.
  */
 
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useState, useRef, useEffect } from 'react';
 import { View, Text, ActivityIndicator, FlatList, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -13,6 +13,7 @@ import { MessageCircle } from 'lucide-react-native';
 import { useConversations, useStartConversation, type Conversation } from '@/lib/hooks';
 import { useDebounce } from '@/lib/hooks/use-debounce';
 import { triggerImpact } from '@/lib/utils/haptics';
+import { scrollToTop } from '@/lib/utils/scroll-to-top';
 import * as atproto from '@/lib/atproto/agent';
 import { ComposeFAB, SearchBar } from '@/components/ui';
 import { UserRow } from '@/components/Profile';
@@ -24,6 +25,14 @@ export default function MessagesTabScreen() {
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const debouncedQuery = useDebounce(searchQuery, 300);
+  const listRef = useRef<FlatList>(null);
+
+  // Scroll to top when tab is pressed
+  useEffect(() => {
+    return scrollToTop.subscribe('messages', () => {
+      listRef.current?.scrollToOffset({ offset: 0, animated: true });
+    });
+  }, []);
 
   const { data: convosData, isLoading, refetch, isRefetching } = useConversations();
   const { mutate: startConversation, isPending: isStartingConvo } = useStartConversation();
@@ -159,6 +168,7 @@ export default function MessagesTabScreen() {
         />
       ) : (
         <FlatList
+          ref={listRef}
           data={conversations}
           keyExtractor={(item) => item.id}
           renderItem={renderConversation}

@@ -4,6 +4,8 @@ import { View, ActivityIndicator } from 'react-native';
 import { useEffect } from 'react';
 import { useAuthStore } from '@/lib/stores';
 import { useUnreadNotificationCount, useUnreadMessageCount, usePWA } from '@/lib/hooks';
+import { scrollToTop } from '@/lib/utils/scroll-to-top';
+import { triggerImpact } from '@/lib/utils/haptics';
 
 export default function TabsLayout() {
   const { isLoading, isAuthenticated } = useAuthStore();
@@ -61,11 +63,23 @@ export default function TabsLayout() {
         options={{
           tabBarIcon: ({ color, size }) => <Home size={size} color={color} />,
         }}
+        listeners={{
+          tabPress: (e) => {
+            triggerImpact('light');
+            scrollToTop.emit('feed');
+          },
+        }}
       />
       <Tabs.Screen
         name="search"
         options={{
           tabBarIcon: ({ color, size }) => <Search size={size} color={color} />,
+        }}
+        listeners={{
+          tabPress: (e) => {
+            triggerImpact('light');
+            scrollToTop.emit('search');
+          },
         }}
       />
       <Tabs.Screen
@@ -79,6 +93,12 @@ export default function TabsLayout() {
                 : unreadMsgCount
               : undefined,
           tabBarBadgeStyle: { backgroundColor: '#10B981', fontSize: 10 },
+        }}
+        listeners={{
+          tabPress: (e) => {
+            triggerImpact('light');
+            scrollToTop.emit('messages');
+          },
         }}
       />
       <Tabs.Screen
@@ -99,11 +119,23 @@ export default function TabsLayout() {
               : undefined,
           tabBarBadgeStyle: { backgroundColor: '#EF4444', fontSize: 10 },
         }}
+        listeners={{
+          tabPress: (e) => {
+            triggerImpact('light');
+            scrollToTop.emit('notifications');
+          },
+        }}
       />
       <Tabs.Screen
         name="profile"
         options={{
           tabBarIcon: ({ color, size }) => <User size={size} color={color} />,
+        }}
+        listeners={{
+          tabPress: (e) => {
+            triggerImpact('light');
+            scrollToTop.emit('profile');
+          },
         }}
       />
     </Tabs>

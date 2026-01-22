@@ -15,7 +15,7 @@ import { Image } from 'expo-image';
 import { FlashList } from '@shopify/flash-list';
 import { useRouter } from 'expo-router';
 import { LogOut, Edit3, MessageCircle } from 'lucide-react-native';
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { useAuthorFeed, useActorLikes, useStartConversation } from '@/lib/hooks';
 import { PostCard } from '@/components/Post';
 import { FollowButton, useToast } from '@/components/ui';
@@ -48,6 +48,8 @@ interface ProfileViewProps {
   onEditProfile?: () => void;
   /** Called when Logout is pressed (own profile only) */
   onLogout?: () => void;
+  /** Increment to trigger scroll to top */
+  scrollToTopTrigger?: number;
 }
 
 export function ProfileView({
@@ -58,9 +60,18 @@ export function ProfileView({
   onRefresh,
   onEditProfile,
   onLogout,
+  scrollToTopTrigger,
 }: ProfileViewProps) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<ProfileTab>('posts');
+  const listRef = useRef<FlashList<any>>(null);
+
+  // Scroll to top when trigger changes
+  useEffect(() => {
+    if (scrollToTopTrigger && scrollToTopTrigger > 0) {
+      listRef.current?.scrollToOffset({ offset: 0, animated: true });
+    }
+  }, [scrollToTopTrigger]);
 
   // Different feeds based on active tab
   const postsQuery = useAuthorFeed(profileData.did, 'posts_no_replies');
@@ -107,6 +118,7 @@ export function ProfileView({
   return (
     <>
       <FlashList
+        ref={listRef}
         data={posts}
         keyExtractor={(item, index) => `${item.post.uri}-${index}`}
         estimatedItemSize={350}

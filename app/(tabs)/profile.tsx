@@ -4,6 +4,7 @@
  * Uses unified ProfileView component
  */
 
+import { useEffect, useState } from 'react';
 import { Text, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -12,13 +13,22 @@ import { useMyProfile, useLogout } from '@/lib/hooks';
 import { useAuthStore } from '@/lib/stores';
 import { ProfileView } from '@/components/Profile/ProfileView';
 import { ProfileSkeleton } from '@/components/skeletons';
+import { scrollToTop } from '@/lib/utils/scroll-to-top';
 
 export default function ProfileScreen() {
   const router = useRouter();
   const { did } = useAuthStore();
   const logoutMutation = useLogout();
+  const [scrollTrigger, setScrollTrigger] = useState(0);
 
   const profileQuery = useMyProfile();
+
+  // Listen for scroll-to-top events
+  useEffect(() => {
+    return scrollToTop.subscribe('profile', () => {
+      setScrollTrigger((prev) => prev + 1);
+    });
+  }, []);
 
   const handleLogout = async () => {
     await logoutMutation.mutateAsync();
@@ -65,6 +75,7 @@ export default function ProfileScreen() {
         onRefresh={() => profileQuery.refetch()}
         onEditProfile={handleEditProfile}
         onLogout={handleLogout}
+        scrollToTopTrigger={scrollTrigger}
       />
     </SafeAreaView>
   );

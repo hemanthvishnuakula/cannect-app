@@ -5,7 +5,7 @@
  * - With query: Shows both users and posts in unified results
  */
 
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { View, Text, TextInput, Pressable, ActivityIndicator, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { FlashList } from '@shopify/flash-list';
@@ -16,6 +16,7 @@ import { useAuthStore } from '@/lib/stores';
 import { PostCard } from '@/components/Post';
 import { UserRow } from '@/components/Profile';
 import { ComposeFAB } from '@/components/ui';
+import { scrollToTop } from '@/lib/utils/scroll-to-top';
 import type { AppBskyActorDefs, AppBskyFeedDefs } from '@atproto/api';
 
 type ProfileView = AppBskyActorDefs.ProfileView;
@@ -45,6 +46,16 @@ export default function SearchScreen() {
   const router = useRouter();
   const { q } = useLocalSearchParams<{ q?: string }>();
   const [query, setQuery] = useState(q || '');
+  const suggestedListRef = useRef<FlashList<any>>(null);
+  const searchListRef = useRef<FlashList<any>>(null);
+
+  // Scroll to top when tab is pressed
+  useEffect(() => {
+    return scrollToTop.subscribe('search', () => {
+      suggestedListRef.current?.scrollToOffset({ offset: 0, animated: true });
+      searchListRef.current?.scrollToOffset({ offset: 0, animated: true });
+    });
+  }, []);
 
   // Update query when URL param changes (e.g., clicking hashtag)
   useEffect(() => {
@@ -201,6 +212,7 @@ export default function SearchScreen() {
       {!hasQuery ? (
         // No query - show suggested users
         <FlashList
+          ref={suggestedListRef}
           data={suggestedUsers}
           keyExtractor={(item) => item.did}
           estimatedItemSize={80}
@@ -254,6 +266,7 @@ export default function SearchScreen() {
       ) : (
         // Show unified search results
         <FlashList
+          ref={searchListRef}
           data={searchResults}
           keyExtractor={(item, index) => {
             if (item.type === 'section') return `section-${item.title}`;
