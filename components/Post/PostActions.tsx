@@ -22,7 +22,7 @@ import { View, Text, Pressable, Share as RNShare, Platform, Modal, Alert } from 
 import { useRouter } from 'expo-router';
 import {
   Heart,
-  MessageCircle,
+  MessageSquare,
   Repeat2,
   Share,
   MoreHorizontal,
@@ -31,7 +31,7 @@ import {
   Flag,
   Link,
   Share2,
-  Send,
+  Upload,
 } from 'lucide-react-native';
 import { memo, useCallback, useState } from 'react';
 import * as Clipboard from 'expo-clipboard';
@@ -382,7 +382,7 @@ export const PostActions = memo(function PostActions({
           android_ripple={{ color: 'rgba(0,0,0,0.1)', borderless: true }}
           style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
         >
-          <MessageCircle size={iconSize} color={mutedColor} />
+          <MessageSquare size={iconSize} color={mutedColor} strokeWidth={1.5} />
           {!hideReplyCounts && (
             <Text className="text-text-muted text-sm ml-1.5 min-w-[16px]">
               {replyCount > 0 ? replyCount : ''}
@@ -403,7 +403,7 @@ export const PostActions = memo(function PostActions({
           android_ripple={{ color: 'rgba(0,0,0,0.1)', borderless: true }}
           style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
         >
-          <Repeat2 size={iconSize} color={repostColor} />
+          <Repeat2 size={iconSize} color={repostColor} strokeWidth={1.5} />
           <Text
             className={`text-sm ml-1.5 min-w-[16px] ${isReposted ? 'text-green-500' : 'text-text-muted'}`}
           >
@@ -424,7 +424,7 @@ export const PostActions = memo(function PostActions({
           android_ripple={{ color: 'rgba(0,0,0,0.1)', borderless: true }}
           style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
         >
-          <Heart size={iconSize} color={likeColor} fill={isLiked ? '#EF4444' : 'none'} />
+          <Heart size={iconSize} color={likeColor} fill={isLiked ? '#EF4444' : 'none'} strokeWidth={1.5} />
           <Text
             className={`text-sm ml-1.5 min-w-[16px] ${isLiked ? 'text-red-500' : 'text-text-muted'}`}
           >
@@ -432,7 +432,7 @@ export const PostActions = memo(function PostActions({
           </Text>
         </Pressable>
 
-        {/* Send to DM */}
+        {/* Share */}
         <Pressable
           onPressIn={stopEvent}
           onPress={(e) => {
@@ -444,7 +444,7 @@ export const PostActions = memo(function PostActions({
           android_ripple={{ color: 'rgba(0,0,0,0.1)', borderless: true }}
           style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
         >
-          <Send size={iconSize} color={mutedColor} />
+          <Upload size={iconSize} color={mutedColor} strokeWidth={1.5} />
         </Pressable>
 
         {/* More Options (includes Share, Copy Link, Delete, Report) */}
@@ -460,7 +460,7 @@ export const PostActions = memo(function PostActions({
             android_ripple={{ color: 'rgba(0,0,0,0.1)', borderless: true }}
             style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
           >
-            <MoreHorizontal size={iconSize} color={mutedColor} />
+            <MoreHorizontal size={iconSize} color={mutedColor} strokeWidth={1.5} />
           </Pressable>
         )}
       </View>
@@ -476,7 +476,7 @@ export const PostActions = memo(function PostActions({
           android_ripple={{ color: 'rgba(0,0,0,0.1)', borderless: true }}
           style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
         >
-          <MessageCircle size={iconSize} color={mutedColor} />
+          <MessageSquare size={iconSize} color={mutedColor} strokeWidth={1.5} />
           <Text className="text-text-muted text-sm ml-1.5 min-w-[16px]">
             {replyCount > 0 ? replyCount : ''}
           </Text>
@@ -492,7 +492,7 @@ export const PostActions = memo(function PostActions({
           android_ripple={{ color: 'rgba(0,0,0,0.1)', borderless: true }}
           style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
         >
-          <Repeat2 size={iconSize} color={repostColor} />
+          <Repeat2 size={iconSize} color={repostColor} strokeWidth={1.5} />
           <Text
             className={`text-sm ml-1.5 min-w-[16px] ${isReposted ? 'text-green-500' : 'text-text-muted'}`}
           >
@@ -510,7 +510,7 @@ export const PostActions = memo(function PostActions({
           android_ripple={{ color: 'rgba(0,0,0,0.1)', borderless: true }}
           style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
         >
-          <Heart size={iconSize} color={likeColor} fill={isLiked ? '#EF4444' : 'none'} />
+          <Heart size={iconSize} color={likeColor} fill={isLiked ? '#EF4444' : 'none'} strokeWidth={1.5} />
           <Text
             className={`text-sm ml-1.5 min-w-[16px] ${isLiked ? 'text-red-500' : 'text-text-muted'}`}
           >
@@ -518,7 +518,7 @@ export const PostActions = memo(function PostActions({
           </Text>
         </Pressable>
 
-        {/* Send to DM */}
+        {/* Share */}
         <Pressable
           onPressIn={stopEvent}
           onPress={handleSendToDM}
@@ -527,7 +527,7 @@ export const PostActions = memo(function PostActions({
           android_ripple={{ color: 'rgba(0,0,0,0.1)', borderless: true }}
           style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
         >
-          <Send size={iconSize} color={mutedColor} />
+          <Upload size={iconSize} color={mutedColor} strokeWidth={1.5} />
         </Pressable>
 
         {/* Options (includes Share, Copy Link, Delete, Report) */}
@@ -540,7 +540,7 @@ export const PostActions = memo(function PostActions({
             android_ripple={{ color: 'rgba(0,0,0,0.1)', borderless: true }}
             style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
           >
-            <MoreHorizontal size={iconSize} color={mutedColor} />
+            <MoreHorizontal size={iconSize} color={mutedColor} strokeWidth={1.5} />
           </Pressable>
         )}
       </View>
