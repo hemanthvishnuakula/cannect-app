@@ -98,6 +98,9 @@ export {
   useTrackPostView,
   useViewTracking,
   useFlushViewsOnUnmount,
+  usePostViewCount,
+  useTrendingPosts,
+  formatViewCount,
 } from './use-view-tracking';
 
 // Chat / Direct Messages

@@ -34,6 +34,7 @@ import {
   Upload,
   Pin,
   Rocket,
+  Eye,
 } from 'lucide-react-native';
 import { memo, useCallback, useState } from 'react';
 import * as Clipboard from 'expo-clipboard';
@@ -50,6 +51,8 @@ import {
   useIsPostBoosted,
   useBoostPost,
   useUnboostPost,
+  usePostViewCount,
+  formatViewCount,
 } from '../../lib/hooks';
 import { useAuthStore } from '../../lib/stores';
 import * as atproto from '../../lib/atproto/agent';
@@ -112,6 +115,10 @@ export const PostActions = memo(function PostActions({
   const { data: isPinned } = useIsPinnedPost(isOwnPost ? post.uri : undefined);
   const { data: boostStatus } = useIsPostBoosted(isOwnPost ? post.uri : undefined);
   const isBoosted = boostStatus?.boosted || false;
+
+  // Fetch view count for this post
+  const { data: viewStats } = usePostViewCount(post.uri);
+  const viewCount = viewStats?.totalViews || 0;
 
   // Local state
   const [isLikeLoading, setIsLikeLoading] = useState(false);
@@ -519,6 +526,14 @@ export const PostActions = memo(function PostActions({
           </Text>
         </Pressable>
 
+        {/* View Count */}
+        <View className="flex-row items-center justify-center p-2 min-w-[44px] min-h-[44px]">
+          <Eye size={iconSize} color={mutedColor} strokeWidth={1.5} />
+          <Text className="text-text-muted text-sm ml-1.5 min-w-[16px]">
+            {viewCount > 0 ? formatViewCount(viewCount) : ''}
+          </Text>
+        </View>
+
         {/* Share */}
         <Pressable
           onPressIn={stopEvent}
@@ -609,6 +624,14 @@ export const PostActions = memo(function PostActions({
             {likeCount > 0 ? likeCount : ''}
           </Text>
         </Pressable>
+
+        {/* View Count */}
+        <View className="flex-row items-center justify-center p-3 min-w-[48px] min-h-[48px]">
+          <Eye size={iconSize} color={mutedColor} strokeWidth={1.5} />
+          <Text className="text-text-muted text-sm ml-1.5 min-w-[16px]">
+            {viewCount > 0 ? formatViewCount(viewCount) : ''}
+          </Text>
+        </View>
 
         {/* Share */}
         <Pressable

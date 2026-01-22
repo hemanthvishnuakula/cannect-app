@@ -6,6 +6,7 @@
  */
 
 import { useCallback, useEffect, useRef } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useCurrentDid } from './use-atp-auth';
 
 const FEED_API_URL = 'https://feed.cannect.space';
@@ -153,4 +154,67 @@ export function useFlushViewsOnUnmount() {
       flushViews();
     };
   }, []);
+}
+
+// =============================================================================
+// View Count Fetching
+// =============================================================================
+
+interface PostViewStats {
+  postUri: string;
+  totalViews: number;
+  uniqueViewers: number;
+  firstView: string | null;
+  lastView: string | null;
+}
+
+/**
+ * Hook to fetch view count for a single post
+ * @param postUri - The post URI to get views for
+ * @param enabled - Whether to fetch (default true)
+ */
+export function usePostViewCount(postUri: string | undefined, enabled: boolean = true) {
+  return useQuery<PostViewStats>({
+    queryKey: ['post-views', postUri],
+    queryFn: async () => {
+      if (!postUri) throw new Error('No post URI');
+      const response = await fetch(
+        `${FEED_API_URL}/api/views/post?uri=${encodeURIComponent(postUri)}`
+      );
+      if (!response.ok) throw new Error('Failed to fetch view count');
+      return response.json();
+    },
+    enabled: enabled && !!postUri,
+    staleTime: 60 * 1000, // 1 minute - views change frequently
+    gcTime: 5 * 60 * 1000, // 5 minutes
+  });
+}
+
+/**
+ * Hook to fetch trending posts
+ * @param hours - Time window in hours (default 24)
+ * @param limit - Max posts to return (default 20)
+ */
+export function useTrendingPosts(hours: number = 24, limit: number = 20) {
+  return useQuery<{ period: string; posts: Array<{ postUri: string; views: number }> }>({
+    queryKey: ['trending-posts', hours, limit],
+    queryFn: async () => {
+      const response = await fetch(
+        `${FEED_API_URL}/api/trending?hours=${hours}&limit=${limit}`
+      );
+      if (!response.ok) throw new Error('Failed to fetch trending posts');
+      return response.json();
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes
+  });
+}
+
+/**
+ * Format view count for display (e.g., 1.2K, 5.3M)
+ */
+export function formatViewCount(count: number): string {
+  if (count < 1000) return count.toString();
+  if (count < 1000000) return `${(count / 1000).toFixed(1).replace(/\.0$/, '')}K`;
+  return `${(count / 1000000).toFixed(1).replace(/\.0$/, '')}M`;
 }
