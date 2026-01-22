@@ -234,21 +234,6 @@ export function ProfileView({
               </View>
             </View>
 
-            {/* Pinned Post */}
-            {pinnedPost && (
-              <View className="border-b border-border">
-                <View className="flex-row items-center px-4 pt-3 pb-1">
-                  <Pin size={12} color="#10B981" />
-                  <Text className="text-primary text-xs font-medium ml-1">Pinned</Text>
-                </View>
-                <PostCard
-                  post={pinnedPost}
-                  hideFollowButton
-                  showBorder={false}
-                />
-              </View>
-            )}
-
             {/* Tabs */}
             <View className="flex-row border-b border-border mt-4">
               {tabs.map((tab) => (
@@ -267,6 +252,21 @@ export function ProfileView({
                 </Pressable>
               ))}
             </View>
+
+            {/* Pinned Post - shown only on Posts tab */}
+            {pinnedPost && activeTab === 'posts' && (
+              <View className="border-b border-border">
+                <View className="flex-row items-center px-4 pt-3 pb-1">
+                  <Pin size={12} color="#10B981" />
+                  <Text className="text-primary text-xs font-medium ml-1">Pinned</Text>
+                </View>
+                <PostCard
+                  post={pinnedPost}
+                  hideFollowButton
+                  showBorder={false}
+                />
+              </View>
+            )}
           </View>
         }
         renderItem={({ item }) => <PostCard item={item} hideFollowButton />}
