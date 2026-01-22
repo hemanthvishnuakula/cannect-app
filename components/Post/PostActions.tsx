@@ -22,7 +22,7 @@ import { View, Text, Pressable, Share as RNShare, Platform, Modal, Alert } from 
 import { useRouter } from 'expo-router';
 import {
   Heart,
-  MessageSquare,
+  MessageCircle,
   Repeat2,
   Share,
   MoreHorizontal,
@@ -382,7 +382,7 @@ export const PostActions = memo(function PostActions({
           android_ripple={{ color: 'rgba(0,0,0,0.1)', borderless: true }}
           style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
         >
-          <MessageSquare size={iconSize} color={mutedColor} strokeWidth={1.5} />
+          <MessageCircle size={iconSize} color={mutedColor} strokeWidth={1.5} />
           {!hideReplyCounts && (
             <Text className="text-text-muted text-sm ml-1.5 min-w-[16px]">
               {replyCount > 0 ? replyCount : ''}
@@ -476,7 +476,7 @@ export const PostActions = memo(function PostActions({
           android_ripple={{ color: 'rgba(0,0,0,0.1)', borderless: true }}
           style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
         >
-          <MessageSquare size={iconSize} color={mutedColor} strokeWidth={1.5} />
+          <MessageCircle size={iconSize} color={mutedColor} strokeWidth={1.5} />
           <Text className="text-text-muted text-sm ml-1.5 min-w-[16px]">
             {replyCount > 0 ? replyCount : ''}
           </Text>
