@@ -17,8 +17,18 @@ const SESSION_KEY = 'atproto_session';
 const PDS_SERVICE_LEGACY = 'https://cannect.space';
 const PDS_SERVICE = 'https://pds.cannect.space';
 
-// Bluesky AppView for content hydration
-const _BSKY_APPVIEW = 'https://public.api.bsky.app';
+// Bluesky AppView for content hydration (profile queries, search, etc.)
+const BSKY_APPVIEW = 'https://public.api.bsky.app';
+
+// Public agent for AppView queries (profiles, search, feed hydration)
+let publicAgent: BskyAgent | null = null;
+
+function getPublicAgent(): BskyAgent {
+  if (!publicAgent) {
+    publicAgent = new BskyAgent({ service: BSKY_APPVIEW });
+  }
+  return publicAgent;
+}
 
 /**
  * Resolve a user's PDS endpoint from their handle or DID
@@ -888,10 +898,13 @@ async function getProfileFromPds(
  * Get profile
  * For Cannect users, merges profile data from PDS to ensure
  * users see their own updates immediately (Read Your Own Writes pattern)
+ * 
+ * NOTE: Uses public Bluesky AppView for initial profile fetch since PDSes don't have AppView endpoints
  */
 export async function getProfile(actor: string) {
-  const bskyAgent = getAgent();
-  const result = await bskyAgent.getProfile({ actor });
+  // Use public AppView agent for profile queries (not the user's PDS)
+  const appViewAgent = getPublicAgent();
+  const result = await appViewAgent.getProfile({ actor });
 
   // Check if this is a Cannect user based on handle (from input or result)
   const handle = result.data.handle || actor;
@@ -1010,9 +1023,12 @@ export async function listPdsRepos(limit = 100): Promise<string[]> {
  * Get profiles for multiple DIDs
  * Falls back to individual getProfile calls if batch fails
  * Applies Read Your Own Writes pattern for Cannect users
+ * 
+ * NOTE: Uses public Bluesky AppView for profile queries since PDSes don't have AppView endpoints
  */
 export async function getProfiles(dids: string[]) {
-  const bskyAgent = getAgent();
+  // Use public AppView agent for profile queries (not the user's PDS)
+  const appViewAgent = getPublicAgent();
   
   // Validate and filter DIDs before making API call
   const validDids = dids.filter(did => 
@@ -1039,7 +1055,7 @@ export async function getProfiles(dids: string[]) {
 
   try {
     const results = await Promise.all(
-      chunks.map((chunk) => bskyAgent.getProfiles({ actors: chunk }))
+      chunks.map((chunk) => appViewAgent.getProfiles({ actors: chunk }))
     );
 
     const profiles = results.flatMap((r) => r.data.profiles);
