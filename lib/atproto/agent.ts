@@ -1024,10 +1024,10 @@ export async function listPdsRepos(limit = 100): Promise<string[]> {
  * Falls back to individual getProfile calls if batch fails
  * Applies Read Your Own Writes pattern for Cannect users
  * 
- * NOTE: Uses public Bluesky AppView for profile queries since PDSes don't have AppView endpoints
+ * Uses public AppView for profile data, then hydrates viewer relationships from authenticated agent
  */
 export async function getProfiles(dids: string[]) {
-  // Use public AppView agent for profile queries (not the user's PDS)
+  // Use public AppView for profile data (since PDS doesn't have AppView endpoints)
   const appViewAgent = getPublicAgent();
   
   // Validate and filter DIDs before making API call
@@ -1054,12 +1054,63 @@ export async function getProfiles(dids: string[]) {
   }
 
   try {
-    const results = await Promise.all(
+    // Fetch profiles from public AppView
+    const publicResults = await Promise.all(
       chunks.map((chunk) => appViewAgent.getProfiles({ actors: chunk }))
     );
-
-    const profiles = results.flatMap((r) => r.data.profiles);
-    console.log('[getProfiles] Got', profiles.length, 'profiles from batch');
+    
+    let profiles = publicResults.flatMap((r) => r.data.profiles);
+    console.log('[getProfiles] Got', profiles.length, 'profiles from public AppView');
+    
+    // If user is authenticated, hydrate viewer relationships (following status)
+    const bskyAgent = getAgent();
+    if (bskyAgent.session?.did) {
+      try {
+        // Re-fetch through bsky.social AppView with auth to get viewer data
+        const authResults = await Promise.all(
+          chunks.map(async (chunk) => {
+            try {
+              // Use direct fetch to bsky.social AppView with auth header
+              const url = `https://bsky.social/xrpc/app.bsky.actor.getProfiles?${chunk.map(d => `actors=${encodeURIComponent(d)}`).join('&')}`;
+              const response = await fetch(url, {
+                headers: {
+                  'Authorization': `Bearer ${bskyAgent.session?.accessJwt}`,
+                },
+              });
+              if (response.ok) {
+                return await response.json();
+              }
+              return null;
+            } catch {
+              return null;
+            }
+          })
+        );
+        
+        // Merge viewer data from authenticated response
+        const authProfiles = new Map<string, any>();
+        authResults.forEach((result) => {
+          if (result?.profiles) {
+            result.profiles.forEach((p: any) => {
+              authProfiles.set(p.did, p);
+            });
+          }
+        });
+        
+        // Apply viewer data to profiles
+        profiles = profiles.map((profile) => {
+          const authProfile = authProfiles.get(profile.did);
+          if (authProfile?.viewer) {
+            return { ...profile, viewer: authProfile.viewer };
+          }
+          return profile;
+        });
+        
+        console.log('[getProfiles] Hydrated viewer data for', authProfiles.size, 'profiles');
+      } catch (err) {
+        console.log('[getProfiles] Could not hydrate viewer data:', err);
+      }
+    }
 
     // Apply Read Your Own Writes pattern for Cannect users
     const enhancedProfiles = await Promise.all(
