@@ -210,21 +210,31 @@ async function getStoredSession(): Promise<any | null> {
   try {
     if (Platform.OS === 'web') {
       const data = await AsyncStorage.getItem(SESSION_KEY);
+      console.log('[Agent] getStoredSession - raw data:', data ? 'found' : 'null');
       return data ? JSON.parse(data) : null;
     }
     const data = await SecureStore.getItemAsync(SESSION_KEY);
     return data ? JSON.parse(data) : null;
-  } catch {
+  } catch (err) {
+    console.error('[Agent] getStoredSession error:', err);
     return null;
   }
 }
 
 async function storeSession(session: any): Promise<void> {
-  const data = JSON.stringify(session);
-  if (Platform.OS === 'web') {
-    await AsyncStorage.setItem(SESSION_KEY, data);
-  } else {
-    await SecureStore.setItemAsync(SESSION_KEY, data);
+  try {
+    const data = JSON.stringify(session);
+    console.log('[Agent] storeSession - storing session for DID:', session?.did?.substring(0, 20));
+    if (Platform.OS === 'web') {
+      await AsyncStorage.setItem(SESSION_KEY, data);
+      // Verify it was stored
+      const verify = await AsyncStorage.getItem(SESSION_KEY);
+      console.log('[Agent] storeSession - verified:', verify ? 'success' : 'FAILED');
+    } else {
+      await SecureStore.setItemAsync(SESSION_KEY, data);
+    }
+  } catch (err) {
+    console.error('[Agent] storeSession error:', err);
   }
 }
 

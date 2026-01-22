@@ -439,7 +439,7 @@ app.get('/xrpc/app.bsky.feed.getFeedSkeleton', (req, res) => {
         // Make sure we're not duplicating a post already in the feed
         const alreadyInFeed = feedItems.some(item => item.post === boostToInject.post_uri);
         if (!alreadyInFeed) {
-          feedItems.splice(position, 0, { post: boostToInject.post_uri, reason: 'promoted' });
+          feedItems.splice(position, 0, { post: boostToInject.post_uri });
           console.log(`[Feed] Injected boosted post at position ${position}`);
         }
       }
@@ -450,7 +450,7 @@ app.get('/xrpc/app.bsky.feed.getFeedSkeleton', (req, res) => {
         const boostToInject = boostedPosts[Math.floor(Math.random() * boostedPosts.length)];
         const alreadyInFeed = feedItems.some(item => item.post === boostToInject.post_uri);
         if (!alreadyInFeed) {
-          feedItems.splice(position, 0, { post: boostToInject.post_uri, reason: 'promoted' });
+          feedItems.splice(position, 0, { post: boostToInject.post_uri });
         }
       }
     }
