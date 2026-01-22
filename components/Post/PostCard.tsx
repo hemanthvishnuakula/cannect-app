@@ -187,7 +187,10 @@ export function PostCard({
               className="flex-row items-center flex-1 mr-2"
               style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
             >
-              <Text className="text-[15px] font-bold text-text-primary flex-shrink" numberOfLines={1}>
+              <Text
+                className="text-[15px] font-bold text-text-primary flex-shrink"
+                numberOfLines={1}
+              >
                 {author.displayName || author.handle}
               </Text>
               {/* Network badge - cannect (green) or global */}

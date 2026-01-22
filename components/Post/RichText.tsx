@@ -143,7 +143,10 @@ export const RichText = memo(function RichText({
   };
 
   return (
-    <Text className={`text-text-primary text-[15px] leading-snug ${className}`} numberOfLines={numberOfLines}>
+    <Text
+      className={`text-text-primary text-[15px] leading-snug ${className}`}
+      numberOfLines={numberOfLines}
+    >
       {segments.map((segment, index) => {
         switch (segment.type) {
           case 'mention':

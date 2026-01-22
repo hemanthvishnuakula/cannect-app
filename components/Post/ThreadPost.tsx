@@ -91,10 +91,7 @@ export function ThreadPost({ post, onImagePress }: ThreadPostProps) {
         />
         <View className="ml-3 flex-1">
           <View className="flex-row items-center">
-            <Text
-              className="text-text-primary text-[15px] font-bold flex-shrink"
-              numberOfLines={1}
-            >
+            <Text className="text-text-primary text-[15px] font-bold flex-shrink" numberOfLines={1}>
               {author.displayName || author.handle}
             </Text>
             {/* Network badge - cannect (green) or global */}
@@ -117,7 +114,11 @@ export function ThreadPost({ post, onImagePress }: ThreadPostProps) {
       </Pressable>
 
       {/* Post content - larger text with facets */}
-      <RichText text={record.text} facets={record.facets} className="text-[17px] leading-relaxed mb-3" />
+      <RichText
+        text={record.text}
+        facets={record.facets}
+        className="text-[17px] leading-relaxed mb-3"
+      />
 
       {/* Embeds */}
       <PostEmbeds embed={post.embed} onImagePress={onImagePress} text={record.text} />

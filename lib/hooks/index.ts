@@ -53,6 +53,10 @@ export {
   useToggleFollow,
   useSearchUsers,
   useSuggestedUsers,
+  usePinnedPost,
+  useIsPinnedPost,
+  usePinPost,
+  useUnpinPost,
   type ProfileView,
   type ProfileViewDetailed,
 } from './use-atp-profile';

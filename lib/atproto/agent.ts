@@ -1597,4 +1597,100 @@ export async function getConvoAvailability(memberDid: string) {
   });
 }
 
+// ============================================
+// Pinned Posts
+// ============================================
+
+/**
+ * Custom record type for pinned posts
+ * Stored in user's repo at: at://did/app.cannect.pinnedPost/self
+ */
+const PINNED_POST_COLLECTION = 'app.cannect.pinnedPost';
+const PINNED_POST_RKEY = 'self'; // Single pinned post per user
+
+/**
+ * Pin a post to user's profile
+ * Only one post can be pinned at a time (overwrites previous)
+ */
+export async function pinPost(postUri: string): Promise<void> {
+  const bskyAgent = getAgent();
+  const session = getSession();
+  if (!session) throw new Error('Not authenticated');
+
+  // Create/overwrite the pinned post record
+  await bskyAgent.api.com.atproto.repo.putRecord({
+    repo: session.did,
+    collection: PINNED_POST_COLLECTION,
+    rkey: PINNED_POST_RKEY,
+    record: {
+      $type: PINNED_POST_COLLECTION,
+      postUri,
+      pinnedAt: new Date().toISOString(),
+    },
+  });
+}
+
+/**
+ * Unpin post from profile
+ */
+export async function unpinPost(): Promise<void> {
+  const bskyAgent = getAgent();
+  const session = getSession();
+  if (!session) throw new Error('Not authenticated');
+
+  try {
+    await bskyAgent.api.com.atproto.repo.deleteRecord({
+      repo: session.did,
+      collection: PINNED_POST_COLLECTION,
+      rkey: PINNED_POST_RKEY,
+    });
+  } catch (err: any) {
+    // Ignore if record doesn't exist
+    if (err?.status !== 400) throw err;
+  }
+}
+
+/**
+ * Get pinned post URI for a user
+ * Returns the post URI or null if no pinned post
+ */
+export async function getPinnedPostUri(did: string): Promise<string | null> {
+  const bskyAgent = getAgent();
+
+  try {
+    const result = await bskyAgent.api.com.atproto.repo.getRecord({
+      repo: did,
+      collection: PINNED_POST_COLLECTION,
+      rkey: PINNED_POST_RKEY,
+    });
+
+    const record = result.data.value as { postUri?: string };
+    return record.postUri || null;
+  } catch (err: any) {
+    // Record not found is expected (no pinned post)
+    if (err?.status === 400 || err?.message?.includes('not found')) {
+      return null;
+    }
+    console.warn('[Agent] Failed to get pinned post:', err);
+    return null;
+  }
+}
+
+/**
+ * Get full pinned post data for a user
+ * Fetches the pinned post URI and then the full post
+ */
+export async function getPinnedPost(did: string) {
+  const postUri = await getPinnedPostUri(did);
+  if (!postUri) return null;
+
+  try {
+    const result = await getPosts([postUri]);
+    return result.data.posts[0] || null;
+  } catch (err) {
+    console.warn('[Agent] Failed to fetch pinned post:', err);
+    return null;
+  }
+}
+
 export { RichText };

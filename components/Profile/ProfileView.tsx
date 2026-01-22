@@ -14,9 +14,9 @@ import { View, Text, Pressable, ActivityIndicator, RefreshControl } from 'react-
 import { Image } from 'expo-image';
 import { FlashList } from '@shopify/flash-list';
 import { useRouter } from 'expo-router';
-import { LogOut, Edit3, MessageCircle } from 'lucide-react-native';
+import { LogOut, Edit3, MessageCircle, Pin } from 'lucide-react-native';
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
-import { useAuthorFeed, useActorLikes, useStartConversation } from '@/lib/hooks';
+import { useAuthorFeed, useActorLikes, useStartConversation, usePinnedPost } from '@/lib/hooks';
 import { PostCard } from '@/components/Post';
 import { FollowButton, useToast } from '@/components/ui';
 import { getOptimizedAvatarUrl } from '@/lib/utils/avatar';
@@ -78,11 +78,17 @@ export function ProfileView({
   const repliesQuery = useAuthorFeed(profileData.did, 'posts_with_replies');
   // Likes only available for own profile (Bluesky API limitation)
   const likesQuery = useActorLikes(isOwnProfile ? profileData.did : undefined);
+  // Pinned post
+  const { data: pinnedPost } = usePinnedPost(profileData.did);
 
-  // Get posts data based on active tab
+  // Get posts data based on active tab (filter out pinned post to avoid duplication)
   const posts = useMemo(() => {
+    const pinnedUri = pinnedPost?.uri;
+    
     if (activeTab === 'posts') {
-      return postsQuery.data?.pages?.flatMap((page) => page.feed) || [];
+      const allPosts = postsQuery.data?.pages?.flatMap((page) => page.feed) || [];
+      // Filter out the pinned post from regular posts
+      return pinnedUri ? allPosts.filter((item) => item.post.uri !== pinnedUri) : allPosts;
     } else if (activeTab === 'reposts') {
       const allPosts = postsQuery.data?.pages?.flatMap((page) => page.feed) || [];
       return allPosts.filter((item) => item.reason?.$type === 'app.bsky.feed.defs#reasonRepost');
@@ -96,7 +102,7 @@ export function ProfileView({
       return likesQuery.data?.pages?.flatMap((page) => page.feed) || [];
     }
     return [];
-  }, [activeTab, postsQuery.data, repliesQuery.data, likesQuery.data]);
+  }, [activeTab, postsQuery.data, repliesQuery.data, likesQuery.data, pinnedPost]);
 
   const currentQuery =
     activeTab === 'likes' ? likesQuery : activeTab === 'replies' ? repliesQuery : postsQuery;
@@ -227,6 +233,21 @@ export function ProfileView({
                 </View>
               </View>
             </View>
+
+            {/* Pinned Post */}
+            {pinnedPost && (
+              <View className="border-b border-border">
+                <View className="flex-row items-center px-4 pt-3 pb-1">
+                  <Pin size={12} color="#10B981" />
+                  <Text className="text-primary text-xs font-medium ml-1">Pinned</Text>
+                </View>
+                <PostCard
+                  post={pinnedPost}
+                  hideFollowButton
+                  showBorder={false}
+                />
+              </View>
+            )}
 
             {/* Tabs */}
             <View className="flex-row border-b border-border mt-4">

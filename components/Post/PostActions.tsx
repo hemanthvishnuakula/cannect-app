@@ -32,6 +32,7 @@ import {
   Link,
   Share2,
   Upload,
+  Pin,
 } from 'lucide-react-native';
 import { memo, useCallback, useState } from 'react';
 import * as Clipboard from 'expo-clipboard';
@@ -42,6 +43,9 @@ import {
   useRepost,
   useDeleteRepost,
   useDeletePost,
+  useIsPinnedPost,
+  usePinPost,
+  useUnpinPost,
 } from '../../lib/hooks';
 import { useAuthStore } from '../../lib/stores';
 import * as atproto from '../../lib/atproto/agent';
@@ -94,6 +98,12 @@ export const PostActions = memo(function PostActions({
   const repostMutation = useRepost();
   const unrepostMutation = useDeleteRepost();
   const deletePostMutation = useDeletePost();
+  const pinMutation = usePinPost();
+  const unpinMutation = useUnpinPost();
+
+  // Check if this post is pinned (only for own posts)
+  const isOwnPost = post.author.did === currentUserDid;
+  const { data: isPinned } = useIsPinnedPost(isOwnPost ? post.uri : undefined);
 
   // Local state
   const [isLikeLoading, setIsLikeLoading] = useState(false);
@@ -108,12 +118,12 @@ export const PostActions = memo(function PostActions({
   const likeCount = post.likeCount || 0;
   const repostCount = post.repostCount || 0;
   const replyCount = post.replyCount || 0;
-  const isOwnPost = post.author.did === currentUserDid;
   const record = post.record as AppBskyFeedPost.Record;
 
   // Build post URL
   const getPostUrl = useCallback(() => {
     const parts = post.uri.split('/');
+
     const rkey = parts[4];
     return `https://bsky.app/profile/${post.author.handle}/post/${rkey}`;
   }, [post]);
@@ -239,6 +249,31 @@ export const PostActions = memo(function PostActions({
     await Clipboard.setStringAsync(url);
     setOptionsMenuVisible(false);
   }, [getPostUrl]);
+
+  // Pin/Unpin post to profile
+  const handlePinToggle = useCallback(async () => {
+    triggerHaptic();
+    setOptionsMenuVisible(false);
+
+    try {
+      if (isPinned) {
+        await unpinMutation.mutateAsync();
+        triggerNotification('success');
+      } else {
+        await pinMutation.mutateAsync(post.uri);
+        triggerNotification('success');
+      }
+    } catch (error: any) {
+      console.error('[Pin] Failed to pin/unpin post:', error);
+      triggerNotification('error');
+      const message = error?.message || 'Failed to update pinned post. Please try again.';
+      if (Platform.OS === 'web') {
+        window.alert(message);
+      } else {
+        Alert.alert('Error', message);
+      }
+    }
+  }, [isPinned, post.uri, pinMutation, unpinMutation]);
 
   // Native share (web only with Share API)
   const handleNativeShare = useCallback(async () => {
@@ -425,7 +460,12 @@ export const PostActions = memo(function PostActions({
           android_ripple={{ color: 'rgba(0,0,0,0.1)', borderless: true }}
           style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
         >
-          <Heart size={iconSize} color={likeColor} fill={isLiked ? '#EF4444' : 'none'} strokeWidth={1.5} />
+          <Heart
+            size={iconSize}
+            color={likeColor}
+            fill={isLiked ? '#EF4444' : 'none'}
+            strokeWidth={1.5}
+          />
           <Text
             className={`text-sm ml-1.5 min-w-[16px] ${isLiked ? 'text-red-500' : 'text-text-muted'}`}
           >
@@ -511,7 +551,12 @@ export const PostActions = memo(function PostActions({
           android_ripple={{ color: 'rgba(0,0,0,0.1)', borderless: true }}
           style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
         >
-          <Heart size={iconSize} color={likeColor} fill={isLiked ? '#EF4444' : 'none'} strokeWidth={1.5} />
+          <Heart
+            size={iconSize}
+            color={likeColor}
+            fill={isLiked ? '#EF4444' : 'none'}
+            strokeWidth={1.5}
+          />
           <Text
             className={`text-sm ml-1.5 min-w-[16px] ${isLiked ? 'text-red-500' : 'text-text-muted'}`}
           >
@@ -677,6 +722,26 @@ export const PostActions = memo(function PostActions({
                 <View className="flex-1">
                   <Text className="text-red-500 text-lg font-semibold">Delete Post</Text>
                   <Text className="text-text-muted text-sm">Permanently remove this post</Text>
+                </View>
+              </Pressable>
+            )}
+
+            {/* Pin/Unpin (own posts only) */}
+            {isOwnPost && (
+              <Pressable
+                onPress={handlePinToggle}
+                className="flex-row items-center gap-4 py-4 px-4 rounded-xl active:bg-zinc-800/50"
+              >
+                <View className={`w-11 h-11 rounded-full items-center justify-center ${isPinned ? 'bg-primary/20' : 'bg-zinc-800'}`}>
+                  <Pin size={22} color={isPinned ? '#10B981' : '#FAFAFA'} />
+                </View>
+                <View className="flex-1">
+                  <Text className={`text-lg font-semibold ${isPinned ? 'text-primary' : 'text-text-primary'}`}>
+                    {isPinned ? 'Unpin from Profile' : 'Pin to Profile'}
+                  </Text>
+                  <Text className="text-text-muted text-sm">
+                    {isPinned ? 'Remove from top of your profile' : 'Show at top of your profile'}
+                  </Text>
                 </View>
               </Pressable>
             )}

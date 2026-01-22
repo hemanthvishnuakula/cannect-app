@@ -566,3 +566,79 @@ export function useSuggestedUsers() {
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
 }
+
+// ============================================
+// Pinned Posts
+// ============================================
+
+/**
+ * Get pinned post for a user's profile
+ */
+export function usePinnedPost(did: string | undefined) {
+  return useQuery({
+    queryKey: ['pinnedPost', did],
+    queryFn: async () => {
+      if (!did) return null;
+      return atproto.getPinnedPost(did);
+    },
+    enabled: !!did,
+    staleTime: 1000 * 60 * 2, // 2 minutes
+    gcTime: 1000 * 60 * 10,
+  });
+}
+
+/**
+ * Check if a specific post is pinned by the current user
+ */
+export function useIsPinnedPost(postUri: string | undefined) {
+  const { did } = useAuthStore();
+
+  return useQuery({
+    queryKey: ['pinnedPostUri', did],
+    queryFn: async () => {
+      if (!did) return null;
+      return atproto.getPinnedPostUri(did);
+    },
+    enabled: !!did,
+    staleTime: 1000 * 60 * 2,
+    select: (pinnedUri) => pinnedUri === postUri,
+  });
+}
+
+/**
+ * Pin a post to current user's profile
+ */
+export function usePinPost() {
+  const queryClient = useQueryClient();
+  const { did } = useAuthStore();
+
+  return useMutation({
+    mutationFn: async (postUri: string) => {
+      return atproto.pinPost(postUri);
+    },
+    onSuccess: () => {
+      // Invalidate pinned post queries
+      queryClient.invalidateQueries({ queryKey: ['pinnedPost', did] });
+      queryClient.invalidateQueries({ queryKey: ['pinnedPostUri', did] });
+    },
+  });
+}
+
+/**
+ * Unpin post from current user's profile
+ */
+export function useUnpinPost() {
+  const queryClient = useQueryClient();
+  const { did } = useAuthStore();
+
+  return useMutation({
+    mutationFn: async () => {
+      return atproto.unpinPost();
+    },
+    onSuccess: () => {
+      // Invalidate pinned post queries
+      queryClient.invalidateQueries({ queryKey: ['pinnedPost', did] });
+      queryClient.invalidateQueries({ queryKey: ['pinnedPostUri', did] });
+    },
+  });
+}
