@@ -369,7 +369,7 @@ export const PostActions = memo(function PostActions({
   // Action buttons JSX
   const actionButtons =
     variant === 'compact' ? (
-      <View className="flex-row items-center justify-around mt-2 -mb-1">
+      <View className="flex-row items-center justify-around mt-1 -mb-1">
         {/* Reply */}
         <Pressable
           onPressIn={stopEvent}

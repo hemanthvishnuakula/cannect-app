@@ -133,12 +133,12 @@ export function PostCard({
   return (
     <Pressable
       onPress={handlePress}
-      className={`px-5 pt-4 pb-2 ${showBorder ? 'border-b border-border' : ''} web:hover:bg-surface/50 web:transition-colors`}
+      className={`px-4 pt-3 pb-2 ${showBorder ? 'border-b border-border' : ''} web:hover:bg-surface/50 web:transition-colors`}
     >
       {/* Repost indicator */}
       {isRepost && repostBy && (
-        <View className="flex-row items-center mb-2 pl-12">
-          <Repeat2 size={14} color="#6B7280" />
+        <View className="flex-row items-center mb-1.5 pl-10">
+          <Repeat2 size={12} color="#6B7280" />
           <Text className="text-text-muted text-xs ml-1 flex-1" numberOfLines={1}>
             Reposted by {repostBy.displayName || repostBy.handle}
           </Text>
@@ -162,10 +162,10 @@ export function PostCard({
               uri: getOptimizedAvatarWithFallback(
                 author.avatar,
                 author.displayName || author.handle,
-                48
+                40
               ),
             }}
-            className="w-12 h-12 rounded-full bg-surface-elevated ring-2 ring-border"
+            className="w-10 h-10 rounded-full bg-surface-elevated"
             contentFit="cover"
             transition={200}
             cachePolicy="memory-disk"
@@ -174,7 +174,7 @@ export function PostCard({
         </Pressable>
 
         {/* Content */}
-        <View className="flex-1 ml-3">
+        <View className="flex-1 ml-2.5">
           {/* Header - Name, Badge, and Time (single line, name truncates only if needed) */}
           <View className="flex-row items-center">
             <Pressable
@@ -186,7 +186,7 @@ export function PostCard({
               className="flex-row items-center flex-1 mr-2"
               style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
             >
-              <Text className="font-bold text-text-primary flex-shrink" numberOfLines={1}>
+              <Text className="text-[15px] font-bold text-text-primary flex-shrink" numberOfLines={1}>
                 {author.displayName || author.handle}
               </Text>
               {/* Network badge - cannect (green) or global */}
@@ -201,7 +201,7 @@ export function PostCard({
                 </View>
               )}
             </Pressable>
-            <Text className="text-text-muted text-sm flex-shrink-0">
+            <Text className="text-text-muted text-[13px] flex-shrink-0">
               {formatTime(record.createdAt)}
             </Text>
             {/* Follow button - show only if not following, not own post, and not hidden */}
@@ -216,7 +216,7 @@ export function PostCard({
           <RichText
             text={record.text}
             facets={record.facets}
-            className="mt-2"
+            className="mt-1"
             numberOfLines={shouldTruncate ? MAX_TEXT_LINES : undefined}
           />
 
@@ -225,11 +225,11 @@ export function PostCard({
             <Pressable
               onPressIn={stopEvent}
               onPress={handleShowMore}
-              className="mt-2 py-1 self-start"
+              className="mt-1 py-0.5 self-start"
               hitSlop={8}
               style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
             >
-              <Text className="text-primary font-medium">Show more</Text>
+              <Text className="text-primary text-sm font-medium">Show more</Text>
             </Pressable>
           )}
 
