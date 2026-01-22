@@ -70,7 +70,7 @@ export function ThreadPost({ post, onImagePress }: ThreadPostProps) {
       <Pressable
         onPressIn={stopEvent}
         onPress={handleAuthorPress}
-        className="flex-row items-center mb-4"
+        className="flex-row items-center mb-3"
         hitSlop={8}
         style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
       >
@@ -91,7 +91,7 @@ export function ThreadPost({ post, onImagePress }: ThreadPostProps) {
         <View className="ml-3 flex-1">
           <View className="flex-row items-center">
             <Text
-              className="text-text-primary font-semibold text-base flex-shrink"
+              className="text-text-primary text-[15px] font-bold flex-shrink"
               numberOfLines={1}
             >
               {author.displayName || author.handle}
@@ -107,16 +107,16 @@ export function ThreadPost({ post, onImagePress }: ThreadPostProps) {
               </View>
             )}
             <View className="flex-1" />
-            <Text className="text-text-muted text-sm flex-shrink-0">
+            <Text className="text-text-muted text-[13px] flex-shrink-0">
               {formatTime(record.createdAt)}
             </Text>
           </View>
-          <Text className="text-text-muted text-sm">{displayHandle}</Text>
+          <Text className="text-text-muted text-[13px]">{displayHandle}</Text>
         </View>
       </Pressable>
 
       {/* Post content - larger text with facets */}
-      <RichText text={record.text} facets={record.facets} className="text-lg leading-6 mb-4" />
+      <RichText text={record.text} facets={record.facets} className="text-[17px] leading-relaxed mb-3" />
 
       {/* Embeds */}
       <PostEmbeds embed={post.embed} onImagePress={onImagePress} text={record.text} />
