@@ -933,6 +933,39 @@ export async function getProfile(actor: string) {
     }
   }
 
+  // Hydrate viewer relationships (follow status) from user's following list
+  const bskyAgent = getAgent();
+  if (bskyAgent.session?.did && bskyAgent.session.did !== result.data.did) {
+    try {
+      // Fetch user's following list to check if they follow this profile
+      const followingDids = new Set<string>();
+      let cursor: string | undefined;
+      
+      // Fetch up to 200 follows (4 pages of 50)
+      for (let i = 0; i < 4; i++) {
+        const followsResult = await bskyAgent.getFollows({
+          actor: bskyAgent.session.did,
+          limit: 50,
+          cursor,
+        });
+        
+        followsResult.data.follows.forEach((f) => followingDids.add(f.did));
+        cursor = followsResult.data.cursor;
+        
+        if (!cursor) break;
+      }
+      
+      const isFollowing = followingDids.has(result.data.did);
+      result.data.viewer = {
+        ...result.data.viewer,
+        following: isFollowing ? `at://${bskyAgent.session.did}/app.bsky.graph.follow/placeholder` : undefined,
+      };
+      console.log('[getProfile] Hydrated viewer data, isFollowing:', isFollowing);
+    } catch (err) {
+      console.log('[getProfile] Could not hydrate viewer data:', err);
+    }
+  }
+
   return result;
 }
 
