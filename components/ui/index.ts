@@ -1,6 +1,8 @@
 export { Avatar } from './Avatar';
 export { BackButton } from './BackButton';
 export { Button } from './Button';
+export { EmptyState } from './EmptyState';
+export { ErrorState } from './ErrorState';
 export { Loading } from './Loading';
 export { Tabs, TabsList, TabsTrigger, TabsContent } from './Tabs';
 export { VideoPlayer } from './VideoPlayer';

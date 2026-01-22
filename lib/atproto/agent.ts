@@ -428,7 +428,7 @@ export async function login(email: string, password: string): Promise<void> {
   const newAgent = createAgentForPds(PDS_SERVICE);
 
   // Race both login attempts
-const legacyPromise = legacyAgent
+  const legacyPromise = legacyAgent
     .login({ identifier: email, password })
     .then(() => ({ success: true, agent: legacyAgent, pds: 'legacy' as const }))
     .catch((err) => ({ success: false, error: err, pds: 'legacy' as const }));

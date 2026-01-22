@@ -27,7 +27,7 @@ import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { useTimeline, useCannectFeed } from '@/lib/hooks';
 import { triggerImpact } from '@/lib/utils/haptics';
 import { OfflineBanner } from '@/components/OfflineBanner';
-import { MediaViewer, ComposeFAB } from '@/components/ui';
+import { MediaViewer, ComposeFAB, ErrorState, EmptyState } from '@/components/ui';
 import { PostCard, FeedSkeleton } from '@/components/Post';
 import type { AppBskyFeedDefs } from '@atproto/api';
 
@@ -138,12 +138,11 @@ export default function FeedScreen() {
   // Error state
   if (feedError) {
     return (
-      <SafeAreaView className="flex-1 bg-background items-center justify-center px-6">
-        <Text className="text-text-primary text-lg font-semibold mb-2">Failed to load feed</Text>
-        <Text className="text-text-muted mb-4">{feedError}</Text>
-        <Pressable onPress={handleRefresh} className="bg-primary px-6 py-3 rounded-full">
-          <Text className="text-white font-bold">Retry</Text>
-        </Pressable>
+      <SafeAreaView className="flex-1 bg-background" edges={['top']}>
+        <ErrorState
+          message={feedError}
+          onRetry={handleRefresh}
+        />
       </SafeAreaView>
     );
   }
@@ -219,13 +218,7 @@ export default function FeedScreen() {
           )}
 
           {posts.length === 0 ? (
-            <View className="flex-1 items-center justify-center py-20">
-              <Text className="text-text-muted text-center">
-                {activeFeed === 'feed'
-                  ? 'No posts yet.\nThe feed is building up!'
-                  : 'Your timeline is empty.\nFollow some people to see their posts!'}
-              </Text>
-            </View>
+            <EmptyState variant={activeFeed === 'feed' ? 'feed' : 'following'} />
           ) : (
             posts.map((item, index) => (
               <PostCard
@@ -282,13 +275,7 @@ export default function FeedScreen() {
             onEndReachedThreshold={0.3}
             contentContainerStyle={{ paddingBottom: 20 }}
             ListEmptyComponent={
-              <View className="flex-1 items-center justify-center py-20">
-                <Text className="text-text-muted text-center">
-                  {activeFeed === 'feed'
-                    ? 'No posts yet.\nThe feed is building up!'
-                    : 'Your timeline is empty.\nFollow some people to see their posts!'}
-                </Text>
-              </View>
+              <EmptyState variant={activeFeed === 'feed' ? 'feed' : 'following'} />
             }
             ListFooterComponent={
               hasMore && posts.length > 0 ? (
