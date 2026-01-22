@@ -283,8 +283,8 @@ export function calculateEstimatedViews(
 }
 
 /**
- * Hook to get estimated view count for a post
- * Combines tracked views with engagement-based estimation
+ * Hook to get estimated view count for a post from the server
+ * Fetches from API to ensure consistent views across all users
  */
 export function useEstimatedViewCount(
   postUri: string | undefined,
@@ -292,8 +292,29 @@ export function useEstimatedViewCount(
   replyCount: number = 0,
   repostCount: number = 0
 ): number {
-  const { data: viewStats } = usePostViewCount(postUri, false); // Don't auto-fetch for every post
-  const trackedViews = viewStats?.totalViews || 0;
+  const { data } = useQuery<{ postUri: string; estimatedViews: number }>({
+    queryKey: ['estimated-views', postUri],
+    queryFn: async () => {
+      if (!postUri) throw new Error('No post URI');
+      const params = new URLSearchParams({
+        uri: postUri,
+        likes: likeCount.toString(),
+        replies: replyCount.toString(),
+        reposts: repostCount.toString(),
+      });
+      const response = await fetch(`${FEED_API_URL}/api/estimated-views?${params}`);
+      if (!response.ok) {
+        // Fallback to local calculation if API fails
+        return { postUri, estimatedViews: calculateEstimatedViews(0, likeCount, replyCount, repostCount, postUri) };
+      }
+      return response.json();
+    },
+    enabled: !!postUri && (likeCount > 0 || replyCount > 0 || repostCount > 0),
+    staleTime: 5 * 60 * 1000, // 5 minutes - views are stable
+    gcTime: 30 * 60 * 1000, // 30 minutes
+    // Return local calculation while loading
+    placeholderData: postUri ? { postUri, estimatedViews: calculateEstimatedViews(0, likeCount, replyCount, repostCount, postUri) } : undefined,
+  });
   
-  return calculateEstimatedViews(trackedViews, likeCount, replyCount, repostCount, postUri);
+  return data?.estimatedViews || calculateEstimatedViews(0, likeCount, replyCount, repostCount, postUri);
 }

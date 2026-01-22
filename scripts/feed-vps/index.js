@@ -512,6 +512,113 @@ app.get('/api/views/author', generalLimiter, async (req, res) => {
   }
 });
 
+// =============================================================================
+// Estimated Views API (Engagement-based, consistent across all users)
+// =============================================================================
+
+/**
+ * Get or calculate estimated views for a single post
+ * GET /api/estimated-views?uri=at://...&likes=10&replies=2&reposts=1
+ * 
+ * If stored, returns stored value. Otherwise calculates and stores it.
+ */
+app.get('/api/estimated-views', generalLimiter, async (req, res) => {
+  try {
+    const { uri, likes, replies, reposts } = req.query;
+
+    if (!uri) {
+      return res.status(400).json({ error: 'Missing uri parameter' });
+    }
+
+    // Check if we have a stored value
+    const stored = db.getStoredEstimatedViews(uri);
+    
+    // Parse engagement counts from query
+    const likeCount = parseInt(likes) || 0;
+    const replyCount = parseInt(replies) || 0;
+    const repostCount = parseInt(reposts) || 0;
+
+    // If stored and engagement hasn't changed much, return stored
+    if (stored) {
+      const engagementChanged = 
+        Math.abs(stored.like_count - likeCount) > 2 ||
+        Math.abs(stored.reply_count - replyCount) > 1 ||
+        Math.abs(stored.repost_count - repostCount) > 1;
+      
+      if (!engagementChanged) {
+        return res.json({
+          postUri: uri,
+          estimatedViews: stored.estimated_views,
+          cached: true,
+        });
+      }
+    }
+
+    // Calculate and store new value
+    const estimated = db.setEstimatedViews(uri, likeCount, replyCount, repostCount);
+    
+    res.json({
+      postUri: uri,
+      estimatedViews: estimated,
+      cached: false,
+    });
+  } catch (err) {
+    console.error('[EstimatedViews] Error:', err.message);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
+ * Get estimated views for multiple posts at once (batch)
+ * POST /api/estimated-views/batch
+ * Body: { posts: [{ uri: "at://...", likes: 10, replies: 2, reposts: 1 }, ...] }
+ */
+app.post('/api/estimated-views/batch', generalLimiter, async (req, res) => {
+  try {
+    const { posts } = req.body;
+
+    if (!posts || !Array.isArray(posts) || posts.length === 0) {
+      return res.status(400).json({ error: 'Missing or invalid posts array' });
+    }
+
+    // Limit batch size
+    if (posts.length > 100) {
+      return res.status(400).json({ error: 'Max 100 posts per batch' });
+    }
+
+    // Get all URIs
+    const uris = posts.map((p) => p.uri).filter(Boolean);
+    
+    // Get stored values
+    const storedViews = db.getEstimatedViewsBatch(uris);
+    
+    // Build result, calculating any missing values
+    const result = {};
+    for (const post of posts) {
+      if (!post.uri) continue;
+      
+      const stored = storedViews[post.uri];
+      if (stored !== undefined) {
+        result[post.uri] = stored;
+      } else {
+        // Calculate and store
+        const estimated = db.setEstimatedViews(
+          post.uri,
+          post.likes || 0,
+          post.replies || 0,
+          post.reposts || 0
+        );
+        result[post.uri] = estimated;
+      }
+    }
+
+    res.json({ views: result });
+  } catch (err) {
+    console.error('[EstimatedViews] Batch error:', err.message);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // DID document for feed generator
 app.get('/.well-known/did.json', (req, res) => {
   res.json({

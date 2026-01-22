@@ -68,6 +68,18 @@ db.exec(`
     unique_viewers INTEGER DEFAULT 0,
     last_updated INTEGER DEFAULT (unixepoch())
   );
+
+  -- Estimated views table (calculated from engagement, consistent across users)
+  CREATE TABLE IF NOT EXISTS estimated_views (
+    post_uri TEXT PRIMARY KEY,
+    like_count INTEGER DEFAULT 0,
+    reply_count INTEGER DEFAULT 0,
+    repost_count INTEGER DEFAULT 0,
+    estimated_views INTEGER DEFAULT 0,
+    last_updated INTEGER DEFAULT (unixepoch())
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_estimated_views ON estimated_views(estimated_views DESC);
 `);
 
 // Prepared statements for performance
@@ -181,6 +193,30 @@ const getAuthorViewStatsStmt = db.prepare(`
   JOIN posts p ON p.uri = pv.post_uri
   WHERE p.author_did = ?
   GROUP BY p.author_did
+`);
+
+// Estimated views prepared statements
+const upsertEstimatedViews = db.prepare(`
+  INSERT INTO estimated_views (post_uri, like_count, reply_count, repost_count, estimated_views, last_updated)
+  VALUES (?, ?, ?, ?, ?, unixepoch())
+  ON CONFLICT(post_uri) DO UPDATE SET
+    like_count = excluded.like_count,
+    reply_count = excluded.reply_count,
+    repost_count = excluded.repost_count,
+    estimated_views = excluded.estimated_views,
+    last_updated = unixepoch()
+`);
+
+const getEstimatedViews = db.prepare(`
+  SELECT estimated_views, like_count, reply_count, repost_count, last_updated
+  FROM estimated_views
+  WHERE post_uri = ?
+`);
+
+const getEstimatedViewsBatch = db.prepare(`
+  SELECT post_uri, estimated_views
+  FROM estimated_views
+  WHERE post_uri IN (SELECT value FROM json_each(?))
 `);
 
 /**
@@ -399,6 +435,83 @@ function cleanupViews(maxAgeSeconds = 30 * 24 * 60 * 60) {
   return result.changes;
 }
 
+// =============================================================================
+// Estimated Views Functions (Engagement-based, consistent across users)
+// =============================================================================
+
+/**
+ * Calculate estimated views based on engagement metrics
+ * Formula: (likes × 30) + (replies × 100) + (reposts × 200) with ±10% variance
+ */
+function calculateEstimatedViewCount(likeCount, replyCount, repostCount, postUri) {
+  const LIKE_MULTIPLIER = 30;
+  const COMMENT_MULTIPLIER = 100;
+  const REPOST_MULTIPLIER = 200;
+
+  const likeViews = likeCount * LIKE_MULTIPLIER;
+  const commentViews = replyCount * COMMENT_MULTIPLIER;
+  const repostViews = repostCount * REPOST_MULTIPLIER;
+
+  const baseViews = likeViews + commentViews + repostViews;
+
+  // Deterministic variance based on post URI hash
+  let hash = 0;
+  for (let i = 0; i < (postUri || '').length; i++) {
+    const char = postUri.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash;
+  }
+  hash = Math.abs(hash);
+  const variance = 0.9 + ((hash % 20) / 100); // 0.90 to 1.10
+
+  if (likeCount === 0 && replyCount === 0 && repostCount === 0) {
+    return 0;
+  }
+
+  return Math.max(1, Math.round(baseViews * variance));
+}
+
+/**
+ * Store or update estimated views for a post
+ */
+function setEstimatedViews(postUri, likeCount, replyCount, repostCount) {
+  const estimated = calculateEstimatedViewCount(likeCount, replyCount, repostCount, postUri);
+  try {
+    upsertEstimatedViews.run(postUri, likeCount, replyCount, repostCount, estimated);
+    return estimated;
+  } catch (err) {
+    console.error('[DB] setEstimatedViews error:', err.message);
+    return estimated;
+  }
+}
+
+/**
+ * Get stored estimated views for a post
+ * Returns null if not stored (caller should calculate and store)
+ */
+function getStoredEstimatedViews(postUri) {
+  const row = getEstimatedViews.get(postUri);
+  return row || null;
+}
+
+/**
+ * Get estimated views for multiple posts at once
+ */
+function getEstimatedViewsBatchFn(postUris) {
+  if (!postUris || postUris.length === 0) return {};
+  try {
+    const rows = getEstimatedViewsBatch.all(JSON.stringify(postUris));
+    const result = {};
+    for (const row of rows) {
+      result[row.post_uri] = row.estimated_views;
+    }
+    return result;
+  } catch (err) {
+    console.error('[DB] getEstimatedViewsBatch error:', err.message);
+    return {};
+  }
+}
+
 /**
  * Close database connection
  */
@@ -430,5 +543,10 @@ module.exports = {
   hasViewerSeenRecently,
   getAuthorViewStats,
   cleanupViews,
+  // Estimated views functions
+  calculateEstimatedViewCount,
+  setEstimatedViews,
+  getStoredEstimatedViews,
+  getEstimatedViewsBatch: getEstimatedViewsBatchFn,
   close,
 };

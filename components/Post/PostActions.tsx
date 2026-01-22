@@ -51,8 +51,8 @@ import {
   useIsPostBoosted,
   useBoostPost,
   useUnboostPost,
+  useEstimatedViewCount,
   formatViewCount,
-  calculateEstimatedViews,
 } from '../../lib/hooks';
 import { useAuthStore } from '../../lib/stores';
 import * as atproto from '../../lib/atproto/agent';
@@ -131,9 +131,8 @@ export const PostActions = memo(function PostActions({
   const replyCount = post.replyCount || 0;
   const record = post.record as AppBskyFeedPost.Record;
 
-  // Calculate estimated view count based on engagement
-  // This gives realistic numbers even for Bluesky posts we don't track
-  const viewCount = calculateEstimatedViews(0, likeCount, replyCount, repostCount, post.uri);
+  // Get estimated view count from server (consistent across all users)
+  const viewCount = useEstimatedViewCount(post.uri, likeCount, replyCount, repostCount);
 
   // Build post URL
   const getPostUrl = useCallback(() => {
