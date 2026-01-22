@@ -84,12 +84,15 @@ const JETSTREAM_URL =
 const app = express();
 const rateLimit = require('express-rate-limit');
 
+// Trust proxy for proper IP detection behind Caddy
+app.set('trust proxy', 1);
+
 app.use(express.json()); // Parse JSON bodies
 
-// Rate limiting
+// Rate limiting - increased limits for boost status checks
 const generalLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
-  max: 60, // 60 requests per minute per IP
+  max: 300, // 300 requests per minute per IP (was 60)
   message: { error: 'Too many requests, please try again later' },
   standardHeaders: true,
   legacyHeaders: false,
@@ -97,7 +100,7 @@ const generalLimiter = rateLimit({
 
 const strictLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
-  max: 30, // 30 requests per minute (for notify-post)
+  max: 60, // 60 requests per minute (was 30)
   message: { error: 'Too many requests, please try again later' },
   standardHeaders: true,
   legacyHeaders: false,

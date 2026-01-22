@@ -658,8 +658,8 @@ export function useIsPostBoosted(postUri: string | undefined) {
       return atproto.isPostBoosted(postUri);
     },
     enabled: !!postUri,
-    staleTime: 1000 * 60 * 1, // 1 minute - boost status changes
-    gcTime: 1000 * 60 * 5,
+    staleTime: 1000 * 60 * 5, // 5 minutes - don't refetch too often
+    gcTime: 1000 * 60 * 30, // 30 minutes cache
   });
 }
 
