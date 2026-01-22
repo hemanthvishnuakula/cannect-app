@@ -1693,4 +1693,85 @@ export async function getPinnedPost(did: string) {
   }
 }
 
+// ============================================
+// Boosted Posts
+// ============================================
+
+const FEED_VPS_URL = 'https://feed.cannect.space';
+
+/**
+ * Boost a post for 24 hours
+ * Only post authors can boost their own posts
+ */
+export async function boostPost(postUri: string): Promise<{ success: boolean; expiresAt?: string; error?: string }> {
+  const session = getSession();
+  if (!session) throw new Error('Not authenticated');
+
+  try {
+    const response = await fetch(`${FEED_VPS_URL}/api/boost`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        postUri,
+        authorDid: session.did,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      return { success: false, error: data.error || 'Failed to boost post' };
+    }
+
+    return { success: true, expiresAt: data.expiresAt };
+  } catch (err: any) {
+    console.error('[Agent] Failed to boost post:', err);
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Remove boost from a post
+ */
+export async function unboostPost(postUri: string): Promise<{ success: boolean; error?: string }> {
+  const session = getSession();
+  if (!session) throw new Error('Not authenticated');
+
+  try {
+    const response = await fetch(`${FEED_VPS_URL}/api/boost`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        postUri,
+        authorDid: session.did,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      return { success: false, error: data.error || 'Failed to remove boost' };
+    }
+
+    return { success: true };
+  } catch (err: any) {
+    console.error('[Agent] Failed to unboost post:', err);
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Check if a post is currently boosted
+ */
+export async function isPostBoosted(postUri: string): Promise<{ boosted: boolean; expiresAt?: string }> {
+  try {
+    const response = await fetch(`${FEED_VPS_URL}/api/boost?postUri=${encodeURIComponent(postUri)}`);
+    const data = await response.json();
+    return { boosted: data.boosted, expiresAt: data.expiresAt };
+  } catch (err) {
+    console.warn('[Agent] Failed to check boost status:', err);
+    return { boosted: false };
+  }
+}
+
 export { RichText };

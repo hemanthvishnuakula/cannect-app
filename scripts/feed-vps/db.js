@@ -34,6 +34,19 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_indexed_at ON posts(indexed_at DESC);
   CREATE INDEX IF NOT EXISTS idx_author ON posts(author_did);
   CREATE INDEX IF NOT EXISTS idx_created ON posts(created_at);
+
+  -- Boosted posts table
+  CREATE TABLE IF NOT EXISTS boosts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    post_uri TEXT NOT NULL,
+    author_did TEXT NOT NULL,
+    boosted_at INTEGER DEFAULT (unixepoch()),
+    expires_at INTEGER NOT NULL,
+    UNIQUE(post_uri)
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_boost_expires ON boosts(expires_at);
+  CREATE INDEX IF NOT EXISTS idx_boost_author ON boosts(author_did);
 `);
 
 // Prepared statements for performance
@@ -55,6 +68,39 @@ const getPostCount = db.prepare(`SELECT COUNT(*) as count FROM posts`);
 const getAllPostsStmt = db.prepare(`SELECT uri, author_did, author_handle FROM posts`);
 
 const cleanOldPosts = db.prepare(`
+  DELETE FROM posts WHERE created_at < unixepoch() - ?
+`);
+
+// Boost prepared statements
+const insertBoost = db.prepare(`
+  INSERT OR REPLACE INTO boosts (post_uri, author_did, boosted_at, expires_at)
+  VALUES (?, ?, unixepoch(), unixepoch() + ?)
+`);
+
+const removeBoost = db.prepare(`DELETE FROM boosts WHERE post_uri = ?`);
+
+const getActiveBoosts = db.prepare(`
+  SELECT post_uri, author_did, boosted_at, expires_at 
+  FROM boosts 
+  WHERE expires_at > unixepoch()
+  ORDER BY boosted_at DESC
+`);
+
+const getBoostByUri = db.prepare(`
+  SELECT post_uri, author_did, boosted_at, expires_at 
+  FROM boosts 
+  WHERE post_uri = ? AND expires_at > unixepoch()
+`);
+
+const getBoostsByAuthor = db.prepare(`
+  SELECT post_uri, boosted_at, expires_at 
+  FROM boosts 
+  WHERE author_did = ? AND expires_at > unixepoch()
+`);
+
+const cleanExpiredBoosts = db.prepare(`
+  DELETE FROM boosts WHERE expires_at < unixepoch()
+`);
   DELETE FROM posts WHERE created_at < unixepoch() - ?
 `);
 
@@ -110,7 +156,72 @@ function getAllPosts() {
  */
 function cleanup(maxAgeSeconds = 7 * 24 * 60 * 60) {
   const result = cleanOldPosts.run(maxAgeSeconds);
+  // Also clean expired boosts
+  cleanExpiredBoosts.run();
   return result.changes;
+}
+
+// =============================================================================
+// Boost Functions
+// =============================================================================
+
+/**
+ * Boost a post for 24 hours
+ * @param {string} postUri - The post URI to boost
+ * @param {string} authorDid - The author's DID (for verification)
+ * @param {number} durationSeconds - Boost duration (default 24 hours)
+ */
+function boostPost(postUri, authorDid, durationSeconds = 24 * 60 * 60) {
+  try {
+    insertBoost.run(postUri, authorDid, durationSeconds);
+    console.log(`[Boost] Post boosted: ${postUri.substring(0, 50)}... for ${durationSeconds}s`);
+    return true;
+  } catch (err) {
+    console.error('[DB] Boost error:', err.message);
+    return false;
+  }
+}
+
+/**
+ * Remove boost from a post
+ */
+function unboostPost(postUri) {
+  try {
+    removeBoost.run(postUri);
+    return true;
+  } catch (err) {
+    console.error('[DB] Unboost error:', err.message);
+    return false;
+  }
+}
+
+/**
+ * Get all active (non-expired) boosts
+ */
+function getActiveBoostedPosts() {
+  return getActiveBoosts.all();
+}
+
+/**
+ * Check if a post is currently boosted
+ */
+function isPostBoosted(postUri) {
+  const boost = getBoostByUri.get(postUri);
+  return boost ? true : false;
+}
+
+/**
+ * Get boost info for a post
+ */
+function getBoostInfo(postUri) {
+  return getBoostByUri.get(postUri) || null;
+}
+
+/**
+ * Get all boosts by a specific author
+ */
+function getAuthorBoosts(authorDid) {
+  return getBoostsByAuthor.all(authorDid);
 }
 
 /**
@@ -127,5 +238,14 @@ module.exports = {
   getAllPosts,
   getCount,
   cleanup,
+  // Boost functions
+  boostPost,
+  unboostPost,
+  getActiveBoostedPosts,
+  isPostBoosted,
+  getBoostInfo,
+  getAuthorBoosts,
+  close,
+};
   close,
 };

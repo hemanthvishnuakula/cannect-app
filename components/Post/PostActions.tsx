@@ -33,6 +33,7 @@ import {
   Share2,
   Upload,
   Pin,
+  Rocket,
 } from 'lucide-react-native';
 import { memo, useCallback, useState } from 'react';
 import * as Clipboard from 'expo-clipboard';
@@ -46,6 +47,9 @@ import {
   useIsPinnedPost,
   usePinPost,
   useUnpinPost,
+  useIsPostBoosted,
+  useBoostPost,
+  useUnboostPost,
 } from '../../lib/hooks';
 import { useAuthStore } from '../../lib/stores';
 import * as atproto from '../../lib/atproto/agent';
@@ -100,10 +104,14 @@ export const PostActions = memo(function PostActions({
   const deletePostMutation = useDeletePost();
   const pinMutation = usePinPost();
   const unpinMutation = useUnpinPost();
+  const boostMutation = useBoostPost();
+  const unboostMutation = useUnboostPost();
 
   // Check if this post is pinned (only for own posts)
   const isOwnPost = post.author.did === currentUserDid;
   const { data: isPinned } = useIsPinnedPost(isOwnPost ? post.uri : undefined);
+  const { data: boostStatus } = useIsPostBoosted(isOwnPost ? post.uri : undefined);
+  const isBoosted = boostStatus?.boosted || false;
 
   // Local state
   const [isLikeLoading, setIsLikeLoading] = useState(false);
@@ -274,6 +282,44 @@ export const PostActions = memo(function PostActions({
       }
     }
   }, [isPinned, post.uri, pinMutation, unpinMutation]);
+
+  // Boost/Unboost post for visibility
+  const handleBoostToggle = useCallback(async () => {
+    triggerHaptic();
+    setOptionsMenuVisible(false);
+
+    try {
+      if (isBoosted) {
+        const result = await unboostMutation.mutateAsync(post.uri);
+        if (!result.success) {
+          throw new Error(result.error);
+        }
+        triggerNotification('success');
+      } else {
+        const result = await boostMutation.mutateAsync(post.uri);
+        if (!result.success) {
+          throw new Error(result.error);
+        }
+        triggerNotification('success');
+        // Show success message
+        const message = 'Post boosted for 24 hours! It will appear more frequently in feeds.';
+        if (Platform.OS === 'web') {
+          window.alert(message);
+        } else {
+          Alert.alert('🚀 Post Boosted!', message);
+        }
+      }
+    } catch (error: any) {
+      console.error('[Boost] Failed to boost/unboost post:', error);
+      triggerNotification('error');
+      const message = error?.message || 'Failed to boost post. Please try again.';
+      if (Platform.OS === 'web') {
+        window.alert(message);
+      } else {
+        Alert.alert('Error', message);
+      }
+    }
+  }, [isBoosted, post.uri, boostMutation, unboostMutation]);
 
   // Native share (web only with Share API)
   const handleNativeShare = useCallback(async () => {
@@ -741,6 +787,26 @@ export const PostActions = memo(function PostActions({
                   </Text>
                   <Text className="text-text-muted text-sm">
                     {isPinned ? 'Remove from top of your profile' : 'Show at top of your profile'}
+                  </Text>
+                </View>
+              </Pressable>
+            )}
+
+            {/* Boost Post (own posts only) */}
+            {isOwnPost && (
+              <Pressable
+                onPress={handleBoostToggle}
+                className="flex-row items-center gap-4 py-4 px-4 rounded-xl active:bg-zinc-800/50"
+              >
+                <View className={`w-11 h-11 rounded-full items-center justify-center ${isBoosted ? 'bg-orange-500/20' : 'bg-zinc-800'}`}>
+                  <Rocket size={22} color={isBoosted ? '#F97316' : '#FAFAFA'} />
+                </View>
+                <View className="flex-1">
+                  <Text className={`text-lg font-semibold ${isBoosted ? 'text-orange-500' : 'text-text-primary'}`}>
+                    {isBoosted ? 'Remove Boost' : '🚀 Boost Post'}
+                  </Text>
+                  <Text className="text-text-muted text-sm">
+                    {isBoosted ? 'Stop promoting this post' : 'Show more in feeds for 24 hours'}
                   </Text>
                 </View>
               </Pressable>

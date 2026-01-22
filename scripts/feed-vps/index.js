@@ -191,6 +191,151 @@ app.post('/api/notify-post', strictLimiter, async (req, res) => {
 });
 
 // =============================================================================
+// Boost Post API - Let users boost their posts for visibility
+// =============================================================================
+
+/**
+ * Boost a post (author only)
+ * POST /api/boost
+ * Body: { postUri: "at://...", authorDid: "did:plc:..." }
+ */
+app.post('/api/boost', strictLimiter, async (req, res) => {
+  try {
+    const { postUri, authorDid } = req.body;
+
+    if (!postUri || !authorDid) {
+      return res.status(400).json({ error: 'Missing postUri or authorDid' });
+    }
+
+    // Validate URI format and ownership
+    if (!postUri.startsWith('at://')) {
+      return res.status(400).json({ error: 'Invalid post URI format' });
+    }
+
+    // Extract author DID from post URI to verify ownership
+    const uriParts = postUri.split('/');
+    const postAuthor = uriParts[2]; // at://DID/collection/rkey
+
+    if (postAuthor !== authorDid) {
+      return res.status(403).json({ error: 'You can only boost your own posts' });
+    }
+
+    // Check if already boosted
+    if (db.isPostBoosted(postUri)) {
+      const boostInfo = db.getBoostInfo(postUri);
+      const expiresIn = boostInfo.expires_at - Math.floor(Date.now() / 1000);
+      return res.status(400).json({ 
+        error: 'Post already boosted', 
+        expiresIn,
+        expiresAt: new Date(boostInfo.expires_at * 1000).toISOString()
+      });
+    }
+
+    // Boost for 24 hours
+    const success = db.boostPost(postUri, authorDid);
+
+    if (success) {
+      console.log(`[Boost] Post boosted by ${authorDid.substring(0, 20)}...`);
+      return res.json({ 
+        success: true, 
+        message: 'Post boosted for 24 hours',
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+      });
+    } else {
+      return res.status(500).json({ error: 'Failed to boost post' });
+    }
+  } catch (err) {
+    console.error('[Boost] Error:', err.message);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
+ * Remove boost from a post
+ * DELETE /api/boost
+ * Body: { postUri: "at://...", authorDid: "did:plc:..." }
+ */
+app.delete('/api/boost', strictLimiter, async (req, res) => {
+  try {
+    const { postUri, authorDid } = req.body;
+
+    if (!postUri || !authorDid) {
+      return res.status(400).json({ error: 'Missing postUri or authorDid' });
+    }
+
+    // Verify ownership
+    const uriParts = postUri.split('/');
+    const postAuthor = uriParts[2];
+
+    if (postAuthor !== authorDid) {
+      return res.status(403).json({ error: 'You can only unboost your own posts' });
+    }
+
+    const success = db.unboostPost(postUri);
+
+    if (success) {
+      return res.json({ success: true, message: 'Boost removed' });
+    } else {
+      return res.status(500).json({ error: 'Failed to remove boost' });
+    }
+  } catch (err) {
+    console.error('[Boost] Error:', err.message);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
+ * Check if a post is boosted
+ * GET /api/boost?postUri=at://...
+ */
+app.get('/api/boost', generalLimiter, (req, res) => {
+  try {
+    const { postUri } = req.query;
+
+    if (!postUri) {
+      return res.status(400).json({ error: 'Missing postUri parameter' });
+    }
+
+    const boostInfo = db.getBoostInfo(postUri);
+
+    if (boostInfo) {
+      const expiresIn = boostInfo.expires_at - Math.floor(Date.now() / 1000);
+      return res.json({
+        boosted: true,
+        expiresIn,
+        expiresAt: new Date(boostInfo.expires_at * 1000).toISOString()
+      });
+    } else {
+      return res.json({ boosted: false });
+    }
+  } catch (err) {
+    console.error('[Boost] Error:', err.message);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
+ * Get all active boosted post URIs
+ * GET /api/boosts
+ */
+app.get('/api/boosts', generalLimiter, (req, res) => {
+  try {
+    const boosts = db.getActiveBoostedPosts();
+    return res.json({
+      boosts: boosts.map(b => ({
+        postUri: b.post_uri,
+        authorDid: b.author_did,
+        expiresAt: new Date(b.expires_at * 1000).toISOString()
+      })),
+      count: boosts.length
+    });
+  } catch (err) {
+    console.error('[Boost] Error:', err.message);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// =============================================================================
 // oEmbed Proxy - Fetch video metadata for YouTube URLs (CORS-safe)
 // =============================================================================
 
@@ -277,9 +422,39 @@ app.get('/xrpc/app.bsky.feed.getFeedSkeleton', (req, res) => {
     // Get posts from database
     const posts = db.getPosts(limit, offset);
 
+    // Get active boosted posts and inject them into the feed
+    const boostedPosts = db.getActiveBoostedPosts();
+    let feedItems = posts.map((uri) => ({ post: uri }));
+
+    // Inject boosted posts - show 1 boosted post per ~10 regular posts
+    // Only inject on first page or randomly
+    if (boostedPosts.length > 0 && offset === 0) {
+      // Inject first boosted post near position 3-5
+      const position = Math.floor(Math.random() * 3) + 3;
+      if (position < feedItems.length) {
+        const boostToInject = boostedPosts[Math.floor(Math.random() * boostedPosts.length)];
+        // Make sure we're not duplicating a post already in the feed
+        const alreadyInFeed = feedItems.some(item => item.post === boostToInject.post_uri);
+        if (!alreadyInFeed) {
+          feedItems.splice(position, 0, { post: boostToInject.post_uri, reason: 'promoted' });
+          console.log(`[Feed] Injected boosted post at position ${position}`);
+        }
+      }
+    } else if (boostedPosts.length > 0 && Math.random() < 0.3) {
+      // 30% chance to inject on paginated loads
+      const position = Math.floor(Math.random() * 5) + 3;
+      if (position < feedItems.length) {
+        const boostToInject = boostedPosts[Math.floor(Math.random() * boostedPosts.length)];
+        const alreadyInFeed = feedItems.some(item => item.post === boostToInject.post_uri);
+        if (!alreadyInFeed) {
+          feedItems.splice(position, 0, { post: boostToInject.post_uri, reason: 'promoted' });
+        }
+      }
+    }
+
     // Build response
     const response = {
-      feed: posts.map((uri) => ({ post: uri })),
+      feed: feedItems,
     };
 
     // Add cursor if there are more posts
@@ -287,7 +462,7 @@ app.get('/xrpc/app.bsky.feed.getFeedSkeleton', (req, res) => {
       response.cursor = `${Date.now()}:${offset + limit}`;
     }
 
-    console.log(`[Feed] Served ${posts.length} posts (offset: ${offset})`);
+    console.log(`[Feed] Served ${feedItems.length} posts (offset: ${offset}, boosted: ${boostedPosts.length})`);
     res.json(response);
   } catch (err) {
     console.error('[Feed] Error:', err.message);

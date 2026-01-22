@@ -642,3 +642,55 @@ export function useUnpinPost() {
     },
   });
 }
+
+// ============================================
+// Boosted Posts
+// ============================================
+
+/**
+ * Check if a specific post is boosted
+ */
+export function useIsPostBoosted(postUri: string | undefined) {
+  return useQuery({
+    queryKey: ['postBoosted', postUri],
+    queryFn: async () => {
+      if (!postUri) return { boosted: false };
+      return atproto.isPostBoosted(postUri);
+    },
+    enabled: !!postUri,
+    staleTime: 1000 * 60 * 1, // 1 minute - boost status changes
+    gcTime: 1000 * 60 * 5,
+  });
+}
+
+/**
+ * Boost a post
+ */
+export function useBoostPost() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (postUri: string) => {
+      return atproto.boostPost(postUri);
+    },
+    onSuccess: (_, postUri) => {
+      queryClient.invalidateQueries({ queryKey: ['postBoosted', postUri] });
+    },
+  });
+}
+
+/**
+ * Remove boost from a post
+ */
+export function useUnboostPost() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (postUri: string) => {
+      return atproto.unboostPost(postUri);
+    },
+    onSuccess: (_, postUri) => {
+      queryClient.invalidateQueries({ queryKey: ['postBoosted', postUri] });
+    },
+  });
+}

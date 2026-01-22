@@ -57,6 +57,9 @@ export {
   useIsPinnedPost,
   usePinPost,
   useUnpinPost,
+  useIsPostBoosted,
+  useBoostPost,
+  useUnboostPost,
   type ProfileView,
   type ProfileViewDetailed,
 } from './use-atp-profile';
