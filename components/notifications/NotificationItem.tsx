@@ -158,6 +158,9 @@ export const NotificationItem = memo(function NotificationItem({
           source={{ uri: actorAvatar || fallbackAvatar }}
           style={{ width: 44, height: 44, borderRadius: 22 }}
           contentFit="cover"
+          cachePolicy="memory-disk"
+          recyclingKey={actorAvatar || notification.actor?.id}
+          transition={200}
         />
         {isExternal && (
           <View className="absolute -bottom-0.5 -right-0.5 bg-white dark:bg-gray-900 rounded-full p-0.5">

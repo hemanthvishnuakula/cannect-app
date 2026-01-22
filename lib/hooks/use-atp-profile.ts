@@ -41,9 +41,10 @@ export function useProfile(actor: string | undefined) {
       return profile;
     },
     enabled: !!actor,
-    staleTime: 1000 * 30, // 30 seconds - profile counts change often
-    refetchOnMount: true, // Always refetch when component mounts
-    refetchOnWindowFocus: true, // Refetch when user returns to app (PWA)
+    staleTime: 1000 * 60 * 2, // 2 minutes - balance freshness vs stability
+    gcTime: 1000 * 60 * 10, // Keep in cache for 10 minutes
+    refetchOnMount: 'always', // Only refetch if stale
+    refetchOnWindowFocus: false, // Don't refetch on window focus - causes avatar flicker
   });
 }
 
@@ -61,9 +62,10 @@ export function useMyProfile() {
       return result.data;
     },
     enabled: !!did && isAuthenticated,
-    staleTime: 1000 * 30, // 30 seconds - profile counts change often
-    refetchOnMount: true, // Always refetch when component mounts
-    refetchOnWindowFocus: true, // Refetch when user returns to app (PWA)
+    staleTime: 1000 * 60 * 2, // 2 minutes - balance freshness vs stability
+    gcTime: 1000 * 60 * 10, // Keep in cache for 10 minutes
+    refetchOnMount: 'always', // Only refetch if stale
+    refetchOnWindowFocus: false, // Don't refetch on window focus - causes avatar flicker
   });
 }
 

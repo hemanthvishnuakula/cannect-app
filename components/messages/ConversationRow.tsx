@@ -51,6 +51,8 @@ export function ConversationRow({ conversation, onPress }: ConversationRowProps)
           style={{ width: 52, height: 52, borderRadius: 26 }}
           contentFit="cover"
           cachePolicy="memory-disk"
+          recyclingKey={avatar || conversation.id}
+          transition={200}
           onError={() => setAvatarError(true)}
         />
         <View className="flex-1 ml-3">
