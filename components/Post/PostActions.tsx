@@ -358,6 +358,7 @@ export const PostActions = memo(function PostActions({
 
   // Icon sizes based on variant (smaller to not compete with author name)
   const iconSize = variant === 'compact' ? 18 : 20;
+  const repostIconSize = variant === 'compact' ? 20 : 22; // Slightly larger for visual balance
 
   // Shared hitSlop for all buttons
   const buttonHitSlop = { top: 12, bottom: 12, left: 12, right: 12 };
@@ -403,7 +404,7 @@ export const PostActions = memo(function PostActions({
           android_ripple={{ color: 'rgba(0,0,0,0.1)', borderless: true }}
           style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
         >
-          <Repeat2 size={iconSize} color={repostColor} strokeWidth={1.5} />
+          <Repeat2 size={repostIconSize} color={repostColor} strokeWidth={1.5} />
           <Text
             className={`text-sm ml-1.5 min-w-[16px] ${isReposted ? 'text-green-500' : 'text-text-muted'}`}
           >
@@ -492,7 +493,7 @@ export const PostActions = memo(function PostActions({
           android_ripple={{ color: 'rgba(0,0,0,0.1)', borderless: true }}
           style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
         >
-          <Repeat2 size={iconSize} color={repostColor} strokeWidth={1.5} />
+          <Repeat2 size={repostIconSize} color={repostColor} strokeWidth={1.5} />
           <Text
             className={`text-sm ml-1.5 min-w-[16px] ${isReposted ? 'text-green-500' : 'text-text-muted'}`}
           >
