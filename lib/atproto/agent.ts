@@ -1713,7 +1713,9 @@ const FEED_VPS_URL = 'https://feed.cannect.space';
  * Boost a post for 24 hours
  * Only post authors can boost their own posts
  */
-export async function boostPost(postUri: string): Promise<{ success: boolean; expiresAt?: string; error?: string }> {
+export async function boostPost(
+  postUri: string
+): Promise<{ success: boolean; expiresAt?: string; error?: string }> {
   const session = getSession();
   if (!session) throw new Error('Not authenticated');
 
@@ -1773,9 +1775,13 @@ export async function unboostPost(postUri: string): Promise<{ success: boolean; 
 /**
  * Check if a post is currently boosted
  */
-export async function isPostBoosted(postUri: string): Promise<{ boosted: boolean; expiresAt?: string }> {
+export async function isPostBoosted(
+  postUri: string
+): Promise<{ boosted: boolean; expiresAt?: string }> {
   try {
-    const response = await fetch(`${FEED_VPS_URL}/api/boost?postUri=${encodeURIComponent(postUri)}`);
+    const response = await fetch(
+      `${FEED_VPS_URL}/api/boost?postUri=${encodeURIComponent(postUri)}`
+    );
     const data = await response.json();
     return { boosted: data.boosted, expiresAt: data.expiresAt };
   } catch (err) {

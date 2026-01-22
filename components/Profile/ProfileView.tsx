@@ -84,7 +84,7 @@ export function ProfileView({
   // Get posts data based on active tab (filter out pinned post to avoid duplication)
   const posts = useMemo(() => {
     const pinnedUri = pinnedPost?.uri;
-    
+
     if (activeTab === 'posts') {
       const allPosts = postsQuery.data?.pages?.flatMap((page) => page.feed) || [];
       // Filter out the pinned post from regular posts
@@ -260,11 +260,7 @@ export function ProfileView({
                   <Pin size={12} color="#10B981" />
                   <Text className="text-primary text-xs font-medium ml-1">Pinned</Text>
                 </View>
-                <PostCard
-                  post={pinnedPost}
-                  hideFollowButton
-                  showBorder={false}
-                />
+                <PostCard post={pinnedPost} hideFollowButton showBorder={false} />
               </View>
             )}
           </View>

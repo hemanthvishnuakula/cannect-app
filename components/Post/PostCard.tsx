@@ -24,6 +24,7 @@ import { RichText } from './RichText';
 import { FollowButton } from '../ui/FollowButton';
 import { useAuthStore } from '../../lib/stores';
 import { getOptimizedAvatarWithFallback } from '../../lib/utils/avatar';
+import { useTrackPostView } from '../../lib/hooks/use-view-tracking';
 import type { AppBskyFeedDefs, AppBskyFeedPost } from '@atproto/api';
 
 type FeedViewPost = AppBskyFeedDefs.FeedViewPost;
@@ -80,6 +81,9 @@ export function PostCard({
   // Support both FeedViewPost (item) and raw PostView (post)
   const post = item?.post ?? rawPost;
 
+  // Track post view when it becomes visible
+  const viewTrackingRef = useTrackPostView(post?.uri, 'feed');
+
   // Guard: must have either item or post
   if (!post) {
     console.warn('PostCard: Neither item nor post provided');
@@ -132,6 +136,7 @@ export function PostCard({
 
   return (
     <Pressable
+      ref={viewTrackingRef as any}
       onPress={handlePress}
       className={`px-4 pt-3 pb-2 ${showBorder ? 'border-b border-border' : ''} web:hover:bg-surface/50 web:transition-colors`}
     >

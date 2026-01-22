@@ -93,6 +93,13 @@ export {
 export { usePWA } from './use-pwa';
 export { useWebPush } from './use-web-push';
 
+// View Tracking
+export {
+  useTrackPostView,
+  useViewTracking,
+  useFlushViewsOnUnmount,
+} from './use-view-tracking';
+
 // Chat / Direct Messages
 export {
   useConversations,

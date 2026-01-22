@@ -778,11 +778,15 @@ export const PostActions = memo(function PostActions({
                 onPress={handlePinToggle}
                 className="flex-row items-center gap-4 py-4 px-4 rounded-xl active:bg-zinc-800/50"
               >
-                <View className={`w-11 h-11 rounded-full items-center justify-center ${isPinned ? 'bg-primary/20' : 'bg-zinc-800'}`}>
+                <View
+                  className={`w-11 h-11 rounded-full items-center justify-center ${isPinned ? 'bg-primary/20' : 'bg-zinc-800'}`}
+                >
                   <Pin size={22} color={isPinned ? '#10B981' : '#FAFAFA'} />
                 </View>
                 <View className="flex-1">
-                  <Text className={`text-lg font-semibold ${isPinned ? 'text-primary' : 'text-text-primary'}`}>
+                  <Text
+                    className={`text-lg font-semibold ${isPinned ? 'text-primary' : 'text-text-primary'}`}
+                  >
                     {isPinned ? 'Unpin from Profile' : 'Pin to Profile'}
                   </Text>
                   <Text className="text-text-muted text-sm">
@@ -798,11 +802,15 @@ export const PostActions = memo(function PostActions({
                 onPress={handleBoostToggle}
                 className="flex-row items-center gap-4 py-4 px-4 rounded-xl active:bg-zinc-800/50"
               >
-                <View className={`w-11 h-11 rounded-full items-center justify-center ${isBoosted ? 'bg-orange-500/20' : 'bg-zinc-800'}`}>
+                <View
+                  className={`w-11 h-11 rounded-full items-center justify-center ${isBoosted ? 'bg-orange-500/20' : 'bg-zinc-800'}`}
+                >
                   <Rocket size={22} color={isBoosted ? '#F97316' : '#FAFAFA'} />
                 </View>
                 <View className="flex-1">
-                  <Text className={`text-lg font-semibold ${isBoosted ? 'text-orange-500' : 'text-text-primary'}`}>
+                  <Text
+                    className={`text-lg font-semibold ${isBoosted ? 'text-orange-500' : 'text-text-primary'}`}
+                  >
                     {isBoosted ? 'Remove Boost' : 'Boost Post'}
                   </Text>
                   <Text className="text-text-muted text-sm">

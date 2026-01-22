@@ -47,6 +47,27 @@ db.exec(`
 
   CREATE INDEX IF NOT EXISTS idx_boost_expires ON boosts(expires_at);
   CREATE INDEX IF NOT EXISTS idx_boost_author ON boosts(author_did);
+
+  -- Post views table for tracking impressions
+  CREATE TABLE IF NOT EXISTS post_views (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    post_uri TEXT NOT NULL,
+    viewer_did TEXT,
+    viewed_at INTEGER DEFAULT (unixepoch()),
+    source TEXT DEFAULT 'feed'
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_views_post ON post_views(post_uri);
+  CREATE INDEX IF NOT EXISTS idx_views_viewer ON post_views(viewer_did);
+  CREATE INDEX IF NOT EXISTS idx_views_time ON post_views(viewed_at);
+
+  -- Aggregate view counts (updated periodically for performance)
+  CREATE TABLE IF NOT EXISTS post_view_counts (
+    post_uri TEXT PRIMARY KEY,
+    view_count INTEGER DEFAULT 0,
+    unique_viewers INTEGER DEFAULT 0,
+    last_updated INTEGER DEFAULT (unixepoch())
+  );
 `);
 
 // Prepared statements for performance
@@ -100,6 +121,66 @@ const getBoostsByAuthor = db.prepare(`
 
 const cleanExpiredBoosts = db.prepare(`
   DELETE FROM boosts WHERE expires_at < unixepoch()
+`);
+
+// View tracking prepared statements
+const insertView = db.prepare(`
+  INSERT INTO post_views (post_uri, viewer_did, source)
+  VALUES (?, ?, ?)
+`);
+
+const insertViewsBatch = db.prepare(`
+  INSERT INTO post_views (post_uri, viewer_did, source)
+  VALUES (?, ?, ?)
+`);
+
+const getViewCount = db.prepare(`
+  SELECT COUNT(*) as count FROM post_views WHERE post_uri = ?
+`);
+
+const getUniqueViewers = db.prepare(`
+  SELECT COUNT(DISTINCT viewer_did) as count FROM post_views 
+  WHERE post_uri = ? AND viewer_did IS NOT NULL
+`);
+
+const getPostStats = db.prepare(`
+  SELECT 
+    COUNT(*) as total_views,
+    COUNT(DISTINCT viewer_did) as unique_viewers,
+    MIN(viewed_at) as first_view,
+    MAX(viewed_at) as last_view
+  FROM post_views 
+  WHERE post_uri = ?
+`);
+
+const getRecentViews = db.prepare(`
+  SELECT post_uri, COUNT(*) as views 
+  FROM post_views 
+  WHERE viewed_at > unixepoch() - ?
+  GROUP BY post_uri 
+  ORDER BY views DESC 
+  LIMIT ?
+`);
+
+const hasViewedRecently = db.prepare(`
+  SELECT 1 FROM post_views 
+  WHERE post_uri = ? AND viewer_did = ? AND viewed_at > unixepoch() - ?
+  LIMIT 1
+`);
+
+const cleanOldViews = db.prepare(`
+  DELETE FROM post_views WHERE viewed_at < unixepoch() - ?
+`);
+
+const getAuthorViewStatsStmt = db.prepare(`
+  SELECT 
+    p.author_did,
+    COUNT(*) as total_views,
+    COUNT(DISTINCT pv.viewer_did) as unique_viewers
+  FROM post_views pv
+  JOIN posts p ON p.uri = pv.post_uri
+  WHERE p.author_did = ?
+  GROUP BY p.author_did
 `);
 
 /**
@@ -222,6 +303,102 @@ function getAuthorBoosts(authorDid) {
   return getBoostsByAuthor.all(authorDid);
 }
 
+// =============================================================================
+// View Tracking Functions
+// =============================================================================
+
+/**
+ * Record a post view
+ * @param {string} postUri - The post URI that was viewed
+ * @param {string|null} viewerDid - The viewer's DID (null for anonymous)
+ * @param {string} source - Where the view came from (feed, profile, thread, search)
+ */
+function recordView(postUri, viewerDid = null, source = 'feed') {
+  try {
+    insertView.run(postUri, viewerDid, source);
+    return true;
+  } catch (err) {
+    console.error('[DB] View record error:', err.message);
+    return false;
+  }
+}
+
+/**
+ * Record multiple views at once (batch insert for efficiency)
+ * @param {Array<{postUri: string, viewerDid: string|null, source: string}>} views
+ */
+function recordViewsBatch(views) {
+  const insertMany = db.transaction((viewList) => {
+    for (const view of viewList) {
+      insertViewsBatch.run(view.postUri, view.viewerDid || null, view.source || 'feed');
+    }
+  });
+  
+  try {
+    insertMany(views);
+    return true;
+  } catch (err) {
+    console.error('[DB] Batch view error:', err.message);
+    return false;
+  }
+}
+
+/**
+ * Get view count for a post
+ */
+function getPostViewCount(postUri) {
+  return getViewCount.get(postUri)?.count || 0;
+}
+
+/**
+ * Get unique viewer count for a post
+ */
+function getPostUniqueViewers(postUri) {
+  return getUniqueViewers.get(postUri)?.count || 0;
+}
+
+/**
+ * Get full stats for a post
+ */
+function getPostViewStats(postUri) {
+  return getPostStats.get(postUri) || { total_views: 0, unique_viewers: 0 };
+}
+
+/**
+ * Get trending posts (most viewed in time period)
+ * @param {number} timeWindowSeconds - Time window (default 24 hours)
+ * @param {number} limit - Max results
+ */
+function getTrendingPosts(timeWindowSeconds = 24 * 60 * 60, limit = 20) {
+  return getRecentViews.all(timeWindowSeconds, limit);
+}
+
+/**
+ * Check if viewer has seen this post recently (to avoid duplicate counts)
+ * @param {string} postUri
+ * @param {string} viewerDid
+ * @param {number} windowSeconds - Deduplication window (default 5 minutes)
+ */
+function hasViewerSeenRecently(postUri, viewerDid, windowSeconds = 300) {
+  if (!viewerDid) return false;
+  return hasViewedRecently.get(postUri, viewerDid, windowSeconds) ? true : false;
+}
+
+/**
+ * Get view stats for an author's posts
+ */
+function getAuthorViewStats(authorDid) {
+  return getAuthorViewStatsStmt.get(authorDid) || { total_views: 0, unique_viewers: 0 };
+}
+
+/**
+ * Clean old view records (default 30 days)
+ */
+function cleanupViews(maxAgeSeconds = 30 * 24 * 60 * 60) {
+  const result = cleanOldViews.run(maxAgeSeconds);
+  return result.changes;
+}
+
 /**
  * Close database connection
  */
@@ -243,5 +420,15 @@ module.exports = {
   isPostBoosted,
   getBoostInfo,
   getAuthorBoosts,
+  // View tracking functions
+  recordView,
+  recordViewsBatch,
+  getPostViewCount,
+  getPostUniqueViewers,
+  getPostViewStats,
+  getTrendingPosts,
+  hasViewerSeenRecently,
+  getAuthorViewStats,
+  cleanupViews,
   close,
 };

@@ -227,10 +227,10 @@ app.post('/api/boost', strictLimiter, async (req, res) => {
     if (db.isPostBoosted(postUri)) {
       const boostInfo = db.getBoostInfo(postUri);
       const expiresIn = boostInfo.expires_at - Math.floor(Date.now() / 1000);
-      return res.status(400).json({ 
-        error: 'Post already boosted', 
+      return res.status(400).json({
+        error: 'Post already boosted',
         expiresIn,
-        expiresAt: new Date(boostInfo.expires_at * 1000).toISOString()
+        expiresAt: new Date(boostInfo.expires_at * 1000).toISOString(),
       });
     }
 
@@ -239,10 +239,10 @@ app.post('/api/boost', strictLimiter, async (req, res) => {
 
     if (success) {
       console.log(`[Boost] Post boosted by ${authorDid.substring(0, 20)}...`);
-      return res.json({ 
-        success: true, 
+      return res.json({
+        success: true,
         message: 'Post boosted for 24 hours',
-        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
       });
     } else {
       return res.status(500).json({ error: 'Failed to boost post' });
@@ -306,7 +306,7 @@ app.get('/api/boost', generalLimiter, (req, res) => {
       return res.json({
         boosted: true,
         expiresIn,
-        expiresAt: new Date(boostInfo.expires_at * 1000).toISOString()
+        expiresAt: new Date(boostInfo.expires_at * 1000).toISOString(),
       });
     } else {
       return res.json({ boosted: false });
@@ -325,12 +325,12 @@ app.get('/api/boosts', generalLimiter, (req, res) => {
   try {
     const boosts = db.getActiveBoostedPosts();
     return res.json({
-      boosts: boosts.map(b => ({
+      boosts: boosts.map((b) => ({
         postUri: b.post_uri,
         authorDid: b.author_did,
-        expiresAt: new Date(b.expires_at * 1000).toISOString()
+        expiresAt: new Date(b.expires_at * 1000).toISOString(),
       })),
-      count: boosts.length
+      count: boosts.length,
     });
   } catch (err) {
     console.error('[Boost] Error:', err.message);
@@ -378,6 +378,137 @@ app.get('/api/oembed', generalLimiter, async (req, res) => {
   } catch (err) {
     console.error('[oEmbed] Error:', err.message);
     return res.status(500).json({ error: 'Failed to fetch metadata' });
+  }
+});
+
+// =============================================================================
+// Post View Tracking API
+// =============================================================================
+
+/**
+ * Record post views (batch)
+ * POST /api/views
+ * Body: { views: [{ postUri: "at://...", source: "feed" }], viewerDid?: "did:plc:..." }
+ */
+app.post('/api/views', generalLimiter, async (req, res) => {
+  try {
+    const { views, viewerDid } = req.body;
+
+    if (!views || !Array.isArray(views) || views.length === 0) {
+      return res.status(400).json({ error: 'Missing or invalid views array' });
+    }
+
+    // Limit batch size
+    if (views.length > 50) {
+      return res.status(400).json({ error: 'Max 50 views per batch' });
+    }
+
+    // Validate and prepare views
+    const validViews = views
+      .filter((v) => v.postUri && v.postUri.startsWith('at://'))
+      .map((v) => ({
+        postUri: v.postUri,
+        viewerDid: viewerDid || null,
+        source: v.source || 'feed',
+      }));
+
+    if (validViews.length === 0) {
+      return res.status(400).json({ error: 'No valid post URIs' });
+    }
+
+    // Deduplicate if viewer provided (don't count same post twice in 5 min)
+    const dedupedViews = [];
+    for (const view of validViews) {
+      if (!viewerDid || !db.hasViewerSeenRecently(view.postUri, viewerDid, 300)) {
+        dedupedViews.push(view);
+      }
+    }
+
+    if (dedupedViews.length > 0) {
+      db.recordViewsBatch(dedupedViews);
+    }
+
+    res.json({
+      success: true,
+      recorded: dedupedViews.length,
+      skipped: validViews.length - dedupedViews.length,
+    });
+  } catch (err) {
+    console.error('[Views] Error:', err.message);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
+ * Get view stats for a post
+ * GET /api/views/:postUri (base64 encoded)
+ */
+app.get('/api/views/post', generalLimiter, async (req, res) => {
+  try {
+    const { uri } = req.query;
+
+    if (!uri) {
+      return res.status(400).json({ error: 'Missing uri parameter' });
+    }
+
+    const stats = db.getPostViewStats(uri);
+    res.json({
+      postUri: uri,
+      totalViews: stats.total_views || 0,
+      uniqueViewers: stats.unique_viewers || 0,
+      firstView: stats.first_view ? new Date(stats.first_view * 1000).toISOString() : null,
+      lastView: stats.last_view ? new Date(stats.last_view * 1000).toISOString() : null,
+    });
+  } catch (err) {
+    console.error('[Views] Error:', err.message);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
+ * Get trending posts (most viewed)
+ * GET /api/trending?hours=24&limit=20
+ */
+app.get('/api/trending', generalLimiter, async (req, res) => {
+  try {
+    const hours = Math.min(parseInt(req.query.hours) || 24, 168); // Max 1 week
+    const limit = Math.min(parseInt(req.query.limit) || 20, 50);
+
+    const trending = db.getTrendingPosts(hours * 60 * 60, limit);
+    res.json({
+      period: `${hours}h`,
+      posts: trending.map((p) => ({
+        postUri: p.post_uri,
+        views: p.views,
+      })),
+    });
+  } catch (err) {
+    console.error('[Trending] Error:', err.message);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
+ * Get author's view stats
+ * GET /api/views/author?did=did:plc:...
+ */
+app.get('/api/views/author', generalLimiter, async (req, res) => {
+  try {
+    const { did } = req.query;
+
+    if (!did) {
+      return res.status(400).json({ error: 'Missing did parameter' });
+    }
+
+    const stats = db.getAuthorViewStats(did);
+    res.json({
+      authorDid: did,
+      totalViews: stats.total_views || 0,
+      uniqueViewers: stats.unique_viewers || 0,
+    });
+  } catch (err) {
+    console.error('[Views] Error:', err.message);
+    return res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -429,28 +560,46 @@ app.get('/xrpc/app.bsky.feed.getFeedSkeleton', (req, res) => {
     const boostedPosts = db.getActiveBoostedPosts();
     let feedItems = posts.map((uri) => ({ post: uri }));
 
-    // Inject boosted posts - show 1 boosted post per ~10 regular posts
-    // Only inject on first page or randomly
-    if (boostedPosts.length > 0 && offset === 0) {
-      // Inject first boosted post near position 3-5
-      const position = Math.floor(Math.random() * 3) + 3;
-      if (position < feedItems.length) {
-        const boostToInject = boostedPosts[Math.floor(Math.random() * boostedPosts.length)];
-        // Make sure we're not duplicating a post already in the feed
-        const alreadyInFeed = feedItems.some(item => item.post === boostToInject.post_uri);
-        if (!alreadyInFeed) {
-          feedItems.splice(position, 0, { post: boostToInject.post_uri });
-          console.log(`[Feed] Injected boosted post at position ${position}`);
-        }
+    // ==========================================================================
+    // Smarter Boost Distribution
+    // - Time-based positioning that rotates throughout the day
+    // - Uses hour of day to vary position (2-8)
+    // - On first page: always show 1 boost
+    // - On scroll: show every 3rd page (offset 60, 120, 180...)
+    // - Rotates through multiple boosts if available
+    // ==========================================================================
+    if (boostedPosts.length > 0) {
+      const hour = new Date().getUTCHours();
+      
+      // Calculate position based on time (rotates position 2-8 throughout day)
+      // Changes every 3 hours
+      const timeSlot = Math.floor(hour / 3); // 0-7 time slots per day
+      const basePosition = 2 + (timeSlot % 7); // Position 2-8
+      
+      // Select which boost to show (rotates through boosts based on hour)
+      const boostIndex = hour % boostedPosts.length;
+      const boostToInject = boostedPosts[boostIndex];
+      
+      // Determine if we should inject on this page
+      let shouldInject = false;
+      let position = basePosition;
+      
+      if (offset === 0) {
+        // First page: always inject
+        shouldInject = true;
+      } else if (offset % 90 === 0) {
+        // Every 3rd page (90 posts): inject again
+        shouldInject = true;
+        // Vary position on subsequent pages
+        position = 2 + ((offset / 30) % 7);
       }
-    } else if (boostedPosts.length > 0 && Math.random() < 0.3) {
-      // 30% chance to inject on paginated loads
-      const position = Math.floor(Math.random() * 5) + 3;
-      if (position < feedItems.length) {
-        const boostToInject = boostedPosts[Math.floor(Math.random() * boostedPosts.length)];
-        const alreadyInFeed = feedItems.some(item => item.post === boostToInject.post_uri);
+      
+      if (shouldInject && position < feedItems.length) {
+        // Check if this boost is already in the feed
+        const alreadyInFeed = feedItems.some((item) => item.post === boostToInject.post_uri);
         if (!alreadyInFeed) {
           feedItems.splice(position, 0, { post: boostToInject.post_uri });
+          console.log(`[Feed] Injected boost at pos ${position} (hour: ${hour}, offset: ${offset})`);
         }
       }
     }
@@ -465,7 +614,9 @@ app.get('/xrpc/app.bsky.feed.getFeedSkeleton', (req, res) => {
       response.cursor = `${Date.now()}:${offset + limit}`;
     }
 
-    console.log(`[Feed] Served ${feedItems.length} posts (offset: ${offset}, boosted: ${boostedPosts.length})`);
+    console.log(
+      `[Feed] Served ${feedItems.length} posts (offset: ${offset}, boosted: ${boostedPosts.length})`
+    );
     res.json(response);
   } catch (err) {
     console.error('[Feed] Error:', err.message);
