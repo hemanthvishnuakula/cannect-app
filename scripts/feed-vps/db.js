@@ -473,15 +473,31 @@ function calculateEstimatedViewCount(likeCount, replyCount, repostCount, postUri
 
 /**
  * Store or update estimated views for a post
+ * Combines engagement-based estimate with actual tracked viewport views
  */
 function setEstimatedViews(postUri, likeCount, replyCount, repostCount) {
-  const estimated = calculateEstimatedViewCount(likeCount, replyCount, repostCount, postUri);
+  // Get actual tracked viewport views
+  const actualViews = getPostViewCount(postUri);
+  
+  // Calculate engagement-based estimate
+  const engagementEstimate = calculateEstimatedViewCount(likeCount, replyCount, repostCount, postUri);
+  
+  // Combine: use higher of actual vs engagement, then add any overflow
+  // This ensures actual views always count, plus engagement estimate for reach
+  // Formula: max(actual, engagement) + min(actual, engagement) * 0.2
+  // This gives weight to both metrics without double counting
+  const combined = Math.max(actualViews, engagementEstimate) + 
+                   Math.round(Math.min(actualViews, engagementEstimate) * 0.2);
+  
+  // Ensure at least actual views are shown
+  const finalViews = Math.max(actualViews, combined);
+  
   try {
-    upsertEstimatedViews.run(postUri, likeCount, replyCount, repostCount, estimated);
-    return estimated;
+    upsertEstimatedViews.run(postUri, likeCount, replyCount, repostCount, finalViews);
+    return finalViews;
   } catch (err) {
     console.error('[DB] setEstimatedViews error:', err.message);
-    return estimated;
+    return finalViews;
   }
 }
 

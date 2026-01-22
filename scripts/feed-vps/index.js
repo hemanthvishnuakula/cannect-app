@@ -537,29 +537,38 @@ app.get('/api/estimated-views', generalLimiter, async (req, res) => {
     const likeCount = parseInt(likes) || 0;
     const replyCount = parseInt(replies) || 0;
     const repostCount = parseInt(reposts) || 0;
+    
+    // Get current actual viewport views
+    const actualViews = db.getPostViewCount(uri);
 
-    // If stored and engagement hasn't changed much, return stored
+    // If stored, check if we need to recalculate
     if (stored) {
       const engagementChanged = 
         Math.abs(stored.like_count - likeCount) > 2 ||
         Math.abs(stored.reply_count - replyCount) > 1 ||
         Math.abs(stored.repost_count - repostCount) > 1;
       
-      if (!engagementChanged) {
+      // Also recalculate if actual views have increased significantly
+      // (stored value should always be >= actual, so if actual is higher, recalc needed)
+      const viewsIncreased = actualViews > stored.estimated_views;
+      
+      if (!engagementChanged && !viewsIncreased) {
         return res.json({
           postUri: uri,
           estimatedViews: stored.estimated_views,
+          actualViews: actualViews,
           cached: true,
         });
       }
     }
 
-    // Calculate and store new value
+    // Calculate and store new value (now incorporates actual viewport views)
     const estimated = db.setEstimatedViews(uri, likeCount, replyCount, repostCount);
     
     res.json({
       postUri: uri,
       estimatedViews: estimated,
+      actualViews: actualViews,
       cached: false,
     });
   } catch (err) {
