@@ -1062,51 +1062,44 @@ export async function getProfiles(dids: string[]) {
     let profiles = publicResults.flatMap((r) => r.data.profiles);
     console.log('[getProfiles] Got', profiles.length, 'profiles from public AppView');
     
-    // If user is authenticated, hydrate viewer relationships (following status)
+    // If user is authenticated, hydrate viewer relationships by fetching their following list
     const bskyAgent = getAgent();
     if (bskyAgent.session?.did) {
       try {
-        // Re-fetch through bsky.social AppView with auth to get viewer data
-        const authResults = await Promise.all(
-          chunks.map(async (chunk) => {
-            try {
-              // Use direct fetch to bsky.social AppView with auth header
-              const url = `https://bsky.social/xrpc/app.bsky.actor.getProfiles?${chunk.map(d => `actors=${encodeURIComponent(d)}`).join('&')}`;
-              const response = await fetch(url, {
-                headers: {
-                  'Authorization': `Bearer ${bskyAgent.session?.accessJwt}`,
-                },
-              });
-              if (response.ok) {
-                return await response.json();
-              }
-              return null;
-            } catch {
-              return null;
-            }
-          })
-        );
+        // Fetch user's following list to check who they follow
+        const followingDids = new Set<string>();
+        let cursor: string | undefined;
         
-        // Merge viewer data from authenticated response
-        const authProfiles = new Map<string, any>();
-        authResults.forEach((result) => {
-          if (result?.profiles) {
-            result.profiles.forEach((p: any) => {
-              authProfiles.set(p.did, p);
-            });
-          }
-        });
+        // Fetch up to 200 follows to check against (4 pages of 50)
+        for (let i = 0; i < 4; i++) {
+          const followsResult = await bskyAgent.getFollows({
+            actor: bskyAgent.session.did,
+            limit: 50,
+            cursor,
+          });
+          
+          followsResult.data.follows.forEach((f) => followingDids.add(f.did));
+          cursor = followsResult.data.cursor;
+          
+          if (!cursor) break; // No more pages
+        }
         
-        // Apply viewer data to profiles
+        console.log('[getProfiles] Fetched', followingDids.size, 'follows for viewer hydration');
+        
+        // Apply viewer.following to profiles
         profiles = profiles.map((profile) => {
-          const authProfile = authProfiles.get(profile.did);
-          if (authProfile?.viewer) {
-            return { ...profile, viewer: authProfile.viewer };
-          }
-          return profile;
+          const isFollowing = followingDids.has(profile.did);
+          return {
+            ...profile,
+            viewer: {
+              ...profile.viewer,
+              // Set following to a truthy value if following, undefined if not
+              following: isFollowing ? `at://${bskyAgent.session?.did}/app.bsky.graph.follow/placeholder` : undefined,
+            },
+          };
         });
         
-        console.log('[getProfiles] Hydrated viewer data for', authProfiles.size, 'profiles');
+        console.log('[getProfiles] Hydrated viewer data for', profiles.length, 'profiles');
       } catch (err) {
         console.log('[getProfiles] Could not hydrate viewer data:', err);
       }
