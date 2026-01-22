@@ -47,7 +47,7 @@ export function MediaGridItem({ item }: MediaGridItemProps) {
         className="w-full h-full bg-surface"
         contentFit="cover"
         placeholder={BLURHASH_NEUTRAL}
-        transition={200}
+        transition={50}
       />
 
       {/* Indicator Overlays */}

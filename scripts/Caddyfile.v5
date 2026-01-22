@@ -1,0 +1,36 @@
+{
+        email admin@cannect.space
+}
+
+# Feed Generator
+feed.cannect.space {
+        handle /api/following* {
+                reverse_proxy localhost:3002
+        }
+        handle /following-health {
+                rewrite * /health
+                reverse_proxy localhost:3002
+        }
+        handle {
+                reverse_proxy localhost:3001
+        }
+}
+
+# Push Server
+push.cannect.space {
+        reverse_proxy localhost:3003
+}
+
+# PDS - on_demand TLS for user handles
+*.cannect.space, cannect.space {
+        @pds_check {
+                expression {http.request.host} != "feed.cannect.space" && {http.request.host} != "push.cannect.space"
+        }
+        tls {
+                on_demand
+                permission {
+                        endpoint http://localhost:3000/tls-check
+                }
+        }
+        reverse_proxy localhost:3000
+}

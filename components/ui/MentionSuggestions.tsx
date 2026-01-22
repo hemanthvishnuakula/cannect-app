@@ -108,7 +108,7 @@ export const MentionSuggestions = memo(function MentionSuggestions({
               source={{ uri: getOptimizedAvatarUrl(user.avatar, 36) }}
               className="w-9 h-9 rounded-full bg-surface-elevated"
               contentFit="cover"
-              transition={150}
+              transition={50}
               cachePolicy="memory-disk"
             />
           ) : (

@@ -167,7 +167,8 @@ export function PostCard({
             }}
             className="w-10 h-10 rounded-full bg-surface-elevated"
             contentFit="cover"
-            transition={200}
+            transition={50}
+            priority="high"
             cachePolicy="memory-disk"
             recyclingKey={author.avatar || author.did}
           />

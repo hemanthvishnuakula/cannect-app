@@ -1,0 +1,41 @@
+{
+    email admin@cannect.space
+    on_demand_tls {
+        ask http://localhost:3000/tls-check
+    }
+}
+
+# Feed Generator - use certbot cert
+feed.cannect.space {
+    tls /etc/letsencrypt/live/feed.cannect.space/fullchain.pem /etc/letsencrypt/live/feed.cannect.space/privkey.pem
+    handle /api/following* {
+        reverse_proxy localhost:3002
+    }
+    handle /following-health {
+        rewrite * /health
+        reverse_proxy localhost:3002
+    }
+    handle {
+        reverse_proxy localhost:3001
+    }
+}
+
+# Push Server - use certbot cert (same SAN cert)
+push.cannect.space {
+    tls /etc/letsencrypt/live/feed.cannect.space/fullchain.pem /etc/letsencrypt/live/feed.cannect.space/privkey.pem
+    reverse_proxy localhost:3003
+}
+
+# Main PDS - use certbot cert
+cannect.space {
+    tls /etc/letsencrypt/live/cannect.space/fullchain.pem /etc/letsencrypt/live/cannect.space/privkey.pem
+    reverse_proxy localhost:3000
+}
+
+# User handles - on_demand TLS
+*.cannect.space {
+    tls {
+        on_demand
+    }
+    reverse_proxy localhost:3000
+}

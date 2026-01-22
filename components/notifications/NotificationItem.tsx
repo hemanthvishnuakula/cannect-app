@@ -160,7 +160,8 @@ export const NotificationItem = memo(function NotificationItem({
           contentFit="cover"
           cachePolicy="memory-disk"
           recyclingKey={actorAvatar || notification.actor?.id}
-          transition={200}
+          transition={50}
+          priority="high"
         />
         {isExternal && (
           <View className="absolute -bottom-0.5 -right-0.5 bg-white dark:bg-gray-900 rounded-full p-0.5">

@@ -84,7 +84,8 @@ export function ThreadPost({ post, onImagePress }: ThreadPostProps) {
           }}
           style={{ width: 48, height: 48, borderRadius: 24 }}
           contentFit="cover"
-          transition={200}
+          transition={50}
+          priority="high"
           cachePolicy="memory-disk"
           recyclingKey={author.avatar || author.did}
         />

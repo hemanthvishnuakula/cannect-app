@@ -135,7 +135,7 @@ export function ProfileView({
                 contentFit="cover"
                 cachePolicy="memory-disk"
                 recyclingKey={profileData.banner}
-                transition={200}
+                transition={50}
               />
             ) : (
               <View className="w-full h-32 bg-primary/20" />
@@ -151,7 +151,8 @@ export function ProfileView({
                   contentFit="cover"
                   cachePolicy="memory-disk"
                   recyclingKey={profileData.avatar}
-                  transition={200}
+                  transition={50}
+                  priority="high"
                 />
               ) : (
                 <View className="w-24 h-24 rounded-full border-4 border-background bg-surface-elevated items-center justify-center">

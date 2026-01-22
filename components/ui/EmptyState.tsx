@@ -89,10 +89,7 @@ export function EmptyState({
 
       {/* Optional Action Button */}
       {actionLabel && onAction && (
-        <Pressable
-          onPress={onAction}
-          className="mt-6 bg-primary px-6 py-3 rounded-full"
-        >
+        <Pressable onPress={onAction} className="mt-6 bg-primary px-6 py-3 rounded-full">
           <Text className="text-white font-semibold">{actionLabel}</Text>
         </Pressable>
       )}

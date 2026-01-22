@@ -25,7 +25,8 @@ export function Avatar({ url, name, size = 40 }: AvatarProps) {
           borderRadius: size / 2,
         }}
         contentFit="cover"
-        transition={200}
+        transition={50}
+        priority="high"
         cachePolicy="memory-disk"
         recyclingKey={url}
       />

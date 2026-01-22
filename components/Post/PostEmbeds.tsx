@@ -192,7 +192,7 @@ function ImageGrid({
             style={{ width: '100%', aspectRatio, maxHeight, minHeight }}
             className={`bg-surface-elevated ${borderClass}`}
             contentFit="cover"
-            transition={200}
+            transition={50}
             cachePolicy="memory-disk"
             recyclingKey={img.thumb}
           />
@@ -219,7 +219,7 @@ function ImageGrid({
             source={{ uri: img.thumb }}
             className="w-full h-32 rounded-lg bg-surface-elevated"
             contentFit="cover"
-            transition={200}
+            transition={50}
             cachePolicy="memory-disk"
             recyclingKey={img.thumb}
           />
@@ -255,7 +255,7 @@ function LinkPreview({ external }: { external: AppBskyEmbedExternal.ViewExternal
           source={{ uri: external.thumb }}
           className="w-full h-32 bg-surface-elevated"
           contentFit="cover"
-          transition={200}
+          transition={50}
           cachePolicy="memory-disk"
           recyclingKey={external.thumb}
         />
@@ -290,7 +290,7 @@ function QuotePost({ record }: { record: any }) {
             source={{ uri: getOptimizedAvatarUrl(author.avatar, 20) }}
             className="w-5 h-5 rounded-full mr-2 bg-surface-elevated flex-shrink-0"
             contentFit="cover"
-            transition={150}
+            transition={50}
             cachePolicy="memory-disk"
             recyclingKey={author.avatar}
           />
@@ -422,7 +422,7 @@ function YouTubePreview({ videoId, url }: { videoId: string; url: string }) {
           source={{ uri: thumbnailUrl }}
           className="w-full h-44 bg-surface-elevated"
           contentFit="cover"
-          transition={200}
+          transition={50}
           cachePolicy="memory-disk"
           recyclingKey={thumbnailUrl}
         />
