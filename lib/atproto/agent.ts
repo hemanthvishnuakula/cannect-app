@@ -209,21 +209,8 @@ export function resetExpiryState(): void {
 async function getStoredSession(): Promise<any | null> {
   try {
     if (Platform.OS === 'web') {
-      // Debug: Check what's in localStorage directly
-      if (typeof window !== 'undefined' && window.localStorage) {
-        const directCheck = window.localStorage.getItem(SESSION_KEY);
-        console.log('[Agent] getStoredSession - direct localStorage check:', directCheck ? `found (${directCheck.length} chars)` : 'null');
-      }
-      
       const data = await AsyncStorage.getItem(SESSION_KEY);
-      console.log('[Agent] getStoredSession - AsyncStorage result:', data ? `found (${data.length} chars)` : 'null');
-      
-      if (data) {
-        const parsed = JSON.parse(data);
-        console.log('[Agent] getStoredSession - parsed DID:', parsed?.did?.substring(0, 25));
-        return parsed;
-      }
-      return null;
+      return data ? JSON.parse(data) : null;
     }
     const data = await SecureStore.getItemAsync(SESSION_KEY);
     return data ? JSON.parse(data) : null;
@@ -236,27 +223,8 @@ async function getStoredSession(): Promise<any | null> {
 async function storeSession(session: any): Promise<void> {
   try {
     const data = JSON.stringify(session);
-    console.log('[Agent] storeSession - storing session for DID:', session?.did?.substring(0, 25), 'size:', data.length);
-    
     if (Platform.OS === 'web') {
-      // Store via AsyncStorage (should use localStorage on web)
       await AsyncStorage.setItem(SESSION_KEY, data);
-      
-      // Verify via AsyncStorage
-      const verify = await AsyncStorage.getItem(SESSION_KEY);
-      console.log('[Agent] storeSession - AsyncStorage verify:', verify ? 'success' : 'FAILED');
-      
-      // Also verify directly in localStorage
-      if (typeof window !== 'undefined' && window.localStorage) {
-        const directVerify = window.localStorage.getItem(SESSION_KEY);
-        console.log('[Agent] storeSession - direct localStorage verify:', directVerify ? 'success' : 'FAILED');
-        
-        // If AsyncStorage failed but we can write directly, do it as backup
-        if (!verify && !directVerify) {
-          console.log('[Agent] storeSession - FALLBACK: Writing directly to localStorage');
-          window.localStorage.setItem(SESSION_KEY, data);
-        }
-      }
     } else {
       await SecureStore.setItemAsync(SESSION_KEY, data);
     }
