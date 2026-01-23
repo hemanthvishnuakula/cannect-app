@@ -164,6 +164,18 @@ async function generateStoryImage(uri) {
   const isCannect = isCannectUser(author.handle);
   const postImage = getPostImage(post);
   
+  // Engagement stats
+  const replyCount = post.replyCount || 0;
+  const repostCount = post.repostCount || 0;
+  const likeCount = post.likeCount || 0;
+  
+  // Format large numbers (e.g., 1234 -> 1.2K)
+  const formatCount = (num) => {
+    if (num >= 1000000) return (num / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
+    if (num >= 1000) return (num / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
+    return num.toString();
+  };
+  
   const satoriRender = await getSatori();
   
   // Build children array for the card
@@ -310,6 +322,116 @@ async function generateStoryImage(uri) {
     });
   }
   
+  // Add engagement stats row
+  const hasStats = replyCount > 0 || repostCount > 0 || likeCount > 0;
+  if (hasStats) {
+    const statItems = [];
+    
+    if (replyCount > 0) {
+      statItems.push({
+        type: 'div',
+        props: {
+          style: {
+            display: 'flex',
+            flexDirection: 'row',
+            alignItems: 'center',
+            marginRight: 24,
+          },
+          children: [
+            {
+              type: 'span',
+              props: {
+                style: { fontSize: 20, marginRight: 6 },
+                children: '💬',
+              },
+            },
+            {
+              type: 'span',
+              props: {
+                style: { color: '#A1A1AA', fontSize: 22 },
+                children: formatCount(replyCount),
+              },
+            },
+          ],
+        },
+      });
+    }
+    
+    if (repostCount > 0) {
+      statItems.push({
+        type: 'div',
+        props: {
+          style: {
+            display: 'flex',
+            flexDirection: 'row',
+            alignItems: 'center',
+            marginRight: 24,
+          },
+          children: [
+            {
+              type: 'span',
+              props: {
+                style: { fontSize: 20, marginRight: 6 },
+                children: '🔁',
+              },
+            },
+            {
+              type: 'span',
+              props: {
+                style: { color: '#A1A1AA', fontSize: 22 },
+                children: formatCount(repostCount),
+              },
+            },
+          ],
+        },
+      });
+    }
+    
+    if (likeCount > 0) {
+      statItems.push({
+        type: 'div',
+        props: {
+          style: {
+            display: 'flex',
+            flexDirection: 'row',
+            alignItems: 'center',
+          },
+          children: [
+            {
+              type: 'span',
+              props: {
+                style: { fontSize: 20, marginRight: 6 },
+                children: '❤️',
+              },
+            },
+            {
+              type: 'span',
+              props: {
+                style: { color: '#A1A1AA', fontSize: 22 },
+                children: formatCount(likeCount),
+              },
+            },
+          ],
+        },
+      });
+    }
+    
+    cardChildren.push({
+      type: 'div',
+      props: {
+        style: {
+          display: 'flex',
+          flexDirection: 'row',
+          alignItems: 'center',
+          marginTop: 20,
+          paddingTop: 16,
+          borderTop: '1px solid #27272A',
+        },
+        children: statItems,
+      },
+    });
+  }
+  
   // Add branding at bottom
   cardChildren.push({
     type: 'div',
@@ -318,9 +440,9 @@ async function generateStoryImage(uri) {
         display: 'flex',
         flexDirection: 'row',
         alignItems: 'center',
-        marginTop: 32,
+        marginTop: hasStats ? 16 : 32,
         paddingTop: 24,
-        borderTop: '1px solid #27272A',
+        borderTop: hasStats ? 'none' : '1px solid #27272A',
       },
       children: [
         {
