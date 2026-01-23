@@ -85,6 +85,17 @@ db.exec(`
   );
 
   CREATE INDEX IF NOT EXISTS idx_estimated_views ON estimated_views(released_views DESC);
+
+  -- User reach table - aggregated reach per user (single source of truth)
+  CREATE TABLE IF NOT EXISTS user_reach (
+    user_did TEXT PRIMARY KEY,
+    tracked_views INTEGER DEFAULT 0,
+    engagement_views INTEGER DEFAULT 0,
+    total_reach INTEGER DEFAULT 0,
+    last_updated INTEGER DEFAULT (unixepoch())
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_user_reach ON user_reach(total_reach DESC);
 `);
 
 // Prepared statements for performance
@@ -584,6 +595,110 @@ function getViewsBatch(postUris) {
   }
 }
 
+// =============================================================================
+// User Reach Functions (Single Source of Truth)
+// =============================================================================
+
+const upsertUserReach = db.prepare(`
+  INSERT INTO user_reach (user_did, tracked_views, engagement_views, total_reach, last_updated)
+  VALUES (?, ?, ?, ?, unixepoch())
+  ON CONFLICT(user_did) DO UPDATE SET
+    tracked_views = excluded.tracked_views,
+    engagement_views = excluded.engagement_views,
+    total_reach = excluded.total_reach,
+    last_updated = unixepoch()
+`);
+
+const getUserReachStmt = db.prepare(`
+  SELECT tracked_views, engagement_views, total_reach, last_updated
+  FROM user_reach
+  WHERE user_did = ?
+`);
+
+/**
+ * Get user's total reach from database
+ */
+function getUserReach(userDid) {
+  const row = getUserReachStmt.get(userDid);
+  return row ? row.total_reach : 0;
+}
+
+/**
+ * Get full reach data for a user
+ */
+function getUserReachData(userDid) {
+  const row = getUserReachStmt.get(userDid);
+  return row || { tracked_views: 0, engagement_views: 0, total_reach: 0, last_updated: 0 };
+}
+
+/**
+ * Recalculate and update user's reach
+ * Called when views are recorded or engagement changes
+ */
+function updateUserReach(userDid) {
+  try {
+    // Get all posts by this user
+    const userPosts = db.prepare(`
+      SELECT uri FROM posts WHERE author_did = ?
+    `).all(userDid);
+
+    if (userPosts.length === 0) {
+      upsertUserReach.run(userDid, 0, 0, 0);
+      return 0;
+    }
+
+    // Calculate tracked views (sum of all tracked views on their posts)
+    let totalTrackedViews = 0;
+    let totalEngagementViews = 0;
+
+    for (const post of userPosts) {
+      // Tracked views
+      const trackedViews = getPostViewCount(post.uri);
+      totalTrackedViews += trackedViews;
+
+      // Engagement-based views
+      const engagement = getEngagement.get(post.uri);
+      if (engagement) {
+        const engViews = calculateViewsFromEngagement(
+          engagement.like_count || 0,
+          engagement.reply_count || 0,
+          engagement.repost_count || 0,
+          post.uri
+        );
+        totalEngagementViews += engViews;
+      }
+    }
+
+    const totalReach = totalTrackedViews + totalEngagementViews;
+    upsertUserReach.run(userDid, totalTrackedViews, totalEngagementViews, totalReach);
+    
+    return totalReach;
+  } catch (err) {
+    console.error('[DB] updateUserReach error:', err.message);
+    return 0;
+  }
+}
+
+/**
+ * Increment tracked views for a user (faster than full recalculation)
+ */
+function incrementUserTrackedViews(userDid, count = 1) {
+  try {
+    db.prepare(`
+      INSERT INTO user_reach (user_did, tracked_views, engagement_views, total_reach, last_updated)
+      VALUES (?, ?, 0, ?, unixepoch())
+      ON CONFLICT(user_did) DO UPDATE SET
+        tracked_views = tracked_views + ?,
+        total_reach = total_reach + ?,
+        last_updated = unixepoch()
+    `).run(userDid, count, count, count, count);
+    return true;
+  } catch (err) {
+    console.error('[DB] incrementUserTrackedViews error:', err.message);
+    return false;
+  }
+}
+
 /**
  * Close database connection
  */
@@ -620,5 +735,10 @@ module.exports = {
   getViews,
   getViewData,
   getViewsBatch,
+  // User Reach
+  getUserReach,
+  getUserReachData,
+  updateUserReach,
+  incrementUserTrackedViews,
   close,
 };

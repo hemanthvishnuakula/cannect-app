@@ -80,19 +80,9 @@ export function ProfileView({
   const likesQuery = useActorLikes(isOwnProfile ? profileData.did : undefined);
   // Pinned post
   const { data: pinnedPost } = usePinnedPost(profileData.did);
-
-  // Calculate profile reach from all posts
-  const allUserPosts = useMemo(() => {
-    const posts = postsQuery.data?.pages?.flatMap((page) => page.feed) || [];
-    return posts.map((item) => ({
-      uri: item.post.uri,
-      likeCount: item.post.likeCount || 0,
-      replyCount: item.post.replyCount || 0,
-      repostCount: item.post.repostCount || 0,
-    }));
-  }, [postsQuery.data]);
   
-  const profileReach = useProfileReach(profileData.did, allUserPosts);
+  // User's total reach (from database - single source of truth)
+  const profileReach = useProfileReach(profileData.did);
 
   // Get posts data based on active tab (filter out pinned post to avoid duplication)
   const posts = useMemo(() => {

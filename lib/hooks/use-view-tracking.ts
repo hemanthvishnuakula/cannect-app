@@ -372,45 +372,25 @@ export function useViewCount(
 export const useEstimatedViewCount = useViewCount;
 
 /**
- * Hook to get total reach for a profile (sum of all post views)
+ * Hook to get total reach for a profile (from database - single source of truth)
  * @param did - The user's DID
- * @param posts - Array of posts with engagement data to calculate reach
  */
-export function useProfileReach(
-  did: string | undefined,
-  posts?: Array<{ uri: string; likeCount?: number; replyCount?: number; repostCount?: number }>
-): number {
-  const { data } = useQuery<{ totalViews: number }>({
+export function useProfileReach(did: string | undefined): number {
+  const { data } = useQuery<{ reach: number }>({
     queryKey: ['profile-reach', did],
     queryFn: async () => {
       if (!did) throw new Error('No DID');
       
-      // Get tracked views from server
-      const response = await fetch(`${FEED_API_URL}/api/views/author?did=${encodeURIComponent(did)}`);
+      const response = await fetch(`${FEED_API_URL}/api/reach?did=${encodeURIComponent(did)}`);
       if (!response.ok) {
-        return { totalViews: 0 };
+        return { reach: 0 };
       }
-      const data = await response.json();
-      return { totalViews: data.totalViews || 0 };
+      return response.json();
     },
     enabled: !!did,
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    gcTime: 30 * 60 * 1000, // 30 minutes
+    staleTime: 60 * 1000, // 1 minute
+    gcTime: 10 * 60 * 1000, // 10 minutes
   });
 
-  // Calculate engagement-based reach from posts if provided
-  let engagementReach = 0;
-  if (posts && posts.length > 0) {
-    for (const post of posts) {
-      engagementReach += calculateViews(
-        post.likeCount || 0,
-        post.replyCount || 0,
-        post.repostCount || 0,
-        post.uri
-      );
-    }
-  }
-
-  // Total reach = tracked views + engagement-based views
-  return (data?.totalViews || 0) + engagementReach;
+  return data?.reach || 0;
 }

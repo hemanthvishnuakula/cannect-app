@@ -427,6 +427,21 @@ app.post('/api/views', generalLimiter, async (req, res) => {
 
     if (dedupedViews.length > 0) {
       db.recordViewsBatch(dedupedViews);
+      
+      // Update user reach for post authors (async, non-blocking)
+      const authorDids = new Set();
+      for (const view of dedupedViews) {
+        // Extract author DID from post URI: at://did:plc:xxx/app.bsky.feed.post/yyy
+        const match = view.postUri.match(/^at:\/\/(did:[^/]+)\//);
+        if (match) {
+          authorDids.add(match[1]);
+        }
+      }
+      // Increment tracked views for each author
+      for (const authorDid of authorDids) {
+        const viewCount = dedupedViews.filter(v => v.postUri.startsWith(`at://${authorDid}/`)).length;
+        db.incrementUserTrackedViews(authorDid, viewCount);
+      }
     }
 
     res.json({
@@ -513,6 +528,44 @@ app.get('/api/views/author', generalLimiter, async (req, res) => {
   }
 });
 
+/**
+ * Get user's total reach (stored in database - single source of truth)
+ * GET /api/reach?did=did:plc:...
+ * Optional: ?refresh=true to force recalculation
+ */
+app.get('/api/reach', generalLimiter, async (req, res) => {
+  try {
+    const { did, refresh } = req.query;
+
+    if (!did) {
+      return res.status(400).json({ error: 'Missing did parameter' });
+    }
+
+    let reach;
+    if (refresh === 'true') {
+      // Force recalculation
+      reach = db.updateUserReach(did);
+    } else {
+      // Get stored reach, or calculate if not exists
+      const data = db.getUserReachData(did);
+      if (data.last_updated === 0) {
+        // First time - calculate and store
+        reach = db.updateUserReach(did);
+      } else {
+        reach = data.total_reach;
+      }
+    }
+
+    res.json({
+      did,
+      reach,
+    });
+  } catch (err) {
+    console.error('[Reach] Error:', err.message);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // =============================================================================
 // Estimated Views API (Engagement-based, consistent across all users)
 // =============================================================================
@@ -536,6 +589,13 @@ app.get('/api/estimated-views', generalLimiter, async (req, res) => {
 
     // Update engagement and get views
     const views = db.updateEngagement(uri, likeCount, replyCount, repostCount);
+
+    // Update user reach for the post author (extract DID from URI)
+    const match = uri.match(/^at:\/\/(did:[^/]+)\//);
+    if (match) {
+      // Async update - don't block response
+      setImmediate(() => db.updateUserReach(match[1]));
+    }
 
     res.json({
       postUri: uri,
