@@ -24,7 +24,7 @@ import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { Leaf } from 'lucide-react-native';
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
-import { useTimeline, useCannectFeed } from '@/lib/hooks';
+import { useTimeline, useCannectFeed, useBoostedPosts } from '@/lib/hooks';
 import { triggerImpact } from '@/lib/utils/haptics';
 import { scrollToTop } from '@/lib/utils/scroll-to-top';
 import { OfflineBanner } from '@/components/OfflineBanner';
@@ -61,6 +61,9 @@ export default function FeedScreen() {
   // === FEEDS ===
   const cannectQuery = useCannectFeed();
   const followingQuery = useTimeline();
+  
+  // Boosted posts (for showing badge)
+  const { data: boostedUris } = useBoostedPosts();
 
   // === DERIVED STATE ===
   const cannectPosts = useMemo(
@@ -239,6 +242,7 @@ export default function FeedScreen() {
                 item={item}
                 onPress={() => handlePostPress(item.post)}
                 onImagePress={handleImagePress}
+                isBoosted={boostedUris?.has(item.post.uri)}
               />
             ))
           )}
@@ -265,6 +269,7 @@ export default function FeedScreen() {
                 item={item}
                 onPress={() => handlePostPress(item.post)}
                 onImagePress={handleImagePress}
+                isBoosted={boostedUris?.has(item.post.uri)}
               />
             )}
             estimatedItemSize={350}

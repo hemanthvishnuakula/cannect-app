@@ -746,3 +746,25 @@ export function useSuggestedPosts() {
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
 }
+
+const FEED_API_URL = 'https://feed.cannect.space';
+
+/**
+ * Get list of currently boosted post URIs
+ * Returns a Set for O(1) lookup
+ */
+export function useBoostedPosts() {
+  return useQuery<Set<string>>({
+    queryKey: ['boostedPosts'],
+    queryFn: async () => {
+      const response = await fetch(`${FEED_API_URL}/api/boosts`);
+      if (!response.ok) {
+        return new Set<string>();
+      }
+      const data = await response.json();
+      return new Set<string>(data.boosts?.map((b: { postUri: string }) => b.postUri) || []);
+    },
+    staleTime: 1000 * 60 * 2, // 2 minutes - boosts can change
+    gcTime: 1000 * 60 * 10, // 10 minutes
+  });
+}

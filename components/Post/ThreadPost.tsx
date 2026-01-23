@@ -39,9 +39,10 @@ function formatTime(dateString: string): string {
 interface ThreadPostProps {
   post: PostView;
   onImagePress?: (images: string[], index: number) => void;
+  isBoosted?: boolean;
 }
 
-export function ThreadPost({ post, onImagePress }: ThreadPostProps) {
+export function ThreadPost({ post, onImagePress, isBoosted = false }: ThreadPostProps) {
   const router = useRouter();
   const record = post.record as AppBskyFeedPost.Record;
   const author = post.author;
@@ -102,6 +103,12 @@ export function ThreadPost({ post, onImagePress }: ThreadPostProps) {
             ) : (
               <View className="ml-2 px-2 py-0.5 rounded-full bg-surface-elevated flex-shrink-0">
                 <Text className="text-text-muted text-xs font-medium">global</Text>
+              </View>
+            )}
+            {/* Boosted badge */}
+            {isBoosted && (
+              <View className="ml-1.5 px-2 py-0.5 rounded-full bg-amber-500/20 flex-shrink-0">
+                <Text className="text-amber-500 text-xs font-medium">boosted</Text>
               </View>
             )}
             <View className="flex-1" />

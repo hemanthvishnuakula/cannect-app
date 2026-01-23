@@ -35,6 +35,7 @@ export {
   useToggleRepost,
   useSearchPosts,
   useSuggestedPosts,
+  useBoostedPosts,
   type FeedViewPost,
   type PostView,
   type ThreadViewPost,

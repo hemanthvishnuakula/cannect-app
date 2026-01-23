@@ -48,6 +48,8 @@ interface PostCardProps {
   showBorder?: boolean;
   /** Hide the follow button (useful on profile pages where there's already one) */
   hideFollowButton?: boolean;
+  /** Whether this post is boosted/promoted */
+  isBoosted?: boolean;
 }
 
 // Format relative time
@@ -73,6 +75,7 @@ export function PostCard({
   onImagePress,
   showBorder = true,
   hideFollowButton = false,
+  isBoosted = false,
 }: PostCardProps) {
   const router = useRouter();
   const [isExpanded, setIsExpanded] = useState(false);
@@ -207,6 +210,12 @@ export function PostCard({
               ) : (
                 <View className="ml-2 px-2 py-0.5 rounded-full bg-surface-elevated flex-shrink-0">
                   <Text className="text-text-muted text-xs font-medium">global</Text>
+                </View>
+              )}
+              {/* Boosted badge */}
+              {isBoosted && (
+                <View className="ml-1.5 px-2 py-0.5 rounded-full bg-amber-500/20 flex-shrink-0">
+                  <Text className="text-amber-500 text-xs font-medium">boosted</Text>
                 </View>
               )}
             </Pressable>
