@@ -9,7 +9,7 @@
  * - PostCard for parent posts and replies
  */
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -28,7 +28,7 @@ import { Send } from 'lucide-react-native';
 import { Image } from 'expo-image';
 import { ThreadPost, PostCard } from '@/components/Post';
 import { BackButton } from '@/components/ui';
-import { usePostThread, useCreatePost } from '@/lib/hooks';
+import { usePostThread, useCreatePost, useViewTracking } from '@/lib/hooks';
 import { useAuthStore } from '@/lib/stores';
 import { getOptimizedAvatarUrl } from '@/lib/utils/avatar';
 import { triggerImpact } from '@/lib/utils/haptics';
@@ -74,6 +74,14 @@ export default function PostDetailsScreen() {
 
   const { data: thread, isLoading, error, refetch } = usePostThread(atUri);
   const createPostMutation = useCreatePost();
+  const { trackView } = useViewTracking();
+
+  // Track page view when post loads
+  useEffect(() => {
+    if (atUri) {
+      trackView(atUri, 'thread');
+    }
+  }, [atUri, trackView]);
 
   // Auto-scroll to main post when thread loads (if there are parents)
   const handleMainPostLayout = useCallback((event: LayoutChangeEvent) => {

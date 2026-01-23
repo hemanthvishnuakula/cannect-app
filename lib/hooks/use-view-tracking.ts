@@ -11,7 +11,7 @@ import { useCurrentDid } from './use-atp-auth';
 
 const FEED_API_URL = 'https://feed.cannect.space';
 const VIEW_BATCH_SIZE = 10;
-const VIEW_BATCH_DELAY = 5000; // 5 seconds
+const VIEW_BATCH_DELAY = 3000; // 3 seconds - faster flush
 
 // Global queue for batching views
 let viewQueue: Array<{ postUri: string; source: string }> = [];
@@ -139,8 +139,8 @@ export function useTrackPostView(postUri: string | undefined, source: string = '
         }
       },
       {
-        threshold: 0.5, // 50% visible
-        rootMargin: '0px',
+        threshold: 0.25, // 25% visible - captures scroll-by views
+        rootMargin: '50px', // Start tracking slightly before visible
       }
     );
 

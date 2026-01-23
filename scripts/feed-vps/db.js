@@ -424,9 +424,9 @@ function getTrendingPosts(timeWindowSeconds = 24 * 60 * 60, limit = 20) {
  * Check if viewer has seen this post recently (to avoid duplicate counts)
  * @param {string} postUri
  * @param {string} viewerDid
- * @param {number} windowSeconds - Deduplication window (default 5 minutes)
+ * @param {number} windowSeconds - Deduplication window (default 1 minute)
  */
-function hasViewerSeenRecently(postUri, viewerDid, windowSeconds = 300) {
+function hasViewerSeenRecently(postUri, viewerDid, windowSeconds = 60) {
   if (!viewerDid) return false;
   return hasViewedRecently.get(postUri, viewerDid, windowSeconds) ? true : false;
 }
