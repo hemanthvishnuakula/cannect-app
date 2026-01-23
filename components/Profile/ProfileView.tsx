@@ -16,7 +16,7 @@ import { FlashList } from '@shopify/flash-list';
 import { useRouter } from 'expo-router';
 import { LogOut, Edit3, MessageCircle, Pin } from 'lucide-react-native';
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
-import { useAuthorFeed, useActorLikes, useStartConversation, usePinnedPost, useProfileReach } from '@/lib/hooks';
+import { useAuthorFeed, useActorLikes, useStartConversation, usePinnedPost, useProfileReach, useBoostedPosts } from '@/lib/hooks';
 import { PostCard } from '@/components/Post';
 import { FollowButton, useToast } from '@/components/ui';
 import { getOptimizedAvatarUrl } from '@/lib/utils/avatar';
@@ -83,6 +83,9 @@ export function ProfileView({
   
   // User's total reach (from database - single source of truth)
   const profileReach = useProfileReach(profileData.did);
+  
+  // Boosted posts (for showing badge)
+  const { data: boostedUris } = useBoostedPosts();
 
   // Get posts data based on active tab (filter out pinned post to avoid duplication)
   const posts = useMemo(() => {
@@ -269,12 +272,12 @@ export function ProfileView({
                   <Pin size={12} color="#10B981" />
                   <Text className="text-primary text-xs font-medium ml-1">Pinned</Text>
                 </View>
-                <PostCard post={pinnedPost} hideFollowButton showBorder={false} />
+                <PostCard post={pinnedPost} hideFollowButton showBorder={false} isBoosted={boostedUris?.has(pinnedPost.uri)} />
               </View>
             )}
           </View>
         }
-        renderItem={({ item }) => <PostCard item={item} hideFollowButton />}
+        renderItem={({ item }) => <PostCard item={item} hideFollowButton isBoosted={boostedUris?.has(item.post.uri)} />}
         refreshControl={
           <RefreshControl
             refreshing={isRefreshing || currentQuery.isRefetching}
