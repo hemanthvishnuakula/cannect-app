@@ -46,78 +46,39 @@ async function loadFonts() {
 }
 
 /**
- * Remove emojis from text (Inter font doesn't support them)
- * Preserves regular text and punctuation
+ * Convert emoji to Twemoji code points format
+ * Handles compound emojis (skin tones, ZWJ sequences, etc.)
  */
-function stripEmojis(text) {
-  // Remove emoji characters (ranges covering most emojis)
-  return text
-    .replace(/[\u{1F600}-\u{1F64F}]/gu, '') // Emoticons
-    .replace(/[\u{1F300}-\u{1F5FF}]/gu, '') // Misc symbols
-    .replace(/[\u{1F680}-\u{1F6FF}]/gu, '') // Transport/map
-    .replace(/[\u{1F1E0}-\u{1F1FF}]/gu, '') // Flags
-    .replace(/[\u{2600}-\u{26FF}]/gu, '')   // Misc symbols
-    .replace(/[\u{2700}-\u{27BF}]/gu, '')   // Dingbats
-    .replace(/[\u{FE00}-\u{FE0F}]/gu, '')   // Variation selectors
-    .replace(/[\u{1F900}-\u{1F9FF}]/gu, '') // Supplemental symbols
-    .replace(/[\u{1FA00}-\u{1FA6F}]/gu, '') // Chess, etc
-    .replace(/[\u{1FA70}-\u{1FAFF}]/gu, '') // Extended-A
-    .replace(/[\u{231A}-\u{231B}]/gu, '')   // Watch, hourglass
-    .replace(/[\u{23E9}-\u{23F3}]/gu, '')   // Media controls
-    .replace(/[\u{23F8}-\u{23FA}]/gu, '')   // More controls
-    .replace(/[\u{25AA}-\u{25AB}]/gu, '')   // Squares
-    .replace(/[\u{25B6}]/gu, '')            // Play button
-    .replace(/[\u{25C0}]/gu, '')            // Reverse button
-    .replace(/[\u{25FB}-\u{25FE}]/gu, '')   // Squares
-    .replace(/[\u{2614}-\u{2615}]/gu, '')   // Umbrella, coffee
-    .replace(/[\u{2648}-\u{2653}]/gu, '')   // Zodiac
-    .replace(/[\u{267F}]/gu, '')            // Wheelchair
-    .replace(/[\u{2693}]/gu, '')            // Anchor
-    .replace(/[\u{26A1}]/gu, '')            // Lightning
-    .replace(/[\u{26AA}-\u{26AB}]/gu, '')   // Circles
-    .replace(/[\u{26BD}-\u{26BE}]/gu, '')   // Sports
-    .replace(/[\u{26C4}-\u{26C5}]/gu, '')   // Weather
-    .replace(/[\u{26CE}]/gu, '')            // Ophiuchus
-    .replace(/[\u{26D4}]/gu, '')            // No entry
-    .replace(/[\u{26EA}]/gu, '')            // Church
-    .replace(/[\u{26F2}-\u{26F3}]/gu, '')   // Fountain, golf
-    .replace(/[\u{26F5}]/gu, '')            // Sailboat
-    .replace(/[\u{26FA}]/gu, '')            // Tent
-    .replace(/[\u{26FD}]/gu, '')            // Fuel pump
-    .replace(/[\u{2702}]/gu, '')            // Scissors
-    .replace(/[\u{2705}]/gu, '')            // Check mark
-    .replace(/[\u{2708}-\u{270D}]/gu, '')   // Plane, etc
-    .replace(/[\u{270F}]/gu, '')            // Pencil
-    .replace(/[\u{2712}]/gu, '')            // Black nib
-    .replace(/[\u{2714}]/gu, '')            // Check mark
-    .replace(/[\u{2716}]/gu, '')            // X mark
-    .replace(/[\u{271D}]/gu, '')            // Cross
-    .replace(/[\u{2721}]/gu, '')            // Star of David
-    .replace(/[\u{2728}]/gu, '')            // Sparkles
-    .replace(/[\u{2733}-\u{2734}]/gu, '')   // Stars
-    .replace(/[\u{2744}]/gu, '')            // Snowflake
-    .replace(/[\u{2747}]/gu, '')            // Sparkle
-    .replace(/[\u{274C}]/gu, '')            // X
-    .replace(/[\u{274E}]/gu, '')            // X
-    .replace(/[\u{2753}-\u{2755}]/gu, '')   // Question marks
-    .replace(/[\u{2757}]/gu, '')            // Exclamation
-    .replace(/[\u{2763}-\u{2764}]/gu, '')   // Hearts
-    .replace(/[\u{2795}-\u{2797}]/gu, '')   // Plus, minus, divide
-    .replace(/[\u{27A1}]/gu, '')            // Right arrow
-    .replace(/[\u{27B0}]/gu, '')            // Curly loop
-    .replace(/[\u{27BF}]/gu, '')            // Double curly loop
-    .replace(/[\u{2934}-\u{2935}]/gu, '')   // Arrows
-    .replace(/[\u{2B05}-\u{2B07}]/gu, '')   // Arrows
-    .replace(/[\u{2B1B}-\u{2B1C}]/gu, '')   // Squares
-    .replace(/[\u{2B50}]/gu, '')            // Star
-    .replace(/[\u{2B55}]/gu, '')            // Circle
-    .replace(/[\u{3030}]/gu, '')            // Wavy dash
-    .replace(/[\u{303D}]/gu, '')            // Part alternation
-    .replace(/[\u{3297}]/gu, '')            // Circled ideograph
-    .replace(/[\u{3299}]/gu, '')            // Circled ideograph
-    .replace(/[\u{200D}]/gu, '')            // Zero-width joiner
-    .replace(/\s+/g, ' ')                   // Collapse whitespace
-    .trim();
+function emojiToTwemojiCode(emoji) {
+  const codePoints = [];
+  for (const char of emoji) {
+    const cp = char.codePointAt(0);
+    // Skip variation selectors (FE0E, FE0F)
+    if (cp !== 0xFE0E && cp !== 0xFE0F) {
+      codePoints.push(cp.toString(16));
+    }
+  }
+  return codePoints.join('-');
+}
+
+/**
+ * Fetch emoji as SVG from Twemoji CDN
+ * Returns data URI for use in Satori
+ */
+async function fetchTwemoji(emoji) {
+  const code = emojiToTwemojiCode(emoji);
+  const url = `https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/svg/${code}.svg`;
+  
+  try {
+    const res = await fetch(url);
+    if (res.ok) {
+      const svg = await res.text();
+      return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+    }
+  } catch (e) {
+    // Silently fail for emojis we can't fetch
+  }
+  return null;
 }
 
 /**
@@ -196,9 +157,8 @@ async function generateStoryImage(uri) {
   
   const author = post.author;
   const record = post.record;
-  const rawText = record.text || '';
-  const text = stripEmojis(rawText); // Remove emojis for font compatibility
-  const displayName = stripEmojis(author.displayName || author.handle);
+  const text = record.text || '';
+  const displayName = author.displayName || author.handle;
   const handle = `@${author.handle}`;
   const avatarUrl = getAvatarUrl(author);
   const isCannect = isCannectUser(author.handle);
@@ -426,6 +386,13 @@ async function generateStoryImage(uri) {
           style: 'normal',
         },
       ],
+      // Load emojis dynamically from Twemoji CDN
+      loadAdditionalAsset: async (code, segment) => {
+        if (code === 'emoji') {
+          return fetchTwemoji(segment);
+        }
+        return null;
+      },
     }
   );
   
