@@ -8,6 +8,7 @@
 
 const { Resvg } = require('@resvg/resvg-js');
 const { BskyAgent } = require('@atproto/api');
+const db = require('./db');
 
 // Satori is ESM-only, need dynamic import
 let satori = null;
@@ -204,6 +205,10 @@ async function generateStoryImage(uri) {
   const replyCount = post.replyCount || 0;
   const repostCount = post.repostCount || 0;
   const likeCount = post.likeCount || 0;
+  
+  // Get view count from our database
+  const viewStats = db.getPostViewStats(uri);
+  const viewCount = viewStats.total_views || 0;
   
   // Format large numbers (e.g., 1234 -> 1.2K)
   const formatCount = (num) => {
@@ -463,9 +468,40 @@ async function generateStoryImage(uri) {
   }
   
   // Add engagement stats row
-  const hasStats = replyCount > 0 || repostCount > 0 || likeCount > 0;
+  const hasStats = viewCount > 0 || replyCount > 0 || repostCount > 0 || likeCount > 0;
   if (hasStats) {
     const statItems = [];
+    
+    // Views first (eye icon)
+    if (viewCount > 0) {
+      statItems.push({
+        type: 'div',
+        props: {
+          style: {
+            display: 'flex',
+            flexDirection: 'row',
+            alignItems: 'center',
+            marginRight: 24,
+          },
+          children: [
+            {
+              type: 'span',
+              props: {
+                style: { fontSize: 20, marginRight: 6 },
+                children: '👁️',
+              },
+            },
+            {
+              type: 'span',
+              props: {
+                style: { color: '#A1A1AA', fontSize: 22 },
+                children: formatCount(viewCount),
+              },
+            },
+          ],
+        },
+      });
+    }
     
     if (replyCount > 0) {
       statItems.push({
