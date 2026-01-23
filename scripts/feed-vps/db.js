@@ -201,72 +201,38 @@ const getAuthorViewStatsStmt = db.prepare(`
 `);
 
 // =============================================================================
-// Gradual View Release System
+// View Count System
 // =============================================================================
-// Views trickle in slowly over time instead of appearing instantly.
-// When engagement happens, views are added to pending_views.
-// Over time, pending_views are gradually moved to released_views.
-// Release rate: ~1 view per 5-8 seconds (configurable)
+// Simple approach:
+// 1. Real views tracked in post_views table (from viewport observation)
+// 2. Engagement floor calculated from likes/replies/reposts
+// 3. Display = max(realViews, engagementFloor)
+//
+// This ensures posts always show reasonable view counts based on engagement,
+// while real tracking takes over for popular posts.
 
-const VIEW_RELEASE_RATE = 0.15; // views per second (~1 view per 6-7 seconds)
-
-// Upsert for adding new pending views (when engagement changes)
-const upsertPendingViews = db.prepare(`
+// Simple upsert for engagement tracking (used to calculate floor)
+const upsertEngagement = db.prepare(`
   INSERT INTO estimated_views (post_uri, like_count, reply_count, repost_count, released_views, pending_views, pending_started_at, last_updated)
-  VALUES (?, ?, ?, ?, 0, ?, unixepoch(), unixepoch())
+  VALUES (?, ?, ?, ?, 0, 0, 0, unixepoch())
   ON CONFLICT(post_uri) DO UPDATE SET
     like_count = excluded.like_count,
     reply_count = excluded.reply_count,
     repost_count = excluded.repost_count,
-    pending_views = estimated_views.pending_views + 
-      CASE WHEN excluded.pending_views > 0 THEN excluded.pending_views ELSE 0 END,
-    pending_started_at = CASE 
-      WHEN estimated_views.pending_views = 0 AND excluded.pending_views > 0 THEN unixepoch()
-      ELSE estimated_views.pending_started_at 
-    END,
     last_updated = unixepoch()
 `);
 
-// Update to consolidate released views
-const consolidateReleasedViews = db.prepare(`
-  UPDATE estimated_views 
-  SET released_views = released_views + ?,
-      pending_views = pending_views - ?,
-      pending_started_at = CASE WHEN pending_views - ? <= 0 THEN 0 ELSE pending_started_at END,
-      last_updated = unixepoch()
-  WHERE post_uri = ?
-`);
-
-const getEstimatedViews = db.prepare(`
-  SELECT released_views, pending_views, pending_started_at, like_count, reply_count, repost_count, last_updated
+const getEngagement = db.prepare(`
+  SELECT like_count, reply_count, repost_count, last_updated
   FROM estimated_views
   WHERE post_uri = ?
 `);
 
-const getEstimatedViewsBatch = db.prepare(`
-  SELECT post_uri, released_views, pending_views, pending_started_at
+const getEngagementBatch = db.prepare(`
+  SELECT post_uri, like_count, reply_count, repost_count
   FROM estimated_views
   WHERE post_uri IN (SELECT value FROM json_each(?))
 `);
-
-/**
- * Calculate how many pending views should be released based on elapsed time
- */
-function calculateReleasedViews(pendingViews, pendingStartedAt) {
-  if (pendingViews <= 0 || pendingStartedAt <= 0) return 0;
-  
-  const now = Math.floor(Date.now() / 1000);
-  const elapsed = now - pendingStartedAt;
-  
-  // Add some variance to release rate (±20% based on time)
-  const variance = 0.8 + (elapsed % 40) / 100; // 0.80 to 1.20
-  const effectiveRate = VIEW_RELEASE_RATE * variance;
-  
-  // Calculate how many views should have been released by now
-  const shouldRelease = Math.floor(elapsed * effectiveRate);
-  
-  return Math.min(pendingViews, shouldRelease);
-};
 
 /**
  * Add a post to the feed
@@ -485,27 +451,25 @@ function cleanupViews(maxAgeSeconds = 30 * 24 * 60 * 60) {
 }
 
 // =============================================================================
-// Estimated Views Functions (Gradual Release System)
+// View Count Functions (Simple: real views + engagement floor)
 // =============================================================================
 
 /**
- * Calculate NEW views to add based on engagement changes
+ * Calculate engagement floor (minimum expected views based on engagement)
  * 
- * Stronger multipliers for 40M user network:
+ * Multipliers for 40M user network:
  * - 1 like ≈ 50 views (2% engagement rate)
  * - 1 reply ≈ 250 views (0.4% engagement rate)
  * - 1 repost ≈ 400 views (0.25% engagement rate)
- * 
- * These views are added to pending, then released gradually
  */
-function calculateNewViewsFromEngagement(newLikes, newReplies, newReposts, postUri) {
+function calculateEngagementFloor(likeCount, replyCount, repostCount, postUri) {
   const LIKE_MULTIPLIER = 50;
   const REPLY_MULTIPLIER = 250;
   const REPOST_MULTIPLIER = 400;
 
-  const likeViews = newLikes * LIKE_MULTIPLIER;
-  const replyViews = newReplies * REPLY_MULTIPLIER;
-  const repostViews = newReposts * REPOST_MULTIPLIER;
+  const likeViews = likeCount * LIKE_MULTIPLIER;
+  const replyViews = replyCount * REPLY_MULTIPLIER;
+  const repostViews = repostCount * REPOST_MULTIPLIER;
 
   const rawViews = likeViews + replyViews + repostViews;
 
@@ -533,35 +497,11 @@ function calculateNewViewsFromEngagement(newLikes, newReplies, newReposts, postU
 }
 
 /**
- * Update engagement and add new views to pending queue
- * Views will be released gradually over time
+ * Update engagement counts for a post
  */
 function setEstimatedViews(postUri, likeCount, replyCount, repostCount) {
   try {
-    // Get existing record to calculate delta
-    const existing = getEstimatedViews.get(postUri);
-    
-    let newPendingViews = 0;
-    
-    if (existing) {
-      // Calculate engagement delta (new engagement since last update)
-      const newLikes = Math.max(0, likeCount - existing.like_count);
-      const newReplies = Math.max(0, replyCount - existing.reply_count);
-      const newReposts = Math.max(0, repostCount - existing.repost_count);
-      
-      // Only add new views if engagement increased
-      if (newLikes > 0 || newReplies > 0 || newReposts > 0) {
-        newPendingViews = calculateNewViewsFromEngagement(newLikes, newReplies, newReposts, postUri);
-      }
-    } else {
-      // New post - calculate initial views from current engagement
-      newPendingViews = calculateNewViewsFromEngagement(likeCount, replyCount, repostCount, postUri);
-    }
-    
-    // Add to pending queue
-    upsertPendingViews.run(postUri, likeCount, replyCount, repostCount, newPendingViews);
-    
-    // Calculate and return current display views
+    upsertEngagement.run(postUri, likeCount, replyCount, repostCount);
     return getDisplayViews(postUri);
   } catch (err) {
     console.error('[DB] setEstimatedViews error:', err.message);
@@ -570,88 +510,88 @@ function setEstimatedViews(postUri, likeCount, replyCount, repostCount) {
 }
 
 /**
- * Get the current display views (released + portion of pending)
- * This is what users see
+ * Get the display view count for a post
+ * Returns max(realViews, engagementFloor)
  */
 function getDisplayViews(postUri) {
-  const row = getEstimatedViews.get(postUri);
-  if (!row) return 0;
+  // Get real tracked views
+  const realViews = getPostViewCount(postUri);
   
-  const releasedViews = row.released_views || 0;
-  const pendingViews = row.pending_views || 0;
-  const pendingStartedAt = row.pending_started_at || 0;
+  // Get engagement data to calculate floor
+  const engagement = getEngagement.get(postUri);
+  let engagementFloor = 0;
   
-  // Calculate how many pending views should be released now
-  const toRelease = calculateReleasedViews(pendingViews, pendingStartedAt);
-  
-  // Consolidate if there are views to release
-  if (toRelease > 0) {
-    try {
-      consolidateReleasedViews.run(toRelease, toRelease, toRelease, postUri);
-    } catch (err) {
-      console.error('[DB] consolidateReleasedViews error:', err.message);
-    }
+  if (engagement) {
+    engagementFloor = calculateEngagementFloor(
+      engagement.like_count || 0,
+      engagement.reply_count || 0,
+      engagement.repost_count || 0,
+      postUri
+    );
   }
   
-  // Add actual viewport views
-  const actualViews = getPostViewCount(postUri);
-  
-  return releasedViews + toRelease + actualViews;
+  // Return the higher of real views or engagement floor
+  return Math.max(realViews, engagementFloor);
 }
 
 /**
- * Get stored estimated views for a post
- * Returns display views (released + released portion of pending)
+ * Get stored engagement data for a post
  */
 function getStoredEstimatedViews(postUri) {
-  const row = getEstimatedViews.get(postUri);
-  if (!row) return null;
+  const engagement = getEngagement.get(postUri);
+  if (!engagement) return null;
   
-  // Calculate display views
   const displayViews = getDisplayViews(postUri);
+  const realViews = getPostViewCount(postUri);
   
   return {
     estimated_views: displayViews,
-    like_count: row.like_count,
-    reply_count: row.reply_count,
-    repost_count: row.repost_count,
-    pending_views: row.pending_views,
-    last_updated: row.last_updated,
+    real_views: realViews,
+    like_count: engagement.like_count,
+    reply_count: engagement.reply_count,
+    repost_count: engagement.repost_count,
+    last_updated: engagement.last_updated,
   };
+}
 }
 
 /**
- * Get estimated views for multiple posts at once
- * Calculates display views for each (with gradual release)
+ * Get display views for multiple posts at once
+ * Returns max(realViews, engagementFloor) for each
  */
 function getEstimatedViewsBatchFn(postUris) {
   if (!postUris || postUris.length === 0) return {};
   try {
-    const rows = getEstimatedViewsBatch.all(JSON.stringify(postUris));
-    const result = {};
-    const now = Math.floor(Date.now() / 1000);
+    // Get engagement data for all posts
+    const engagementRows = getEngagementBatch.all(JSON.stringify(postUris));
+    const engagementMap = {};
+    for (const row of engagementRows) {
+      engagementMap[row.post_uri] = {
+        like_count: row.like_count || 0,
+        reply_count: row.reply_count || 0,
+        repost_count: row.repost_count || 0,
+      };
+    }
     
-    for (const row of rows) {
-      const releasedViews = row.released_views || 0;
-      const pendingViews = row.pending_views || 0;
-      const pendingStartedAt = row.pending_started_at || 0;
+    const result = {};
+    for (const postUri of postUris) {
+      // Get real tracked views
+      const realViews = getPostViewCount(postUri);
       
-      // Calculate how many pending views should be released
-      const toRelease = calculateReleasedViews(pendingViews, pendingStartedAt);
-      
-      // Consolidate if needed (update DB in background)
-      if (toRelease > 0) {
-        try {
-          consolidateReleasedViews.run(toRelease, toRelease, toRelease, row.post_uri);
-        } catch (err) {
-          // Ignore consolidation errors in batch
-        }
+      // Calculate engagement floor
+      const engagement = engagementMap[postUri];
+      let engagementFloor = 0;
+      if (engagement) {
+        engagementFloor = calculateEngagementFloor(
+          engagement.like_count,
+          engagement.reply_count,
+          engagement.repost_count,
+          postUri
+        );
       }
       
-      // Add actual viewport views
-      const actualViews = getPostViewCount(row.post_uri);
-      
-      result[row.post_uri] = releasedViews + toRelease + actualViews;
+      // Return max of real views or engagement floor
+      result[postUri] = Math.max(realViews, engagementFloor);
     }
     return result;
   } catch (err) {
@@ -691,11 +631,11 @@ module.exports = {
   hasViewerSeenRecently,
   getAuthorViewStats,
   cleanupViews,
-  // Estimated views functions (gradual release system)
+  // Display views functions (real + engagement floor)
   setEstimatedViews,
   getDisplayViews,
   getStoredEstimatedViews,
   getEstimatedViewsBatch: getEstimatedViewsBatchFn,
-  calculateNewViewsFromEngagement,
+  calculateEngagementFloor,
   close,
 };

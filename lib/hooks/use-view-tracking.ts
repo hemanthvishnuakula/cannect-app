@@ -275,16 +275,13 @@ function hashCode(str: string): number {
 /**
  * Calculate estimated view count based on engagement metrics
  *
- * Strategy: More natural, gradual view counts
- * - Lower engagement multipliers (realistic ~20-30% engagement rate for likes)
- * - Logarithmic scaling to prevent unrealistic jumps
+ * This is a CLIENT-SIDE FALLBACK only - the server is the source of truth.
+ * The server uses: max(realTrackedViews, engagementFloor)
  *
- * Stronger multipliers for 40M user network:
+ * Multipliers for 40M user network:
  * - 1 like ≈ 50 views (2% engagement rate)
  * - 1 reply ≈ 250 views (0.4% engagement rate)
  * - 1 repost ≈ 400 views (0.25% engagement rate)
- *
- * Note: This is for placeholder/fallback only. Server handles gradual release.
  */
 export function calculateEstimatedViews(
   trackedViews: number,
@@ -293,12 +290,11 @@ export function calculateEstimatedViews(
   repostCount: number,
   postUri?: string
 ): number {
-  // Stronger multipliers for 40M user network
   const LIKE_MULTIPLIER = 50;
   const REPLY_MULTIPLIER = 250;
   const REPOST_MULTIPLIER = 400;
 
-  // Calculate raw engagement views
+  // Calculate engagement floor
   const likeViews = likeCount * LIKE_MULTIPLIER;
   const replyViews = replyCount * REPLY_MULTIPLIER;
   const repostViews = repostCount * REPOST_MULTIPLIER;
@@ -306,29 +302,22 @@ export function calculateEstimatedViews(
   const rawViews = likeViews + replyViews + repostViews;
 
   // Apply logarithmic scaling for very high engagement
-  let scaledViews: number;
+  let engagementFloor: number;
   if (rawViews <= 500) {
-    scaledViews = rawViews;
+    engagementFloor = rawViews;
   } else if (rawViews <= 2000) {
-    scaledViews = 500 + Math.round((rawViews - 500) * 0.8);
+    engagementFloor = 500 + Math.round((rawViews - 500) * 0.8);
   } else {
-    scaledViews = 1700 + Math.round((rawViews - 2000) * 0.6);
+    engagementFloor = 1700 + Math.round((rawViews - 2000) * 0.6);
   }
-
-  // Combine with tracked viewport views
-  const baseViews = scaledViews + trackedViews;
 
   // Add a small variance (±15%) to make it look natural
   const hash = postUri ? hashCode(postUri) : 0;
   const variance = 0.85 + (hash % 31) / 100; // 0.85 to 1.15
+  engagementFloor = Math.round(engagementFloor * variance);
 
-  // Minimum 1 view if there's any engagement
-  const totalEngagement = likeCount + replyCount + repostCount;
-  if (totalEngagement === 0 && trackedViews === 0) {
-    return 0;
-  }
-
-  return Math.max(1, Math.round(baseViews * variance));
+  // Return max of tracked views and engagement floor
+  return Math.max(trackedViews, engagementFloor);
 }
 
 /**
