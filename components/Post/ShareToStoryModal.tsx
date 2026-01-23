@@ -9,15 +9,7 @@
  */
 
 import { useState, useCallback, useEffect } from 'react';
-import {
-  View,
-  Text,
-  Pressable,
-  Modal,
-  Platform,
-  Alert,
-  ActivityIndicator,
-} from 'react-native';
+import { View, Text, Pressable, Modal, Platform, Alert, ActivityIndicator } from 'react-native';
 import { Image } from 'expo-image';
 import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system';
@@ -81,14 +73,22 @@ export function ShareToStoryModal({ visible, onClose, post }: ShareToStoryModalP
 
     try {
       if (Platform.OS === 'web') {
-        // Web: Download the image
+        // Web: Fetch image as blob and download directly
+        const response = await fetch(imageUrl);
+        if (!response.ok) throw new Error('Failed to fetch image');
+        
+        const blob = await response.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        
         const link = document.createElement('a');
-        link.href = imageUrl;
+        link.href = blobUrl;
         link.download = `cannect-post-${Date.now()}.png`;
-        link.target = '_blank';
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
+        
+        // Clean up blob URL
+        URL.revokeObjectURL(blobUrl);
 
         triggerNotification('success');
         onClose();

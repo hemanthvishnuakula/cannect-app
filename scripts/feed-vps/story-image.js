@@ -1,6 +1,6 @@
 /**
  * Story Image Generator
- * 
+ *
  * Generates Instagram Story-sized images (1080x1920) for sharing posts.
  * Includes: avatar, author info, full post text, and post images.
  * Uses Satori for SVG generation and resvg for PNG conversion.
@@ -30,15 +30,19 @@ let interBoldFont = null;
 
 async function loadFonts() {
   if (interFont && interBoldFont) return;
-  
+
   try {
     // Load Inter fonts
-    const regularRes = await fetch('https://fonts.gstatic.com/s/inter/v13/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuLyfAZ9hjp-Ek-_EeA.woff');
+    const regularRes = await fetch(
+      'https://fonts.gstatic.com/s/inter/v13/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuLyfAZ9hjp-Ek-_EeA.woff'
+    );
     interFont = await regularRes.arrayBuffer();
-    
-    const boldRes = await fetch('https://fonts.gstatic.com/s/inter/v13/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuGKYAZ9hjp-Ek-_EeA.woff');
+
+    const boldRes = await fetch(
+      'https://fonts.gstatic.com/s/inter/v13/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuGKYAZ9hjp-Ek-_EeA.woff'
+    );
     interBoldFont = await boldRes.arrayBuffer();
-    
+
     console.log('[StoryImage] Fonts loaded successfully');
   } catch (err) {
     console.error('[StoryImage] Failed to load fonts:', err.message);
@@ -55,7 +59,7 @@ function emojiToTwemojiCode(emoji) {
   for (const char of emoji) {
     const cp = char.codePointAt(0);
     // Skip variation selectors (FE0E, FE0F)
-    if (cp !== 0xFE0E && cp !== 0xFE0F) {
+    if (cp !== 0xfe0e && cp !== 0xfe0f) {
       codePoints.push(cp.toString(16));
     }
   }
@@ -69,7 +73,7 @@ function emojiToTwemojiCode(emoji) {
 async function fetchTwemoji(emoji) {
   const code = emojiToTwemojiCode(emoji);
   const url = `https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/svg/${code}.svg`;
-  
+
   try {
     const res = await fetch(url);
     if (res.ok) {
@@ -87,7 +91,7 @@ async function fetchTwemoji(emoji) {
  */
 async function fetchPost(uri) {
   const agent = new BskyAgent({ service: 'https://public.api.bsky.app' });
-  
+
   try {
     const response = await agent.getPosts({ uris: [uri] });
     if (response.data.posts && response.data.posts.length > 0) {
@@ -124,24 +128,24 @@ function isCannectUser(handle) {
 function getPostImage(post) {
   const embed = post.embed;
   if (!embed) return null;
-  
+
   // Images embed
   if (embed.$type === 'app.bsky.embed.images#view' && embed.images?.length > 0) {
     return embed.images[0].fullsize || embed.images[0].thumb;
   }
-  
+
   // External embed with thumb
   if (embed.$type === 'app.bsky.embed.external#view' && embed.external?.thumb) {
     return embed.external.thumb;
   }
-  
+
   // Record with media
   if (embed.$type === 'app.bsky.embed.recordWithMedia#view' && embed.media) {
     if (embed.media.$type === 'app.bsky.embed.images#view' && embed.media.images?.length > 0) {
       return embed.media.images[0].fullsize || embed.media.images[0].thumb;
     }
   }
-  
+
   return null;
 }
 
@@ -151,7 +155,7 @@ function getPostImage(post) {
 function getQuotedPost(post) {
   const embed = post.embed;
   if (!embed) return null;
-  
+
   // Direct record embed (quote post without media)
   if (embed.$type === 'app.bsky.embed.record#view' && embed.record) {
     const record = embed.record;
@@ -160,11 +164,11 @@ function getQuotedPost(post) {
       return {
         author: record.author,
         text: record.value.text || '',
-        hasImages: record.embeds?.some(e => e.$type === 'app.bsky.embed.images#view'),
+        hasImages: record.embeds?.some((e) => e.$type === 'app.bsky.embed.images#view'),
       };
     }
   }
-  
+
   // Record with media (quote post with additional media)
   if (embed.$type === 'app.bsky.embed.recordWithMedia#view' && embed.record?.record) {
     const record = embed.record.record;
@@ -172,11 +176,11 @@ function getQuotedPost(post) {
       return {
         author: record.author,
         text: record.value.text || '',
-        hasImages: record.embeds?.some(e => e.$type === 'app.bsky.embed.images#view'),
+        hasImages: record.embeds?.some((e) => e.$type === 'app.bsky.embed.images#view'),
       };
     }
   }
-  
+
   return null;
 }
 
@@ -185,12 +189,12 @@ function getQuotedPost(post) {
  */
 async function generateStoryImage(uri) {
   await loadFonts();
-  
+
   const post = await fetchPost(uri);
   if (!post) {
     throw new Error('Post not found');
   }
-  
+
   const author = post.author;
   const record = post.record;
   const text = record.text || '';
@@ -200,25 +204,25 @@ async function generateStoryImage(uri) {
   const isCannect = isCannectUser(author.handle);
   const postImage = getPostImage(post);
   const quotedPost = getQuotedPost(post);
-  
+
   // Engagement stats
   const replyCount = post.replyCount || 0;
   const repostCount = post.repostCount || 0;
   const likeCount = post.likeCount || 0;
-  
+
   // Get view count from our database
   const viewStats = db.getPostViewStats(uri);
   const viewCount = viewStats.total_views || 0;
-  
+
   // Format large numbers (e.g., 1234 -> 1.2K)
   const formatCount = (num) => {
     if (num >= 1000000) return (num / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
     if (num >= 1000) return (num / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
     return num.toString();
   };
-  
+
   const satoriRender = await getSatori();
-  
+
   // Build children array for the card
   const cardChildren = [
     // Author row
@@ -272,42 +276,44 @@ async function generateStoryImage(uri) {
                       alignItems: 'center',
                       marginTop: 4,
                     },
-                    children: isCannect ? [
-                      {
-                        type: 'span',
-                        props: {
-                          style: {
-                            color: '#71717A',
-                            fontSize: 20,
+                    children: isCannect
+                      ? [
+                          {
+                            type: 'span',
+                            props: {
+                              style: {
+                                color: '#71717A',
+                                fontSize: 20,
+                              },
+                              children: handle,
+                            },
                           },
-                          children: handle,
-                        },
-                      },
-                      {
-                        type: 'span',
-                        props: {
-                          style: {
-                            marginLeft: 10,
-                            backgroundColor: 'rgba(16, 185, 129, 0.2)',
-                            color: '#10B981',
-                            fontSize: 16,
-                            fontWeight: 600,
-                            padding: '3px 10px',
-                            borderRadius: 10,
+                          {
+                            type: 'span',
+                            props: {
+                              style: {
+                                marginLeft: 10,
+                                backgroundColor: 'rgba(16, 185, 129, 0.2)',
+                                color: '#10B981',
+                                fontSize: 16,
+                                fontWeight: 600,
+                                padding: '3px 10px',
+                                borderRadius: 10,
+                              },
+                              children: 'cannect',
+                            },
                           },
-                          children: 'cannect',
+                        ]
+                      : {
+                          type: 'span',
+                          props: {
+                            style: {
+                              color: '#71717A',
+                              fontSize: 20,
+                            },
+                            children: handle,
+                          },
                         },
-                      },
-                    ] : {
-                      type: 'span',
-                      props: {
-                        style: {
-                          color: '#71717A',
-                          fontSize: 20,
-                        },
-                        children: handle,
-                      },
-                    },
                   },
                 },
               ],
@@ -317,12 +323,12 @@ async function generateStoryImage(uri) {
       },
     },
   ];
-  
+
   // Add post text if exists
   // Split by newlines to preserve paragraph formatting
   if (text) {
-    const paragraphs = text.split(/\n+/).filter(p => p.trim());
-    
+    const paragraphs = text.split(/\n+/).filter((p) => p.trim());
+
     cardChildren.push({
       type: 'div',
       props: {
@@ -330,9 +336,9 @@ async function generateStoryImage(uri) {
           display: 'flex',
           flexDirection: 'column',
           gap: 16,
-          marginBottom: (postImage || quotedPost) ? 20 : 0,
+          marginBottom: postImage || quotedPost ? 20 : 0,
         },
-        children: paragraphs.map(paragraph => ({
+        children: paragraphs.map((paragraph) => ({
           type: 'div',
           props: {
             style: {
@@ -346,7 +352,7 @@ async function generateStoryImage(uri) {
       },
     });
   }
-  
+
   // Add quoted post if exists
   if (quotedPost) {
     const quotedAuthor = quotedPost.author;
@@ -354,13 +360,14 @@ async function generateStoryImage(uri) {
     const quotedHandle = quotedAuthor?.handle ? `@${quotedAuthor.handle}` : '';
     const quotedText = quotedPost.text || '';
     const quotedAvatarUrl = quotedAuthor ? getAvatarUrl(quotedAuthor) : null;
-    
+
     // Truncate quoted text if too long
     const maxQuoteLength = 200;
-    const truncatedQuoteText = quotedText.length > maxQuoteLength 
-      ? quotedText.substring(0, maxQuoteLength) + '...'
-      : quotedText;
-    
+    const truncatedQuoteText =
+      quotedText.length > maxQuoteLength
+        ? quotedText.substring(0, maxQuoteLength) + '...'
+        : quotedText;
+
     cardChildren.push({
       type: 'div',
       props: {
@@ -386,18 +393,20 @@ async function generateStoryImage(uri) {
               },
               children: [
                 // Avatar
-                quotedAvatarUrl ? {
-                  type: 'img',
-                  props: {
-                    src: quotedAvatarUrl,
-                    style: {
-                      width: 32,
-                      height: 32,
-                      borderRadius: 16,
-                      marginRight: 10,
-                    },
-                  },
-                } : null,
+                quotedAvatarUrl
+                  ? {
+                      type: 'img',
+                      props: {
+                        src: quotedAvatarUrl,
+                        style: {
+                          width: 32,
+                          height: 32,
+                          borderRadius: 16,
+                          marginRight: 10,
+                        },
+                      },
+                    }
+                  : null,
                 // Name and handle
                 {
                   type: 'div',
@@ -435,22 +444,24 @@ async function generateStoryImage(uri) {
             },
           },
           // Quoted post text
-          truncatedQuoteText ? {
-            type: 'div',
-            props: {
-              style: {
-                color: '#A1A1AA',
-                fontSize: 22,
-                lineHeight: 1.4,
-              },
-              children: truncatedQuoteText,
-            },
-          } : null,
+          truncatedQuoteText
+            ? {
+                type: 'div',
+                props: {
+                  style: {
+                    color: '#A1A1AA',
+                    fontSize: 22,
+                    lineHeight: 1.4,
+                  },
+                  children: truncatedQuoteText,
+                },
+              }
+            : null,
         ].filter(Boolean),
       },
     });
   }
-  
+
   // Add post image if exists
   if (postImage) {
     cardChildren.push({
@@ -466,12 +477,12 @@ async function generateStoryImage(uri) {
       },
     });
   }
-  
+
   // Add engagement stats row (order: Replies, Reposts, Likes, Views)
   const hasStats = replyCount > 0 || repostCount > 0 || likeCount > 0 || viewCount > 0;
   if (hasStats) {
     const statItems = [];
-    
+
     // Replies first
     if (replyCount > 0) {
       statItems.push({
@@ -502,7 +513,7 @@ async function generateStoryImage(uri) {
         },
       });
     }
-    
+
     if (repostCount > 0) {
       statItems.push({
         type: 'div',
@@ -532,7 +543,7 @@ async function generateStoryImage(uri) {
         },
       });
     }
-    
+
     if (likeCount > 0) {
       statItems.push({
         type: 'div',
@@ -562,7 +573,7 @@ async function generateStoryImage(uri) {
         },
       });
     }
-    
+
     // Views last (eye icon)
     if (viewCount > 0) {
       statItems.push({
@@ -592,7 +603,7 @@ async function generateStoryImage(uri) {
         },
       });
     }
-    
+
     cardChildren.push({
       type: 'div',
       props: {
@@ -608,7 +619,7 @@ async function generateStoryImage(uri) {
       },
     });
   }
-  
+
   // Add branding at bottom
   cardChildren.push({
     type: 'div',
@@ -646,7 +657,7 @@ async function generateStoryImage(uri) {
       ],
     },
   });
-  
+
   const svg = await satoriRender(
     {
       type: 'div',
@@ -707,19 +718,21 @@ async function generateStoryImage(uri) {
       },
     }
   );
-  
+
   const resvg = new Resvg(svg, {
     fitTo: {
       mode: 'width',
       value: STORY_WIDTH,
     },
   });
-  
+
   const pngData = resvg.render();
   const pngBuffer = pngData.asPng();
-  
-  console.log(`[StoryImage] Generated image for ${uri.substring(0, 50)}... (hasImage: ${!!postImage})`);
-  
+
+  console.log(
+    `[StoryImage] Generated image for ${uri.substring(0, 50)}... (hasImage: ${!!postImage})`
+  );
+
   return pngBuffer;
 }
 

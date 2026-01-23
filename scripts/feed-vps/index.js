@@ -746,7 +746,7 @@ app.get('/xrpc/app.bsky.feed.getFeedSkeleton', (req, res) => {
 
     // ==========================================================================
     // Scalable Boost Distribution
-    // 
+    //
     // Goals:
     // 1. FAIR: Every boosted post gets equal visibility
     // 2. SPREAD: Boosts are distributed evenly, not clustered
@@ -761,11 +761,11 @@ app.get('/xrpc/app.bsky.feed.getFeedSkeleton', (req, res) => {
     // - Paginate boosts across scroll pages
     // ==========================================================================
     if (boostedPosts.length > 0) {
-      const MAX_BOOSTS_PER_PAGE = 5;      // Max boosts to show per page
-      const FIRST_BOOST_POSITION = 3;     // Where first boost appears
-      const BOOST_SPACING = 10;           // Minimum posts between boosts
-      const SHUFFLE_INTERVAL_MINS = 15;   // Reshuffle order every N minutes
-      
+      const MAX_BOOSTS_PER_PAGE = 5; // Max boosts to show per page
+      const FIRST_BOOST_POSITION = 3; // Where first boost appears
+      const BOOST_SPACING = 10; // Minimum posts between boosts
+      const SHUFFLE_INTERVAL_MINS = 15; // Reshuffle order every N minutes
+
       // Shuffle boosts based on time (creates variety without being random)
       const shuffleSeed = Math.floor(Date.now() / (SHUFFLE_INTERVAL_MINS * 60 * 1000));
       const shuffledBoosts = [...boostedPosts].sort((a, b) => {
@@ -774,36 +774,36 @@ app.get('/xrpc/app.bsky.feed.getFeedSkeleton', (req, res) => {
         const hashB = ((b.id || 0) * 31 + shuffleSeed) % 1000;
         return hashA - hashB;
       });
-      
+
       // Calculate which boosts to show on this page
       const pageNumber = Math.floor(offset / limit);
       const startBoostIndex = pageNumber * MAX_BOOSTS_PER_PAGE;
       const boostsForThisPage = shuffledBoosts.slice(
-        startBoostIndex, 
+        startBoostIndex,
         startBoostIndex + MAX_BOOSTS_PER_PAGE
       );
-      
+
       // Track how many we've inserted (affects subsequent positions)
       let insertedCount = 0;
-      
+
       // Inject boosts at evenly spread positions
       boostsForThisPage.forEach((boost, idx) => {
-        const position = FIRST_BOOST_POSITION + (idx * BOOST_SPACING) + insertedCount;
-        
+        const position = FIRST_BOOST_POSITION + idx * BOOST_SPACING + insertedCount;
+
         if (position < feedItems.length) {
           // Skip if already in feed (could be an organic post)
-          const alreadyInFeed = feedItems.some(item => item.post === boost.post_uri);
+          const alreadyInFeed = feedItems.some((item) => item.post === boost.post_uri);
           if (!alreadyInFeed) {
             feedItems.splice(position, 0, { post: boost.post_uri });
             insertedCount++;
           }
         }
       });
-      
+
       if (insertedCount > 0) {
         console.log(
           `[Feed] Injected ${insertedCount}/${boostsForThisPage.length} boosts on page ${pageNumber} ` +
-          `(total active: ${boostedPosts.length})`
+            `(total active: ${boostedPosts.length})`
         );
       }
     }
