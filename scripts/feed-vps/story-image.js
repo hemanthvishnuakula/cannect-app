@@ -2,6 +2,7 @@
  * Story Image Generator
  * 
  * Generates Instagram Story-sized images (1080x1920) for sharing posts.
+ * Includes: avatar, author info, full post text, and post images.
  * Uses Satori for SVG generation and resvg for PNG conversion.
  */
 
@@ -80,12 +81,30 @@ function isCannectUser(handle) {
 }
 
 /**
- * Truncate text to max length
+ * Get first image from post embeds
  */
-function truncateText(text, maxLength = 400) {
-  if (!text) return '';
-  if (text.length <= maxLength) return text;
-  return text.substring(0, maxLength - 3) + '...';
+function getPostImage(post) {
+  const embed = post.embed;
+  if (!embed) return null;
+  
+  // Images embed
+  if (embed.$type === 'app.bsky.embed.images#view' && embed.images?.length > 0) {
+    return embed.images[0].fullsize || embed.images[0].thumb;
+  }
+  
+  // External embed with thumb
+  if (embed.$type === 'app.bsky.embed.external#view' && embed.external?.thumb) {
+    return embed.external.thumb;
+  }
+  
+  // Record with media
+  if (embed.$type === 'app.bsky.embed.recordWithMedia#view' && embed.media) {
+    if (embed.media.$type === 'app.bsky.embed.images#view' && embed.media.images?.length > 0) {
+      return embed.media.images[0].fullsize || embed.media.images[0].thumb;
+    }
+  }
+  
+  return null;
 }
 
 /**
@@ -101,15 +120,184 @@ async function generateStoryImage(uri) {
   
   const author = post.author;
   const record = post.record;
-  const text = truncateText(record.text || '');
+  const text = record.text || '';
   const displayName = author.displayName || author.handle;
   const handle = `@${author.handle}`;
   const avatarUrl = getAvatarUrl(author);
   const isCannect = isCannectUser(author.handle);
+  const postImage = getPostImage(post);
   
   const satoriRender = await getSatori();
   
-  // Simplified structure - Satori requires explicit display: flex on all containers with multiple children
+  // Build children array for the card
+  const cardChildren = [
+    // Author row
+    {
+      type: 'div',
+      props: {
+        style: {
+          display: 'flex',
+          flexDirection: 'row',
+          alignItems: 'center',
+          marginBottom: 24,
+        },
+        children: [
+          {
+            type: 'img',
+            props: {
+              src: avatarUrl,
+              width: 64,
+              height: 64,
+              style: {
+                borderRadius: 32,
+              },
+            },
+          },
+          {
+            type: 'div',
+            props: {
+              style: {
+                display: 'flex',
+                flexDirection: 'column',
+                marginLeft: 16,
+              },
+              children: [
+                {
+                  type: 'span',
+                  props: {
+                    style: {
+                      color: '#FAFAFA',
+                      fontSize: 28,
+                      fontWeight: 700,
+                    },
+                    children: displayName,
+                  },
+                },
+                {
+                  type: 'div',
+                  props: {
+                    style: {
+                      display: 'flex',
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      marginTop: 4,
+                    },
+                    children: isCannect ? [
+                      {
+                        type: 'span',
+                        props: {
+                          style: {
+                            color: '#71717A',
+                            fontSize: 20,
+                          },
+                          children: handle,
+                        },
+                      },
+                      {
+                        type: 'span',
+                        props: {
+                          style: {
+                            marginLeft: 10,
+                            backgroundColor: 'rgba(16, 185, 129, 0.2)',
+                            color: '#10B981',
+                            fontSize: 16,
+                            fontWeight: 600,
+                            padding: '3px 10px',
+                            borderRadius: 10,
+                          },
+                          children: 'cannect',
+                        },
+                      },
+                    ] : {
+                      type: 'span',
+                      props: {
+                        style: {
+                          color: '#71717A',
+                          fontSize: 20,
+                        },
+                        children: handle,
+                      },
+                    },
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ];
+  
+  // Add post text if exists
+  if (text) {
+    cardChildren.push({
+      type: 'div',
+      props: {
+        style: {
+          color: '#FAFAFA',
+          fontSize: postImage ? 28 : 32,
+          lineHeight: 1.4,
+          marginBottom: postImage ? 20 : 0,
+        },
+        children: text,
+      },
+    });
+  }
+  
+  // Add post image if exists
+  if (postImage) {
+    cardChildren.push({
+      type: 'img',
+      props: {
+        src: postImage,
+        style: {
+          width: '100%',
+          maxHeight: 600,
+          borderRadius: 16,
+          objectFit: 'cover',
+        },
+      },
+    });
+  }
+  
+  // Add branding at bottom
+  cardChildren.push({
+    type: 'div',
+    props: {
+      style: {
+        display: 'flex',
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginTop: 32,
+        paddingTop: 24,
+        borderTop: '1px solid #27272A',
+      },
+      children: [
+        {
+          type: 'span',
+          props: {
+            style: {
+              fontSize: 24,
+              marginRight: 8,
+            },
+            children: '🌿',
+          },
+        },
+        {
+          type: 'span',
+          props: {
+            style: {
+              color: '#10B981',
+              fontSize: 22,
+              fontWeight: 600,
+            },
+            children: 'cannect.space',
+          },
+        },
+      ],
+    },
+  });
+  
   const svg = await satoriRender(
     {
       type: 'div',
@@ -132,157 +320,14 @@ async function generateStoryImage(uri) {
               flexDirection: 'column',
               backgroundColor: '#18181B',
               borderRadius: 32,
-              padding: 48,
-              margin: 60,
+              padding: 40,
+              margin: 48,
               border: '2px solid #27272A',
-              maxWidth: 960,
+              maxWidth: 984,
+              maxHeight: 1800,
+              overflow: 'hidden',
             },
-            children: [
-              // Author row
-              {
-                type: 'div',
-                props: {
-                  style: {
-                    display: 'flex',
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    marginBottom: 32,
-                  },
-                  children: [
-                    {
-                      type: 'img',
-                      props: {
-                        src: avatarUrl,
-                        width: 80,
-                        height: 80,
-                        style: {
-                          borderRadius: 40,
-                        },
-                      },
-                    },
-                    {
-                      type: 'div',
-                      props: {
-                        style: {
-                          display: 'flex',
-                          flexDirection: 'column',
-                          marginLeft: 20,
-                        },
-                        children: [
-                          {
-                            type: 'span',
-                            props: {
-                              style: {
-                                color: '#FAFAFA',
-                                fontSize: 32,
-                                fontWeight: 700,
-                              },
-                              children: displayName,
-                            },
-                          },
-                          {
-                            type: 'div',
-                            props: {
-                              style: {
-                                display: 'flex',
-                                flexDirection: 'row',
-                                alignItems: 'center',
-                                marginTop: 4,
-                              },
-                              children: isCannect ? [
-                                {
-                                  type: 'span',
-                                  props: {
-                                    style: {
-                                      color: '#71717A',
-                                      fontSize: 24,
-                                    },
-                                    children: handle,
-                                  },
-                                },
-                                {
-                                  type: 'span',
-                                  props: {
-                                    style: {
-                                      marginLeft: 12,
-                                      backgroundColor: 'rgba(16, 185, 129, 0.2)',
-                                      color: '#10B981',
-                                      fontSize: 18,
-                                      fontWeight: 600,
-                                      padding: '4px 12px',
-                                      borderRadius: 12,
-                                    },
-                                    children: 'cannect',
-                                  },
-                                },
-                              ] : {
-                                type: 'span',
-                                props: {
-                                  style: {
-                                    color: '#71717A',
-                                    fontSize: 24,
-                                  },
-                                  children: handle,
-                                },
-                              },
-                            },
-                          },
-                        ],
-                      },
-                    },
-                  ],
-                },
-              },
-              // Post text
-              {
-                type: 'div',
-                props: {
-                  style: {
-                    color: '#FAFAFA',
-                    fontSize: 36,
-                    lineHeight: 1.5,
-                  },
-                  children: text,
-                },
-              },
-              // Bottom branding
-              {
-                type: 'div',
-                props: {
-                  style: {
-                    display: 'flex',
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    marginTop: 40,
-                    paddingTop: 32,
-                    borderTop: '1px solid #27272A',
-                  },
-                  children: [
-                    {
-                      type: 'span',
-                      props: {
-                        style: {
-                          fontSize: 28,
-                          marginRight: 8,
-                        },
-                        children: '🌿',
-                      },
-                    },
-                    {
-                      type: 'span',
-                      props: {
-                        style: {
-                          color: '#10B981',
-                          fontSize: 24,
-                          fontWeight: 600,
-                        },
-                        children: 'cannect.space',
-                      },
-                    },
-                  ],
-                },
-              },
-            ],
+            children: cardChildren,
           },
         },
       },
@@ -317,7 +362,7 @@ async function generateStoryImage(uri) {
   const pngData = resvg.render();
   const pngBuffer = pngData.asPng();
   
-  console.log(`[StoryImage] Generated image for ${uri.substring(0, 50)}...`);
+  console.log(`[StoryImage] Generated image for ${uri.substring(0, 50)}... (hasImage: ${!!postImage})`);
   
   return pngBuffer;
 }
