@@ -34,8 +34,7 @@ log "✓ PDS databases backed up"
 # 2. Backup Feed Generator database (copy from container)
 log "Backing up Feed Generator database..."
 docker cp cannect-feed:/app/data/posts.db "$BACKUP_DIR/feed/posts.db" 2>/dev/null || log "⚠ Feed posts.db not found"
-docker cp cannect-feed:/app/data/feed.db "$BACKUP_DIR/feed/feed.db" 2>/dev/null || true
-log "✓ Feed databases backed up"
+log "✓ Feed database backed up"
 
 # 3. Backup Push Server database (copy from container)
 log "Backing up Push Server database..."
