@@ -101,6 +101,7 @@ export {
   usePostViewCount,
   useTrendingPosts,
   useEstimatedViewCount,
+  useProfileReach,
   formatViewCount,
   calculateEstimatedViews,
 } from './use-view-tracking';

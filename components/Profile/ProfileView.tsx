@@ -16,7 +16,7 @@ import { FlashList } from '@shopify/flash-list';
 import { useRouter } from 'expo-router';
 import { LogOut, Edit3, MessageCircle, Pin } from 'lucide-react-native';
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
-import { useAuthorFeed, useActorLikes, useStartConversation, usePinnedPost } from '@/lib/hooks';
+import { useAuthorFeed, useActorLikes, useStartConversation, usePinnedPost, useProfileReach } from '@/lib/hooks';
 import { PostCard } from '@/components/Post';
 import { FollowButton, useToast } from '@/components/ui';
 import { getOptimizedAvatarUrl } from '@/lib/utils/avatar';
@@ -80,6 +80,19 @@ export function ProfileView({
   const likesQuery = useActorLikes(isOwnProfile ? profileData.did : undefined);
   // Pinned post
   const { data: pinnedPost } = usePinnedPost(profileData.did);
+
+  // Calculate profile reach from all posts
+  const allUserPosts = useMemo(() => {
+    const posts = postsQuery.data?.pages?.flatMap((page) => page.feed) || [];
+    return posts.map((item) => ({
+      uri: item.post.uri,
+      likeCount: item.post.likeCount || 0,
+      replyCount: item.post.replyCount || 0,
+      repostCount: item.post.repostCount || 0,
+    }));
+  }, [postsQuery.data]);
+  
+  const profileReach = useProfileReach(profileData.did, allUserPosts);
 
   // Get posts data based on active tab (filter out pinned post to avoid duplication)
   const posts = useMemo(() => {
@@ -206,7 +219,7 @@ export function ProfileView({
               )}
 
               {/* Stats */}
-              <View className="flex-row gap-4 mt-3">
+              <View className="flex-row gap-4 mt-3 flex-wrap">
                 <Pressable
                   className="flex-row items-center active:opacity-70"
                   onPress={() => router.push(`/user/${profileData.handle}/followers` as any)}
@@ -230,6 +243,12 @@ export function ProfileView({
                     {formatNumber(profileData.postsCount)}
                   </Text>
                   <Text className="text-text-muted ml-1">posts</Text>
+                </View>
+                <View className="flex-row items-center">
+                  <Text className="font-bold text-text-primary">
+                    {formatNumber(profileReach)}
+                  </Text>
+                  <Text className="text-text-muted ml-1">reach</Text>
                 </View>
               </View>
             </View>
