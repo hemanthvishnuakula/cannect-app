@@ -145,6 +145,41 @@ function getPostImage(post) {
 }
 
 /**
+ * Get quoted post from embeds (for quote posts)
+ */
+function getQuotedPost(post) {
+  const embed = post.embed;
+  if (!embed) return null;
+  
+  // Direct record embed (quote post without media)
+  if (embed.$type === 'app.bsky.embed.record#view' && embed.record) {
+    const record = embed.record;
+    // Check if it's a valid post record
+    if (record.$type === 'app.bsky.embed.record#viewRecord' && record.value) {
+      return {
+        author: record.author,
+        text: record.value.text || '',
+        hasImages: record.embeds?.some(e => e.$type === 'app.bsky.embed.images#view'),
+      };
+    }
+  }
+  
+  // Record with media (quote post with additional media)
+  if (embed.$type === 'app.bsky.embed.recordWithMedia#view' && embed.record?.record) {
+    const record = embed.record.record;
+    if (record.$type === 'app.bsky.embed.record#viewRecord' && record.value) {
+      return {
+        author: record.author,
+        text: record.value.text || '',
+        hasImages: record.embeds?.some(e => e.$type === 'app.bsky.embed.images#view'),
+      };
+    }
+  }
+  
+  return null;
+}
+
+/**
  * Generate story image as PNG buffer
  */
 async function generateStoryImage(uri) {
@@ -163,6 +198,7 @@ async function generateStoryImage(uri) {
   const avatarUrl = getAvatarUrl(author);
   const isCannect = isCannectUser(author.handle);
   const postImage = getPostImage(post);
+  const quotedPost = getQuotedPost(post);
   
   // Engagement stats
   const replyCount = post.replyCount || 0;
@@ -289,7 +325,7 @@ async function generateStoryImage(uri) {
           display: 'flex',
           flexDirection: 'column',
           gap: 16,
-          marginBottom: postImage ? 20 : 0,
+          marginBottom: (postImage || quotedPost) ? 20 : 0,
         },
         children: paragraphs.map(paragraph => ({
           type: 'div',
@@ -302,6 +338,110 @@ async function generateStoryImage(uri) {
             children: paragraph,
           },
         })),
+      },
+    });
+  }
+  
+  // Add quoted post if exists
+  if (quotedPost) {
+    const quotedAuthor = quotedPost.author;
+    const quotedDisplayName = quotedAuthor?.displayName || quotedAuthor?.handle || 'Unknown';
+    const quotedHandle = quotedAuthor?.handle ? `@${quotedAuthor.handle}` : '';
+    const quotedText = quotedPost.text || '';
+    const quotedAvatarUrl = quotedAuthor ? getAvatarUrl(quotedAuthor) : null;
+    
+    // Truncate quoted text if too long
+    const maxQuoteLength = 200;
+    const truncatedQuoteText = quotedText.length > maxQuoteLength 
+      ? quotedText.substring(0, maxQuoteLength) + '...'
+      : quotedText;
+    
+    cardChildren.push({
+      type: 'div',
+      props: {
+        style: {
+          display: 'flex',
+          flexDirection: 'column',
+          backgroundColor: '#27272A',
+          borderRadius: 16,
+          padding: 16,
+          marginBottom: postImage ? 20 : 0,
+          border: '1px solid #3F3F46',
+        },
+        children: [
+          // Quoted post author row
+          {
+            type: 'div',
+            props: {
+              style: {
+                display: 'flex',
+                flexDirection: 'row',
+                alignItems: 'center',
+                marginBottom: 10,
+              },
+              children: [
+                // Avatar
+                quotedAvatarUrl ? {
+                  type: 'img',
+                  props: {
+                    src: quotedAvatarUrl,
+                    style: {
+                      width: 32,
+                      height: 32,
+                      borderRadius: 16,
+                      marginRight: 10,
+                    },
+                  },
+                } : null,
+                // Name and handle
+                {
+                  type: 'div',
+                  props: {
+                    style: {
+                      display: 'flex',
+                      flexDirection: 'column',
+                    },
+                    children: [
+                      {
+                        type: 'span',
+                        props: {
+                          style: {
+                            color: '#FAFAFA',
+                            fontSize: 18,
+                            fontWeight: 600,
+                          },
+                          children: quotedDisplayName,
+                        },
+                      },
+                      {
+                        type: 'span',
+                        props: {
+                          style: {
+                            color: '#71717A',
+                            fontSize: 16,
+                          },
+                          children: quotedHandle,
+                        },
+                      },
+                    ],
+                  },
+                },
+              ].filter(Boolean),
+            },
+          },
+          // Quoted post text
+          truncatedQuoteText ? {
+            type: 'div',
+            props: {
+              style: {
+                color: '#A1A1AA',
+                fontSize: 22,
+                lineHeight: 1.4,
+              },
+              children: truncatedQuoteText,
+            },
+          } : null,
+        ].filter(Boolean),
       },
     });
   }
