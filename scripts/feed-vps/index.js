@@ -89,26 +89,8 @@ app.set('trust proxy', 1);
 
 app.use(express.json()); // Parse JSON bodies
 
-// Rate limiting - increased limits for boost status checks
-const generalLimiter = rateLimit({
-  windowMs: 60 * 1000, // 1 minute
-  max: 300, // 300 requests per minute per IP (was 60)
-  message: { error: 'Too many requests, please try again later' },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-
-const strictLimiter = rateLimit({
-  windowMs: 60 * 1000, // 1 minute
-  max: 60, // 60 requests per minute (was 30)
-  message: { error: 'Too many requests, please try again later' },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-
-app.use(generalLimiter);
-
-// CORS middleware for cross-origin requests from the Cannect app
+// CORS middleware MUST be first - before rate limiting
+// Otherwise 429 responses won't have CORS headers
 app.use((req, res, next) => {
   const allowedOrigins = [
     'https://cannect.net',
@@ -136,6 +118,25 @@ app.use((req, res, next) => {
   }
   next();
 });
+
+// Rate limiting - high limits for app usage
+const generalLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 1000, // 1000 requests per minute per IP
+  message: { error: 'Too many requests, please try again later' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const strictLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 120, // 120 requests per minute
+  message: { error: 'Too many requests, please try again later' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+app.use(generalLimiter);
 
 // Health check
 app.get('/health', (req, res) => {
