@@ -266,17 +266,30 @@ async function generateStoryImage(uri) {
   ];
   
   // Add post text if exists
+  // Split by newlines to preserve paragraph formatting
   if (text) {
+    const paragraphs = text.split(/\n+/).filter(p => p.trim());
+    
     cardChildren.push({
       type: 'div',
       props: {
         style: {
-          color: '#FAFAFA',
-          fontSize: postImage ? 28 : 32,
-          lineHeight: 1.4,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 16,
           marginBottom: postImage ? 20 : 0,
         },
-        children: text,
+        children: paragraphs.map(paragraph => ({
+          type: 'div',
+          props: {
+            style: {
+              color: '#FAFAFA',
+              fontSize: postImage ? 28 : 32,
+              lineHeight: 1.5,
+            },
+            children: paragraph,
+          },
+        })),
       },
     });
   }
