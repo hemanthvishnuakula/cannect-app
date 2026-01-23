@@ -480,15 +480,8 @@ function calculateViewsFromEngagement(likeCount, replyCount, repostCount, postUr
 
   const rawViews = likeViews + replyViews + repostViews;
 
-  // Apply slight logarithmic scaling for very high engagement
-  let scaledViews;
-  if (rawViews <= 500) {
-    scaledViews = rawViews;
-  } else if (rawViews <= 2000) {
-    scaledViews = 500 + Math.round((rawViews - 500) * 0.8);
-  } else {
-    scaledViews = 1700 + Math.round((rawViews - 2000) * 0.6);
-  }
+  // No scaling - raw multipliers for maximum ego boost
+  let scaledViews = rawViews;
 
   // Deterministic variance based on post URI hash (±15%)
   let hash = 0;
