@@ -35,6 +35,7 @@ import {
   Pin,
   Rocket,
   Eye,
+  Instagram,
 } from 'lucide-react-native';
 import { memo, useCallback, useState } from 'react';
 import * as Clipboard from 'expo-clipboard';
@@ -59,6 +60,7 @@ import * as atproto from '../../lib/atproto/agent';
 import type { ReportReason } from '../../lib/atproto/agent';
 import type { AppBskyFeedDefs, AppBskyFeedPost } from '@atproto/api';
 import { ShareToDMModal } from '../messages';
+import { ShareToStoryModal } from './ShareToStoryModal';
 
 type PostView = AppBskyFeedDefs.PostView;
 
@@ -122,6 +124,7 @@ export const PostActions = memo(function PostActions({
   const [repostMenuVisible, setRepostMenuVisible] = useState(false);
   const [optionsMenuVisible, setOptionsMenuVisible] = useState(false);
   const [shareToDMVisible, setShareToDMVisible] = useState(false);
+  const [shareToStoryVisible, setShareToStoryVisible] = useState(false);
 
   // Derived state
   const isLiked = !!post.viewer?.like;
@@ -254,6 +257,13 @@ export const PostActions = memo(function PostActions({
   const handleSendToDM = useCallback(() => {
     triggerHaptic();
     setShareToDMVisible(true);
+  }, []);
+
+  // Open share to story modal
+  const handleShareToStory = useCallback(() => {
+    triggerHaptic();
+    setOptionsMenuVisible(false);
+    setShareToStoryVisible(true);
   }, []);
 
   // Copy link to clipboard
@@ -764,6 +774,20 @@ export const PostActions = memo(function PostActions({
               </Pressable>
             )}
 
+            {/* Share to Instagram Stories */}
+            <Pressable
+              onPress={handleShareToStory}
+              className="flex-row items-center gap-4 py-4 px-4 rounded-xl active:bg-zinc-800/50"
+            >
+              <View className="w-11 h-11 rounded-full items-center justify-center" style={{ backgroundColor: 'rgba(225, 48, 108, 0.2)' }}>
+                <Instagram size={22} color="#E1306C" />
+              </View>
+              <View className="flex-1">
+                <Text className="text-text-primary text-lg font-semibold">Share to Stories</Text>
+                <Text className="text-text-muted text-sm">Create image for Instagram Stories</Text>
+              </View>
+            </Pressable>
+
             {/* Copy Link */}
             <Pressable
               onPress={handleCopyLink}
@@ -878,6 +902,13 @@ export const PostActions = memo(function PostActions({
         postCid={post.cid}
         postText={record.text}
         authorHandle={post.author.handle}
+      />
+
+      {/* ========== SHARE TO STORY MODAL ========== */}
+      <ShareToStoryModal
+        visible={shareToStoryVisible}
+        onClose={() => setShareToStoryVisible(false)}
+        post={post}
       />
     </>
   );
