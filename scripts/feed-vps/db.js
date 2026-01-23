@@ -507,14 +507,15 @@ function updateEngagement(postUri, likeCount, replyCount, repostCount) {
 
 /**
  * Get view count for a post
+ * Total = tracked views + engagement-based views
  */
 function getViews(postUri) {
   const trackedViews = getPostViewCount(postUri);
   const engagement = getEngagement.get(postUri);
   
-  let baselineViews = 0;
+  let engagementViews = 0;
   if (engagement) {
-    baselineViews = calculateViewsFromEngagement(
+    engagementViews = calculateViewsFromEngagement(
       engagement.like_count || 0,
       engagement.reply_count || 0,
       engagement.repost_count || 0,
@@ -522,7 +523,8 @@ function getViews(postUri) {
     );
   }
   
-  return Math.max(trackedViews, baselineViews);
+  // Add both together for total views
+  return trackedViews + engagementViews;
 }
 
 /**
@@ -562,9 +564,9 @@ function getViewsBatch(postUris) {
       const trackedViews = getPostViewCount(postUri);
       const engagement = engagementMap[postUri];
       
-      let baselineViews = 0;
+      let engagementViews = 0;
       if (engagement) {
-        baselineViews = calculateViewsFromEngagement(
+        engagementViews = calculateViewsFromEngagement(
           engagement.like_count,
           engagement.reply_count,
           engagement.repost_count,
@@ -572,7 +574,8 @@ function getViewsBatch(postUris) {
         );
       }
       
-      result[postUri] = Math.max(trackedViews, baselineViews);
+      // Add both together for total views
+      result[postUri] = trackedViews + engagementViews;
     }
     return result;
   } catch (err) {
