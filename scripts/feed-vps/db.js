@@ -553,7 +553,6 @@ function getStoredEstimatedViews(postUri) {
     last_updated: engagement.last_updated,
   };
 }
-}
 
 /**
  * Get display views for multiple posts at once
