@@ -581,7 +581,7 @@ app.get('/api/estimated-views', generalLimiter, async (req, res) => {
  * Get estimated views for multiple posts at once (batch)
  * POST /api/estimated-views/batch
  * Body: { posts: [{ uri: "at://...", likes: 10, replies: 2, reposts: 1 }, ...] }
- * 
+ *
  * Always recalculates to ensure viewport views are included
  */
 app.post('/api/estimated-views/batch', generalLimiter, async (req, res) => {

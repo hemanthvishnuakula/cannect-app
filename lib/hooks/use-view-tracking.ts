@@ -98,7 +98,7 @@ export function useTrackPostView(postUri: string | undefined, source: string = '
     // React Native Web: the ref might be a View with a DOM node inside
     // Try to get the underlying DOM element
     let element: Element | null = null;
-    
+
     if (refValue instanceof Element) {
       // Direct DOM element
       element = refValue;
@@ -277,13 +277,14 @@ function hashCode(str: string): number {
  *
  * Strategy: More natural, gradual view counts
  * - Lower engagement multipliers (realistic ~20-30% engagement rate for likes)
- * - Base views for any post with engagement
- * - Logarithmic scaling to prevent huge jumps from single engagements
+ * - Logarithmic scaling to prevent unrealistic jumps
  *
- * New multipliers:
- * - 1 like ≈ 4 views (was 30)
- * - 1 reply ≈ 12 views (was 100)
- * - 1 repost ≈ 18 views (was 200)
+ * Stronger multipliers for 40M user network:
+ * - 1 like ≈ 50 views (2% engagement rate)
+ * - 1 reply ≈ 250 views (0.4% engagement rate)
+ * - 1 repost ≈ 400 views (0.25% engagement rate)
+ *
+ * Note: This is for placeholder/fallback only. Server handles gradual release.
  */
 export function calculateEstimatedViews(
   trackedViews: number,
@@ -292,44 +293,34 @@ export function calculateEstimatedViews(
   repostCount: number,
   postUri?: string
 ): number {
-  // Much lower, more realistic multipliers
-  const LIKE_MULTIPLIER = 4;
-  const COMMENT_MULTIPLIER = 12;
-  const REPOST_MULTIPLIER = 18;
-
-  // Base views - if there's ANY engagement, post was seen by at least a few people
-  const BASE_VIEWS = likeCount > 0 || replyCount > 0 || repostCount > 0 ? 3 : 0;
+  // Stronger multipliers for 40M user network
+  const LIKE_MULTIPLIER = 50;
+  const REPLY_MULTIPLIER = 250;
+  const REPOST_MULTIPLIER = 400;
 
   // Calculate raw engagement views
   const likeViews = likeCount * LIKE_MULTIPLIER;
-  const commentViews = replyCount * COMMENT_MULTIPLIER;
+  const replyViews = replyCount * REPLY_MULTIPLIER;
   const repostViews = repostCount * REPOST_MULTIPLIER;
 
-  const rawEngagementViews = likeViews + commentViews + repostViews;
+  const rawViews = likeViews + replyViews + repostViews;
 
-  // Apply logarithmic scaling for high engagement to prevent unrealistic numbers
+  // Apply logarithmic scaling for very high engagement
   let scaledViews: number;
-  if (rawEngagementViews <= 20) {
-    scaledViews = rawEngagementViews; // Linear for low engagement
-  } else if (rawEngagementViews <= 100) {
-    // Slight reduction: 20 + 80% of overflow
-    scaledViews = 20 + Math.round((rawEngagementViews - 20) * 0.8);
+  if (rawViews <= 500) {
+    scaledViews = rawViews;
+  } else if (rawViews <= 2000) {
+    scaledViews = 500 + Math.round((rawViews - 500) * 0.8);
   } else {
-    // More reduction for high engagement
-    scaledViews = 84 + Math.round((rawEngagementViews - 100) * 0.5);
+    scaledViews = 1700 + Math.round((rawViews - 2000) * 0.6);
   }
 
-  const engagementViews = BASE_VIEWS + scaledViews;
-
   // Combine with tracked viewport views
-  // Use higher of tracked vs engagement, add smaller portion of the other
-  const baseViews =
-    Math.max(trackedViews, engagementViews) +
-    Math.round(Math.min(trackedViews, engagementViews) * 0.2);
+  const baseViews = scaledViews + trackedViews;
 
-  // Add a small variance (±10%) to make it look natural
+  // Add a small variance (±15%) to make it look natural
   const hash = postUri ? hashCode(postUri) : 0;
-  const variance = 0.9 + (hash % 21) / 100; // 0.90 to 1.10
+  const variance = 0.85 + (hash % 31) / 100; // 0.85 to 1.15
 
   // Minimum 1 view if there's any engagement
   const totalEngagement = likeCount + replyCount + repostCount;
