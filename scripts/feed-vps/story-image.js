@@ -467,42 +467,12 @@ async function generateStoryImage(uri) {
     });
   }
   
-  // Add engagement stats row
-  const hasStats = viewCount > 0 || replyCount > 0 || repostCount > 0 || likeCount > 0;
+  // Add engagement stats row (order: Replies, Reposts, Likes, Views)
+  const hasStats = replyCount > 0 || repostCount > 0 || likeCount > 0 || viewCount > 0;
   if (hasStats) {
     const statItems = [];
     
-    // Views first (eye icon)
-    if (viewCount > 0) {
-      statItems.push({
-        type: 'div',
-        props: {
-          style: {
-            display: 'flex',
-            flexDirection: 'row',
-            alignItems: 'center',
-            marginRight: 24,
-          },
-          children: [
-            {
-              type: 'span',
-              props: {
-                style: { fontSize: 20, marginRight: 6 },
-                children: '👁️',
-              },
-            },
-            {
-              type: 'span',
-              props: {
-                style: { color: '#A1A1AA', fontSize: 22 },
-                children: formatCount(viewCount),
-              },
-            },
-          ],
-        },
-      });
-    }
-    
+    // Replies first
     if (replyCount > 0) {
       statItems.push({
         type: 'div',
@@ -571,6 +541,7 @@ async function generateStoryImage(uri) {
             display: 'flex',
             flexDirection: 'row',
             alignItems: 'center',
+            marginRight: 24,
           },
           children: [
             {
@@ -585,6 +556,36 @@ async function generateStoryImage(uri) {
               props: {
                 style: { color: '#A1A1AA', fontSize: 22 },
                 children: formatCount(likeCount),
+              },
+            },
+          ],
+        },
+      });
+    }
+    
+    // Views last (eye icon)
+    if (viewCount > 0) {
+      statItems.push({
+        type: 'div',
+        props: {
+          style: {
+            display: 'flex',
+            flexDirection: 'row',
+            alignItems: 'center',
+          },
+          children: [
+            {
+              type: 'span',
+              props: {
+                style: { fontSize: 20, marginRight: 6 },
+                children: '👁️',
+              },
+            },
+            {
+              type: 'span',
+              props: {
+                style: { color: '#A1A1AA', fontSize: 22 },
+                children: formatCount(viewCount),
               },
             },
           ],
