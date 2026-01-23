@@ -416,10 +416,10 @@ app.post('/api/views', generalLimiter, async (req, res) => {
       return res.status(400).json({ error: 'No valid post URIs' });
     }
 
-    // Deduplicate if viewer provided (don't count same post twice in 5 min)
+    // Deduplicate if viewer provided (don't count same post twice in 30 sec)
     const dedupedViews = [];
     for (const view of validViews) {
-      if (!viewerDid || !db.hasViewerSeenRecently(view.postUri, viewerDid, 300)) {
+      if (!viewerDid || !db.hasViewerSeenRecently(view.postUri, viewerDid, 30)) {
         dedupedViews.push(view);
       }
     }
