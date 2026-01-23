@@ -812,10 +812,13 @@ export async function getActorLikes(actor: string, cursor?: string, limit = 50) 
 
 /**
  * Get a single post thread
+ * Uses public AppView for reliability - works without auth and avoids PDS mismatch issues
  */
 export async function getPostThread(uri: string, depth = 6, parentHeight = 80) {
-  const bskyAgent = getAgent();
-  const result = await bskyAgent.getPostThread({ uri, depth, parentHeight });
+  // Use public AppView for thread fetching - it's more reliable than PDS
+  // and doesn't require auth, avoiding race conditions during session restore
+  const publicAgent = getPublicAgent();
+  const result = await publicAgent.getPostThread({ uri, depth, parentHeight });
   return result;
 }
 
@@ -823,8 +826,8 @@ export async function getPostThread(uri: string, depth = 6, parentHeight = 80) {
  * Get a single post (minimal thread fetch for quote preview)
  */
 export async function getPost(uri: string) {
-  const bskyAgent = getAgent();
-  const result = await bskyAgent.getPostThread({ uri, depth: 0, parentHeight: 0 });
+  const publicAgent = getPublicAgent();
+  const result = await publicAgent.getPostThread({ uri, depth: 0, parentHeight: 0 });
   return { data: { thread: result.data.thread } };
 }
 
