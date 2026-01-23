@@ -531,34 +531,41 @@ app.get('/api/views/author', generalLimiter, async (req, res) => {
 /**
  * Get user's total reach (stored in database - single source of truth)
  * GET /api/reach?did=did:plc:...
- * Optional: ?refresh=true to force recalculation
+ * 
+ * Auto-recalculates if:
+ * - User doesn't exist in db (first visit)
+ * - Data is stale (older than 5 minutes)
  */
 app.get('/api/reach', generalLimiter, async (req, res) => {
   try {
-    const { did, refresh } = req.query;
+    const { did } = req.query;
 
     if (!did) {
       return res.status(400).json({ error: 'Missing did parameter' });
     }
 
+    const STALE_THRESHOLD = 5 * 60; // 5 minutes in seconds
+    const now = Math.floor(Date.now() / 1000);
+
+    // Get stored reach data
+    const data = db.getUserReachData(did);
+    
     let reach;
-    if (refresh === 'true') {
-      // Force recalculation
+    const isStale = (now - data.last_updated) > STALE_THRESHOLD;
+    const isNew = data.last_updated === 0;
+
+    if (isNew || isStale) {
+      // Recalculate and store
       reach = db.updateUserReach(did);
     } else {
-      // Get stored reach, or calculate if not exists
-      const data = db.getUserReachData(did);
-      if (data.last_updated === 0) {
-        // First time - calculate and store
-        reach = db.updateUserReach(did);
-      } else {
-        reach = data.total_reach;
-      }
+      // Return cached value
+      reach = data.total_reach;
     }
 
     res.json({
       did,
       reach,
+      cached: !isNew && !isStale,
     });
   } catch (err) {
     console.error('[Reach] Error:', err.message);
