@@ -162,40 +162,42 @@ export function ProfileView({
 
             {/* Profile Info */}
             <View className="px-4 -mt-12">
-              {/* Avatar with placeholder */}
-              <View
-                style={{
-                  width: 96,
-                  height: 96,
-                  borderRadius: 48,
-                  borderWidth: 4,
-                  borderColor: '#0A0A0A',
-                  backgroundColor: '#27272A',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                {profileData.avatar ? (
-                  <Image
-                    source={{ uri: getOptimizedAvatarUrl(profileData.avatar, 96) }}
-                    style={{
-                      width: 88,
-                      height: 88,
-                      borderRadius: 44,
-                    }}
-                    contentFit="cover"
-                    cachePolicy="memory-disk"
-                    recyclingKey={profileData.avatar}
-                    transition={200}
-                    priority="high"
-                    placeholder={{ blurhash: 'L6PZfSi_.AyE_3t7t7R**0o#DgR4' }}
-                  />
-                ) : (
+              {/* Avatar */}
+              {profileData.avatar ? (
+                <Image
+                  source={{ uri: getOptimizedAvatarUrl(profileData.avatar, 96) }}
+                  style={{
+                    width: 96,
+                    height: 96,
+                    borderRadius: 48,
+                    borderWidth: 4,
+                    borderColor: '#0A0A0A',
+                    backgroundColor: '#27272A',
+                  }}
+                  contentFit="cover"
+                  cachePolicy="memory-disk"
+                  recyclingKey={profileData.avatar}
+                  transition={100}
+                  priority="high"
+                />
+              ) : (
+                <View
+                  style={{
+                    width: 96,
+                    height: 96,
+                    borderRadius: 48,
+                    borderWidth: 4,
+                    borderColor: '#0A0A0A',
+                    backgroundColor: '#27272A',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
                   <Text className="text-text-muted text-3xl">
                     {(profileData.handle || '?')[0].toUpperCase()}
                   </Text>
-                )}
-              </View>
+                </View>
+              )}
 
               {/* Actions - conditional based on own profile */}
               <View className="absolute right-4 top-14 flex-row gap-2">
