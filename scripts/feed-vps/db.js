@@ -203,15 +203,11 @@ const getAuthorViewStatsStmt = db.prepare(`
 // =============================================================================
 // View Count System
 // =============================================================================
-// Simple approach:
-// 1. Real views tracked in post_views table (from viewport observation)
-// 2. Engagement floor calculated from likes/replies/reposts
-// 3. Display = max(realViews, engagementFloor)
-//
-// This ensures posts always show reasonable view counts based on engagement,
-// while real tracking takes over for popular posts.
+// View Count System
+// =============================================================================
+// Views are tracked when posts enter the viewport.
+// Engagement (likes/replies/reposts) provides a minimum baseline.
 
-// Simple upsert for engagement tracking (used to calculate floor)
 const upsertEngagement = db.prepare(`
   INSERT INTO estimated_views (post_uri, like_count, reply_count, repost_count, released_views, pending_views, pending_started_at, last_updated)
   VALUES (?, ?, ?, ?, 0, 0, 0, unixepoch())
@@ -451,18 +447,18 @@ function cleanupViews(maxAgeSeconds = 30 * 24 * 60 * 60) {
 }
 
 // =============================================================================
-// View Count Functions (Simple: real views + engagement floor)
+// View Count Functions
 // =============================================================================
 
 /**
- * Calculate engagement floor (minimum expected views based on engagement)
+ * Calculate views from engagement
  * 
- * Multipliers for 40M user network:
- * - 1 like ≈ 50 views (2% engagement rate)
- * - 1 reply ≈ 250 views (0.4% engagement rate)
- * - 1 repost ≈ 400 views (0.25% engagement rate)
+ * Multipliers based on typical engagement rates:
+ * - 1 like ≈ 50 views (2% engagement)
+ * - 1 reply ≈ 250 views (0.4% engagement)
+ * - 1 repost ≈ 400 views (0.25% engagement)
  */
-function calculateEngagementFloor(likeCount, replyCount, repostCount, postUri) {
+function calculateViewsFromEngagement(likeCount, replyCount, repostCount, postUri) {
   const LIKE_MULTIPLIER = 50;
   const REPLY_MULTIPLIER = 250;
   const REPOST_MULTIPLIER = 400;
@@ -497,32 +493,28 @@ function calculateEngagementFloor(likeCount, replyCount, repostCount, postUri) {
 }
 
 /**
- * Update engagement counts for a post
+ * Update engagement data for a post (called when likes/replies/reposts change)
  */
-function setEstimatedViews(postUri, likeCount, replyCount, repostCount) {
+function updateEngagement(postUri, likeCount, replyCount, repostCount) {
   try {
     upsertEngagement.run(postUri, likeCount, replyCount, repostCount);
-    return getDisplayViews(postUri);
+    return getViews(postUri);
   } catch (err) {
-    console.error('[DB] setEstimatedViews error:', err.message);
+    console.error('[DB] updateEngagement error:', err.message);
     return 0;
   }
 }
 
 /**
- * Get the display view count for a post
- * Returns max(realViews, engagementFloor)
+ * Get view count for a post
  */
-function getDisplayViews(postUri) {
-  // Get real tracked views
-  const realViews = getPostViewCount(postUri);
-  
-  // Get engagement data to calculate floor
+function getViews(postUri) {
+  const trackedViews = getPostViewCount(postUri);
   const engagement = getEngagement.get(postUri);
-  let engagementFloor = 0;
   
+  let baselineViews = 0;
   if (engagement) {
-    engagementFloor = calculateEngagementFloor(
+    baselineViews = calculateViewsFromEngagement(
       engagement.like_count || 0,
       engagement.reply_count || 0,
       engagement.repost_count || 0,
@@ -530,38 +522,31 @@ function getDisplayViews(postUri) {
     );
   }
   
-  // Return the higher of real views or engagement floor
-  return Math.max(realViews, engagementFloor);
+  return Math.max(trackedViews, baselineViews);
 }
 
 /**
- * Get stored engagement data for a post
+ * Get view data for a post (for API response)
  */
-function getStoredEstimatedViews(postUri) {
+function getViewData(postUri) {
   const engagement = getEngagement.get(postUri);
-  if (!engagement) return null;
-  
-  const displayViews = getDisplayViews(postUri);
-  const realViews = getPostViewCount(postUri);
+  const views = getViews(postUri);
   
   return {
-    estimated_views: displayViews,
-    real_views: realViews,
-    like_count: engagement.like_count,
-    reply_count: engagement.reply_count,
-    repost_count: engagement.repost_count,
-    last_updated: engagement.last_updated,
+    views,
+    like_count: engagement?.like_count || 0,
+    reply_count: engagement?.reply_count || 0,
+    repost_count: engagement?.repost_count || 0,
   };
 }
 
 /**
- * Get display views for multiple posts at once
- * Returns max(realViews, engagementFloor) for each
+ * Get views for multiple posts at once
  */
-function getEstimatedViewsBatchFn(postUris) {
+function getViewsBatch(postUris) {
   if (!postUris || postUris.length === 0) return {};
+  
   try {
-    // Get engagement data for all posts
     const engagementRows = getEngagementBatch.all(JSON.stringify(postUris));
     const engagementMap = {};
     for (const row of engagementRows) {
@@ -574,14 +559,12 @@ function getEstimatedViewsBatchFn(postUris) {
     
     const result = {};
     for (const postUri of postUris) {
-      // Get real tracked views
-      const realViews = getPostViewCount(postUri);
-      
-      // Calculate engagement floor
+      const trackedViews = getPostViewCount(postUri);
       const engagement = engagementMap[postUri];
-      let engagementFloor = 0;
+      
+      let baselineViews = 0;
       if (engagement) {
-        engagementFloor = calculateEngagementFloor(
+        baselineViews = calculateViewsFromEngagement(
           engagement.like_count,
           engagement.reply_count,
           engagement.repost_count,
@@ -589,12 +572,11 @@ function getEstimatedViewsBatchFn(postUris) {
         );
       }
       
-      // Return max of real views or engagement floor
-      result[postUri] = Math.max(realViews, engagementFloor);
+      result[postUri] = Math.max(trackedViews, baselineViews);
     }
     return result;
   } catch (err) {
-    console.error('[DB] getEstimatedViewsBatch error:', err.message);
+    console.error('[DB] getViewsBatch error:', err.message);
     return {};
   }
 }
@@ -620,7 +602,7 @@ module.exports = {
   isPostBoosted,
   getBoostInfo,
   getAuthorBoosts,
-  // View tracking functions
+  // View tracking
   recordView,
   recordViewsBatch,
   getPostViewCount,
@@ -630,11 +612,10 @@ module.exports = {
   hasViewerSeenRecently,
   getAuthorViewStats,
   cleanupViews,
-  // Display views functions (real + engagement floor)
-  setEstimatedViews,
-  getDisplayViews,
-  getStoredEstimatedViews,
-  getEstimatedViewsBatch: getEstimatedViewsBatchFn,
-  calculateEngagementFloor,
+  // Views API
+  updateEngagement,
+  getViews,
+  getViewData,
+  getViewsBatch,
   close,
 };

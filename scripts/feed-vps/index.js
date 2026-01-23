@@ -517,10 +517,8 @@ app.get('/api/views/author', generalLimiter, async (req, res) => {
 // =============================================================================
 
 /**
- * Get or calculate estimated views for a single post
- * GET /api/estimated-views?uri=at://...&likes=10&replies=2&reposts=1
- *
- * If stored, returns stored value. Otherwise calculates and stores it.
+ * Get views for a single post
+ * GET /api/views/count?uri=at://...&likes=10&replies=2&reposts=1
  */
 app.get('/api/estimated-views', generalLimiter, async (req, res) => {
   try {
@@ -530,59 +528,30 @@ app.get('/api/estimated-views', generalLimiter, async (req, res) => {
       return res.status(400).json({ error: 'Missing uri parameter' });
     }
 
-    // Check if we have a stored value
-    const stored = db.getStoredEstimatedViews(uri);
-
     // Parse engagement counts from query
     const likeCount = parseInt(likes) || 0;
     const replyCount = parseInt(replies) || 0;
     const repostCount = parseInt(reposts) || 0;
 
-    // Get current actual viewport views
-    const actualViews = db.getPostViewCount(uri);
-
-    // If stored, check if we need to recalculate
-    if (stored) {
-      const engagementChanged =
-        Math.abs(stored.like_count - likeCount) > 2 ||
-        Math.abs(stored.reply_count - replyCount) > 1 ||
-        Math.abs(stored.repost_count - repostCount) > 1;
-
-      // Also recalculate if actual views have increased significantly
-      // (stored value should always be >= actual, so if actual is higher, recalc needed)
-      const viewsIncreased = actualViews > stored.estimated_views;
-
-      if (!engagementChanged && !viewsIncreased) {
-        return res.json({
-          postUri: uri,
-          estimatedViews: stored.estimated_views,
-          actualViews: actualViews,
-          cached: true,
-        });
-      }
-    }
-
-    // Calculate and store new value (now incorporates actual viewport views)
-    const estimated = db.setEstimatedViews(uri, likeCount, replyCount, repostCount);
+    // Update engagement and get views
+    const views = db.updateEngagement(uri, likeCount, replyCount, repostCount);
 
     res.json({
       postUri: uri,
-      estimatedViews: estimated,
-      actualViews: actualViews,
-      cached: false,
+      views,
+      // Keep old field names for backwards compatibility
+      estimatedViews: views,
     });
   } catch (err) {
-    console.error('[EstimatedViews] Error:', err.message);
+    console.error('[Views] Error:', err.message);
     return res.status(500).json({ error: 'Internal server error' });
   }
 });
 
 /**
- * Get estimated views for multiple posts at once (batch)
+ * Get views for multiple posts at once (batch)
  * POST /api/estimated-views/batch
  * Body: { posts: [{ uri: "at://...", likes: 10, replies: 2, reposts: 1 }, ...] }
- *
- * Always recalculates to ensure viewport views are included
  */
 app.post('/api/estimated-views/batch', generalLimiter, async (req, res) => {
   try {
@@ -597,25 +566,22 @@ app.post('/api/estimated-views/batch', generalLimiter, async (req, res) => {
       return res.status(400).json({ error: 'Max 100 posts per batch' });
     }
 
-    // Build result, always recalculating to include latest viewport views
     const result = {};
     for (const post of posts) {
       if (!post.uri) continue;
 
-      // Always recalculate to ensure viewport views are included
-      // setEstimatedViews combines engagement estimate with actual viewport views
-      const estimated = db.setEstimatedViews(
+      const views = db.updateEngagement(
         post.uri,
         post.likes || 0,
         post.replies || 0,
         post.reposts || 0
       );
-      result[post.uri] = estimated;
+      result[post.uri] = views;
     }
 
     res.json({ views: result });
   } catch (err) {
-    console.error('[EstimatedViews] Batch error:', err.message);
+    console.error('[Views] Batch error:', err.message);
     return res.status(500).json({ error: 'Internal server error' });
   }
 });

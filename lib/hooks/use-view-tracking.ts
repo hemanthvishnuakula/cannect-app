@@ -273,18 +273,14 @@ function hashCode(str: string): number {
 }
 
 /**
- * Calculate estimated view count based on engagement metrics
- *
- * This is a CLIENT-SIDE FALLBACK only - the server is the source of truth.
- * The server uses: max(realTrackedViews, engagementFloor)
- *
- * Multipliers for 40M user network:
- * - 1 like ≈ 50 views (2% engagement rate)
- * - 1 reply ≈ 250 views (0.4% engagement rate)
- * - 1 repost ≈ 400 views (0.25% engagement rate)
+ * Calculate views from engagement (client-side fallback)
+ * 
+ * Multipliers based on typical engagement rates:
+ * - 1 like ≈ 50 views (2% engagement)
+ * - 1 reply ≈ 250 views (0.4% engagement)
+ * - 1 repost ≈ 400 views (0.25% engagement)
  */
-export function calculateEstimatedViews(
-  trackedViews: number,
+export function calculateViews(
   likeCount: number,
   replyCount: number,
   repostCount: number,
@@ -294,7 +290,6 @@ export function calculateEstimatedViews(
   const REPLY_MULTIPLIER = 250;
   const REPOST_MULTIPLIER = 400;
 
-  // Calculate engagement floor
   const likeViews = likeCount * LIKE_MULTIPLIER;
   const replyViews = replyCount * REPLY_MULTIPLIER;
   const repostViews = repostCount * REPOST_MULTIPLIER;
@@ -302,36 +297,42 @@ export function calculateEstimatedViews(
   const rawViews = likeViews + replyViews + repostViews;
 
   // Apply logarithmic scaling for very high engagement
-  let engagementFloor: number;
+  let views: number;
   if (rawViews <= 500) {
-    engagementFloor = rawViews;
+    views = rawViews;
   } else if (rawViews <= 2000) {
-    engagementFloor = 500 + Math.round((rawViews - 500) * 0.8);
+    views = 500 + Math.round((rawViews - 500) * 0.8);
   } else {
-    engagementFloor = 1700 + Math.round((rawViews - 2000) * 0.6);
+    views = 1700 + Math.round((rawViews - 2000) * 0.6);
   }
 
   // Add a small variance (±15%) to make it look natural
   const hash = postUri ? hashCode(postUri) : 0;
   const variance = 0.85 + (hash % 31) / 100; // 0.85 to 1.15
-  engagementFloor = Math.round(engagementFloor * variance);
 
-  // Return max of tracked views and engagement floor
-  return Math.max(trackedViews, engagementFloor);
+  return Math.round(views * variance);
 }
 
+// Keep old function name for backwards compatibility
+export const calculateEstimatedViews = (
+  _trackedViews: number,
+  likeCount: number,
+  replyCount: number,
+  repostCount: number,
+  postUri?: string
+) => calculateViews(likeCount, replyCount, repostCount, postUri);
+
 /**
- * Hook to get estimated view count for a post from the server
- * Fetches from API to ensure consistent views across all users
+ * Hook to get view count for a post
  */
-export function useEstimatedViewCount(
+export function useViewCount(
   postUri: string | undefined,
   likeCount: number = 0,
   replyCount: number = 0,
   repostCount: number = 0
 ): number {
-  const { data } = useQuery<{ postUri: string; estimatedViews: number }>({
-    queryKey: ['estimated-views', postUri],
+  const { data } = useQuery<{ postUri: string; views: number; estimatedViews?: number }>({
+    queryKey: ['views', postUri],
     queryFn: async () => {
       if (!postUri) throw new Error('No post URI');
       const params = new URLSearchParams({
@@ -342,27 +343,30 @@ export function useEstimatedViewCount(
       });
       const response = await fetch(`${FEED_API_URL}/api/estimated-views?${params}`);
       if (!response.ok) {
-        // Fallback to local calculation if API fails
         return {
           postUri,
-          estimatedViews: calculateEstimatedViews(0, likeCount, replyCount, repostCount, postUri),
+          views: calculateViews(likeCount, replyCount, repostCount, postUri),
         };
       }
-      return response.json();
+      const json = await response.json();
+      return {
+        postUri,
+        views: json.views ?? json.estimatedViews ?? 0,
+      };
     },
-    enabled: !!postUri && (likeCount > 0 || replyCount > 0 || repostCount > 0),
-    staleTime: 5 * 60 * 1000, // 5 minutes - views are stable
-    gcTime: 30 * 60 * 1000, // 30 minutes
-    // Return local calculation while loading
+    enabled: !!postUri,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
     placeholderData: postUri
       ? {
           postUri,
-          estimatedViews: calculateEstimatedViews(0, likeCount, replyCount, repostCount, postUri),
+          views: calculateViews(likeCount, replyCount, repostCount, postUri),
         }
       : undefined,
   });
 
-  return (
-    data?.estimatedViews || calculateEstimatedViews(0, likeCount, replyCount, repostCount, postUri)
-  );
+  return data?.views ?? calculateViews(likeCount, replyCount, repostCount, postUri);
 }
+
+// Keep old hook name for backwards compatibility
+export const useEstimatedViewCount = useViewCount;
