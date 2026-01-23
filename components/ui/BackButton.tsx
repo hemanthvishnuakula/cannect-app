@@ -2,9 +2,8 @@
  * BackButton - Unified back navigation button
  *
  * Handles all edge cases for navigation:
- * - Web: Uses window.history.length for reliable back detection
- * - Native: Uses router.canGoBack()
- * - Falls back to specified route or /feed
+ * - Uses router.canGoBack() for reliable detection on both web and native
+ * - Falls back to specified route or /feed when no history (refresh, deep link)
  *
  * Includes:
  * - Haptic feedback
@@ -12,7 +11,7 @@
  * - Visual press feedback
  */
 
-import { Pressable, Platform } from 'react-native';
+import { Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ArrowLeft } from 'lucide-react-native';
 import { useCallback } from 'react';
@@ -46,20 +45,14 @@ export function BackButton({
       return;
     }
 
-    // On web, check history length directly for more reliability
-    if (Platform.OS === 'web') {
-      if (typeof window !== 'undefined' && window.history.length > 1) {
-        router.back();
-      } else {
-        router.replace(fallbackRoute as any);
-      }
+    // Check if Expo Router can go back (works for both web and native)
+    // This is more reliable than window.history on web after refresh
+    if (router.canGoBack()) {
+      router.back();
     } else {
-      // Native - use router.canGoBack()
-      if (router.canGoBack()) {
-        router.back();
-      } else {
-        router.replace(fallbackRoute as any);
-      }
+      // No router history - either refreshed page or deep linked
+      // Go to fallback route
+      router.replace(fallbackRoute as any);
     }
   }, [router, fallbackRoute, onPress]);
 
