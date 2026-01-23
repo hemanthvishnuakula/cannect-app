@@ -779,7 +779,10 @@ export const PostActions = memo(function PostActions({
               onPress={handleShareToStory}
               className="flex-row items-center gap-4 py-4 px-4 rounded-xl active:bg-zinc-800/50"
             >
-              <View className="w-11 h-11 rounded-full items-center justify-center" style={{ backgroundColor: 'rgba(225, 48, 108, 0.2)' }}>
+              <View
+                className="w-11 h-11 rounded-full items-center justify-center"
+                style={{ backgroundColor: 'rgba(225, 48, 108, 0.2)' }}
+              >
                 <Instagram size={22} color="#E1306C" />
               </View>
               <View className="flex-1">

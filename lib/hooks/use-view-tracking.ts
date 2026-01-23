@@ -274,7 +274,7 @@ function hashCode(str: string): number {
 
 /**
  * Calculate views from engagement (client-side fallback)
- * 
+ *
  * Multipliers based on typical engagement rates:
  * - 1 like ≈ 50 views (2% engagement)
  * - 1 reply ≈ 250 views (0.4% engagement)
@@ -380,7 +380,7 @@ export function useProfileReach(did: string | undefined): number {
     queryKey: ['profile-reach', did],
     queryFn: async () => {
       if (!did) throw new Error('No DID');
-      
+
       const response = await fetch(`${FEED_API_URL}/api/reach?did=${encodeURIComponent(did)}`);
       if (!response.ok) {
         return { reach: 0 };

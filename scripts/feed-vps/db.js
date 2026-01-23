@@ -463,7 +463,7 @@ function cleanupViews(maxAgeSeconds = 30 * 24 * 60 * 60) {
 
 /**
  * Calculate views from engagement
- * 
+ *
  * Multipliers based on typical engagement rates:
  * - 1 like ≈ 50 views (2% engagement)
  * - 1 reply ≈ 250 views (0.4% engagement)
@@ -516,7 +516,7 @@ function updateEngagement(postUri, likeCount, replyCount, repostCount) {
 function getViews(postUri) {
   const trackedViews = getPostViewCount(postUri);
   const engagement = getEngagement.get(postUri);
-  
+
   let engagementViews = 0;
   if (engagement) {
     engagementViews = calculateViewsFromEngagement(
@@ -526,7 +526,7 @@ function getViews(postUri) {
       postUri
     );
   }
-  
+
   // Add both together for total views
   return trackedViews + engagementViews;
 }
@@ -537,7 +537,7 @@ function getViews(postUri) {
 function getViewData(postUri) {
   const engagement = getEngagement.get(postUri);
   const views = getViews(postUri);
-  
+
   return {
     views,
     like_count: engagement?.like_count || 0,
@@ -551,7 +551,7 @@ function getViewData(postUri) {
  */
 function getViewsBatch(postUris) {
   if (!postUris || postUris.length === 0) return {};
-  
+
   try {
     const engagementRows = getEngagementBatch.all(JSON.stringify(postUris));
     const engagementMap = {};
@@ -562,12 +562,12 @@ function getViewsBatch(postUris) {
         repost_count: row.repost_count || 0,
       };
     }
-    
+
     const result = {};
     for (const postUri of postUris) {
       const trackedViews = getPostViewCount(postUri);
       const engagement = engagementMap[postUri];
-      
+
       let engagementViews = 0;
       if (engagement) {
         engagementViews = calculateViewsFromEngagement(
@@ -577,7 +577,7 @@ function getViewsBatch(postUris) {
           postUri
         );
       }
-      
+
       // Add both together for total views
       result[postUri] = trackedViews + engagementViews;
     }
@@ -631,9 +631,13 @@ function getUserReachData(userDid) {
 function updateUserReach(userDid) {
   try {
     // Get all posts by this user
-    const userPosts = db.prepare(`
+    const userPosts = db
+      .prepare(
+        `
       SELECT uri FROM posts WHERE author_did = ?
-    `).all(userDid);
+    `
+      )
+      .all(userDid);
 
     if (userPosts.length === 0) {
       upsertUserReach.run(userDid, 0, 0, 0);
@@ -664,7 +668,7 @@ function updateUserReach(userDid) {
 
     const totalReach = totalTrackedViews + totalEngagementViews;
     upsertUserReach.run(userDid, totalTrackedViews, totalEngagementViews, totalReach);
-    
+
     return totalReach;
   } catch (err) {
     console.error('[DB] updateUserReach error:', err.message);
@@ -677,14 +681,16 @@ function updateUserReach(userDid) {
  */
 function incrementUserTrackedViews(userDid, count = 1) {
   try {
-    db.prepare(`
+    db.prepare(
+      `
       INSERT INTO user_reach (user_did, tracked_views, engagement_views, total_reach, last_updated)
       VALUES (?, ?, 0, ?, unixepoch())
       ON CONFLICT(user_did) DO UPDATE SET
         tracked_views = tracked_views + ?,
         total_reach = total_reach + ?,
         last_updated = unixepoch()
-    `).run(userDid, count, count, count, count);
+    `
+    ).run(userDid, count, count, count, count);
     return true;
   } catch (err) {
     console.error('[DB] incrementUserTrackedViews error:', err.message);

@@ -4,16 +4,11 @@
  * Creates a visually appealing card for sharing posts to Instagram Stories.
  * Similar to X/Twitter's "Share to Instagram Stories" feature.
  *
- * Design:
- * - Story-friendly aspect ratio (9:16)
- * - Cannect branding (logo + cannect.space)
- * - Post content with author info
- * - Dark theme matching app aesthetic
+ * NOTE: Uses react-native Image (not expo-image) for better capture compatibility
  */
 
 import { forwardRef } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { Image } from 'expo-image';
+import { View, Text, Image, StyleSheet } from 'react-native';
 import { Leaf } from 'lucide-react-native';
 import { getOptimizedAvatarWithFallback } from '@/lib/utils/avatar';
 import type { AppBskyFeedDefs, AppBskyFeedPost } from '@atproto/api';
@@ -31,67 +26,59 @@ interface ShareToStoryCardProps {
 export const ShareToStoryCard = forwardRef<View, ShareToStoryCardProps>(({ post }, ref) => {
   const author = post.author;
   const record = post.record as AppBskyFeedPost.Record;
-  const avatarUrl = getOptimizedAvatarWithFallback(author.avatar, author.displayName || author.handle, 48);
-  
+  const avatarUrl = getOptimizedAvatarWithFallback(
+    author.avatar,
+    author.displayName || author.handle,
+    48
+  );
+
   // Truncate text for story card (max ~280 chars)
-  const displayText = record.text?.length > 280 
-    ? record.text.substring(0, 277) + '...' 
-    : record.text || '';
+  const displayText =
+    record.text?.length > 280 ? record.text.substring(0, 277) + '...' : record.text || '';
 
   // Check if cannect user
-  const isCannectUser = 
-    author.handle.endsWith('.cannect.space') || 
-    author.handle.endsWith('.pds.cannect.space');
+  const isCannectUser =
+    author.handle.endsWith('.cannect.space') || author.handle.endsWith('.pds.cannect.space');
 
   return (
     <View ref={ref} style={styles.container} collapsable={false}>
-      {/* Background gradient effect */}
-      <View style={styles.background}>
-        {/* Top branding */}
-        <View style={styles.topBranding}>
-          <View style={styles.logoContainer}>
-            <Leaf size={20} color="#10B981" />
-            <Text style={styles.logoText}>Cannect</Text>
-          </View>
+      {/* Top branding - positioned at top right */}
+      <View style={styles.topBranding} collapsable={false}>
+        <View style={styles.logoContainer} collapsable={false}>
+          <Leaf size={18} color="#10B981" />
+          <Text style={styles.logoText}>Cannect</Text>
         </View>
+      </View>
 
-        {/* Main content card */}
-        <View style={styles.card}>
-          {/* Author info */}
-          <View style={styles.authorRow}>
-            <Image
-              source={{ uri: avatarUrl }}
-              style={styles.avatar}
-              contentFit="cover"
-            />
-            <View style={styles.authorInfo}>
-              <View style={styles.nameRow}>
-                <Text style={styles.displayName} numberOfLines={1}>
-                  {author.displayName || author.handle}
-                </Text>
-                {isCannectUser && (
-                  <View style={styles.badge}>
-                    <Text style={styles.badgeText}>cannect</Text>
-                  </View>
-                )}
-              </View>
-              <Text style={styles.handle}>@{author.handle}</Text>
+      {/* Main content card - centered */}
+      <View style={styles.card} collapsable={false}>
+        {/* Author info */}
+        <View style={styles.authorRow} collapsable={false}>
+          <Image source={{ uri: avatarUrl }} style={styles.avatar} />
+          <View style={styles.authorInfo} collapsable={false}>
+            <Text style={styles.displayName} numberOfLines={1}>
+              {author.displayName || author.handle}
+            </Text>
+            <View style={styles.handleRow} collapsable={false}>
+              <Text style={styles.handle} numberOfLines={1}>
+                @{author.handle}
+              </Text>
+              {isCannectUser && (
+                <View style={styles.badge} collapsable={false}>
+                  <Text style={styles.badgeText}>cannect</Text>
+                </View>
+              )}
             </View>
           </View>
-
-          {/* Post text */}
-          <Text style={styles.postText}>{displayText}</Text>
-
-          {/* Engagement hint */}
-          <View style={styles.engagementHint}>
-            <Text style={styles.hintText}>Tap to see full post</Text>
-          </View>
         </View>
 
-        {/* Bottom branding */}
-        <View style={styles.bottomBranding}>
-          <Text style={styles.urlText}>cannect.space</Text>
-        </View>
+        {/* Post text */}
+        <Text style={styles.postText}>{displayText}</Text>
+      </View>
+
+      {/* Bottom branding */}
+      <View style={styles.bottomBranding} collapsable={false}>
+        <Text style={styles.urlText}>cannect.space</Text>
       </View>
     </View>
   );
@@ -104,18 +91,11 @@ const styles = StyleSheet.create({
     width: 360,
     height: 640,
     backgroundColor: '#0A0A0A',
-  },
-  background: {
-    flex: 1,
-    backgroundColor: '#0A0A0A',
-    paddingHorizontal: 20,
-    paddingVertical: 40,
-    justifyContent: 'space-between',
+    padding: 24,
   },
   topBranding: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    alignItems: 'center',
+    alignItems: 'flex-end',
+    marginBottom: 24,
   },
   logoContainer: {
     flexDirection: 'row',
@@ -132,6 +112,7 @@ const styles = StyleSheet.create({
     marginLeft: 6,
   },
   card: {
+    flex: 1,
     backgroundColor: '#18181B',
     borderRadius: 16,
     padding: 20,
@@ -153,14 +134,19 @@ const styles = StyleSheet.create({
     flex: 1,
     marginLeft: 12,
   },
-  nameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
   displayName: {
     color: '#FAFAFA',
     fontSize: 16,
     fontWeight: '700',
+  },
+  handleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 2,
+  },
+  handle: {
+    color: '#71717A',
+    fontSize: 13,
     flexShrink: 1,
   },
   badge: {
@@ -172,33 +158,17 @@ const styles = StyleSheet.create({
   },
   badgeText: {
     color: '#10B981',
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '600',
-  },
-  handle: {
-    color: '#71717A',
-    fontSize: 14,
-    marginTop: 2,
   },
   postText: {
     color: '#FAFAFA',
-    fontSize: 18,
-    lineHeight: 26,
-    fontWeight: '400',
-  },
-  engagementHint: {
-    marginTop: 20,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#27272A',
-    alignItems: 'center',
-  },
-  hintText: {
-    color: '#52525B',
-    fontSize: 13,
+    fontSize: 17,
+    lineHeight: 24,
   },
   bottomBranding: {
     alignItems: 'center',
+    marginTop: 24,
   },
   urlText: {
     color: '#52525B',

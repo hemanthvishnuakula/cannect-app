@@ -16,7 +16,14 @@ import { FlashList } from '@shopify/flash-list';
 import { useRouter } from 'expo-router';
 import { LogOut, Edit3, MessageCircle, Pin } from 'lucide-react-native';
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
-import { useAuthorFeed, useActorLikes, useStartConversation, usePinnedPost, useProfileReach, useBoostedPosts } from '@/lib/hooks';
+import {
+  useAuthorFeed,
+  useActorLikes,
+  useStartConversation,
+  usePinnedPost,
+  useProfileReach,
+  useBoostedPosts,
+} from '@/lib/hooks';
 import { PostCard } from '@/components/Post';
 import { FollowButton, useToast } from '@/components/ui';
 import { getOptimizedAvatarUrl } from '@/lib/utils/avatar';
@@ -80,10 +87,10 @@ export function ProfileView({
   const likesQuery = useActorLikes(isOwnProfile ? profileData.did : undefined);
   // Pinned post
   const { data: pinnedPost } = usePinnedPost(profileData.did);
-  
+
   // User's total reach (from database - single source of truth)
   const profileReach = useProfileReach(profileData.did);
-  
+
   // Boosted posts (for showing badge)
   const { data: boostedUris } = useBoostedPosts();
 
@@ -238,9 +245,7 @@ export function ProfileView({
                   <Text className="text-text-muted ml-1">posts</Text>
                 </View>
                 <View className="flex-row items-center">
-                  <Text className="font-bold text-text-primary">
-                    {formatNumber(profileReach)}
-                  </Text>
+                  <Text className="font-bold text-text-primary">{formatNumber(profileReach)}</Text>
                   <Text className="text-text-muted ml-1">reach</Text>
                 </View>
               </View>
@@ -272,12 +277,19 @@ export function ProfileView({
                   <Pin size={12} color="#10B981" />
                   <Text className="text-primary text-xs font-medium ml-1">Pinned</Text>
                 </View>
-                <PostCard post={pinnedPost} hideFollowButton showBorder={false} isBoosted={boostedUris?.has(pinnedPost.uri)} />
+                <PostCard
+                  post={pinnedPost}
+                  hideFollowButton
+                  showBorder={false}
+                  isBoosted={boostedUris?.has(pinnedPost.uri)}
+                />
               </View>
             )}
           </View>
         }
-        renderItem={({ item }) => <PostCard item={item} hideFollowButton isBoosted={boostedUris?.has(item.post.uri)} />}
+        renderItem={({ item }) => (
+          <PostCard item={item} hideFollowButton isBoosted={boostedUris?.has(item.post.uri)} />
+        )}
         refreshControl={
           <RefreshControl
             refreshing={isRefreshing || currentQuery.isRefetching}

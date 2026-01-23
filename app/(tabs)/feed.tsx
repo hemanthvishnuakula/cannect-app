@@ -61,7 +61,7 @@ export default function FeedScreen() {
   // === FEEDS ===
   const cannectQuery = useCannectFeed();
   const followingQuery = useTimeline();
-  
+
   // Boosted posts (for showing badge)
   const { data: boostedUris } = useBoostedPosts();
 

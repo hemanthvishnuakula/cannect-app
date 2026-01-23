@@ -427,7 +427,7 @@ app.post('/api/views', generalLimiter, async (req, res) => {
 
     if (dedupedViews.length > 0) {
       db.recordViewsBatch(dedupedViews);
-      
+
       // Update user reach for post authors (async, non-blocking)
       const authorDids = new Set();
       for (const view of dedupedViews) {
@@ -439,7 +439,9 @@ app.post('/api/views', generalLimiter, async (req, res) => {
       }
       // Increment tracked views for each author
       for (const authorDid of authorDids) {
-        const viewCount = dedupedViews.filter(v => v.postUri.startsWith(`at://${authorDid}/`)).length;
+        const viewCount = dedupedViews.filter((v) =>
+          v.postUri.startsWith(`at://${authorDid}/`)
+        ).length;
         db.incrementUserTrackedViews(authorDid, viewCount);
       }
     }
@@ -531,7 +533,7 @@ app.get('/api/views/author', generalLimiter, async (req, res) => {
 /**
  * Get user's total reach (stored in database - single source of truth)
  * GET /api/reach?did=did:plc:...
- * 
+ *
  * Auto-recalculates if:
  * - User doesn't exist in db (first visit)
  * - Data is stale (older than 5 minutes)
@@ -549,9 +551,9 @@ app.get('/api/reach', generalLimiter, async (req, res) => {
 
     // Get stored reach data
     const data = db.getUserReachData(did);
-    
+
     let reach;
-    const isStale = (now - data.last_updated) > STALE_THRESHOLD;
+    const isStale = now - data.last_updated > STALE_THRESHOLD;
     const isNew = data.last_updated === 0;
 
     if (isNew || isStale) {
