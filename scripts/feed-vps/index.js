@@ -19,6 +19,7 @@ const WebSocket = require('ws');
 const db = require('./db');
 const { shouldIncludePost, getPostText } = require('./feed-logic');
 const { verifyWithAI } = require('./ai-filter');
+const { generateStoryImage, loadFonts } = require('./story-image');
 
 // =============================================================================
 // Configuration
@@ -379,6 +380,45 @@ app.get('/api/oembed', generalLimiter, async (req, res) => {
   } catch (err) {
     console.error('[oEmbed] Error:', err.message);
     return res.status(500).json({ error: 'Failed to fetch metadata' });
+  }
+});
+
+// =============================================================================
+// Story Image Generator - Server-side image for Instagram Stories sharing
+// =============================================================================
+
+/**
+ * Generate Instagram Stories image for a post
+ * GET /api/story-image?uri=at://did:plc:.../app.bsky.feed.post/...
+ * Returns: PNG image (1080x1920)
+ */
+app.get('/api/story-image', generalLimiter, async (req, res) => {
+  try {
+    const { uri } = req.query;
+
+    if (!uri) {
+      return res.status(400).json({ error: 'Missing uri parameter' });
+    }
+
+    // Validate it's an AT Protocol URI
+    if (!uri.startsWith('at://')) {
+      return res.status(400).json({ error: 'Invalid AT Protocol URI' });
+    }
+
+    // Generate the image
+    const pngBuffer = await generateStoryImage(uri);
+
+    // Set cache headers (cache for 1 hour)
+    res.set({
+      'Content-Type': 'image/png',
+      'Content-Length': pngBuffer.length,
+      'Cache-Control': 'public, max-age=3600',
+    });
+
+    res.send(pngBuffer);
+  } catch (err) {
+    console.error('[StoryImage] Error:', err.message);
+    return res.status(500).json({ error: 'Failed to generate image' });
   }
 });
 
@@ -951,6 +991,14 @@ app.listen(PORT, async () => {
 
   // Fetch cannect.space users first
   await refreshCannectUsers();
+
+  // Preload fonts for story image generation
+  try {
+    await loadFonts();
+    console.log('[Server] Story image fonts loaded');
+  } catch (err) {
+    console.warn('[Server] Failed to load story image fonts:', err.message);
+  }
 
   // Refresh user list every 5 minutes
   setInterval(refreshCannectUsers, 5 * 60 * 1000);

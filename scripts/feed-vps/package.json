@@ -9,10 +9,12 @@
   },
   "dependencies": {
     "@atproto/api": "^0.13.20",
+    "@resvg/resvg-js": "^2.6.2",
     "better-sqlite3": "^11.7.0",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "express-rate-limit": "^7.1.5",
+    "satori": "^0.10.14",
     "ws": "^8.18.0"
   }
 }
