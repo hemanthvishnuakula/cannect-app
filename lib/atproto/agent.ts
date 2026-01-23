@@ -898,7 +898,7 @@ async function getProfileFromPds(
  * Get profile
  * For Cannect users, merges profile data from PDS to ensure
  * users see their own updates immediately (Read Your Own Writes pattern)
- * 
+ *
  * NOTE: Uses public Bluesky AppView for initial profile fetch since PDSes don't have AppView endpoints
  */
 export async function getProfile(actor: string) {
@@ -940,7 +940,7 @@ export async function getProfile(actor: string) {
       // Fetch user's following list to check if they follow this profile
       const followingDids = new Set<string>();
       let cursor: string | undefined;
-      
+
       // Fetch up to 200 follows (4 pages of 50)
       for (let i = 0; i < 4; i++) {
         const followsResult = await bskyAgent.getFollows({
@@ -948,17 +948,19 @@ export async function getProfile(actor: string) {
           limit: 50,
           cursor,
         });
-        
+
         followsResult.data.follows.forEach((f) => followingDids.add(f.did));
         cursor = followsResult.data.cursor;
-        
+
         if (!cursor) break;
       }
-      
+
       const isFollowing = followingDids.has(result.data.did);
       result.data.viewer = {
         ...result.data.viewer,
-        following: isFollowing ? `at://${bskyAgent.session.did}/app.bsky.graph.follow/placeholder` : undefined,
+        following: isFollowing
+          ? `at://${bskyAgent.session.did}/app.bsky.graph.follow/placeholder`
+          : undefined,
       };
       console.log('[getProfile] Hydrated viewer data, isFollowing:', isFollowing);
     } catch (err) {
@@ -1035,16 +1037,15 @@ export async function listPdsRepos(limit = 100): Promise<string[]> {
 
     // Combine and deduplicate
     const allDids = [...new Set([...legacyDids, ...newDids])];
-    
+
     // Validate DIDs - must be proper did:plc: format
-    const validDids = allDids.filter(did => 
-      did && 
-      typeof did === 'string' && 
-      did.startsWith('did:plc:') && 
-      did.length > 12
+    const validDids = allDids.filter(
+      (did) => did && typeof did === 'string' && did.startsWith('did:plc:') && did.length > 12
     );
-    
-    console.log(`[listPdsRepos] Got ${validDids.length} valid DIDs (legacy: ${legacyDids.length}, new: ${newDids.length})`);
+
+    console.log(
+      `[listPdsRepos] Got ${validDids.length} valid DIDs (legacy: ${legacyDids.length}, new: ${newDids.length})`
+    );
     return validDids;
   } catch (error) {
     console.error('[listPdsRepos] Error:', error);
@@ -1056,30 +1057,31 @@ export async function listPdsRepos(limit = 100): Promise<string[]> {
  * Get profiles for multiple DIDs
  * Falls back to individual getProfile calls if batch fails
  * Applies Read Your Own Writes pattern for Cannect users
- * 
+ *
  * Uses public AppView for profile data, then hydrates viewer relationships from authenticated agent
  */
 export async function getProfiles(dids: string[]) {
   // Use public AppView for profile data (since PDS doesn't have AppView endpoints)
   const appViewAgent = getPublicAgent();
-  
+
   // Validate and filter DIDs before making API call
-  const validDids = dids.filter(did => 
-    did && 
-    typeof did === 'string' && 
-    (did.startsWith('did:plc:') || did.startsWith('did:web:')) && 
-    did.length > 10
+  const validDids = dids.filter(
+    (did) =>
+      did &&
+      typeof did === 'string' &&
+      (did.startsWith('did:plc:') || did.startsWith('did:web:')) &&
+      did.length > 10
   );
-  
+
   if (validDids.length === 0) {
     console.log('[getProfiles] No valid DIDs to fetch');
     return [];
   }
-  
+
   if (validDids.length !== dids.length) {
     console.log(`[getProfiles] Filtered out ${dids.length - validDids.length} invalid DIDs`);
   }
-  
+
   // API limit is 25 actors at a time
   const chunks = [];
   for (let i = 0; i < validDids.length; i += 25) {
@@ -1091,10 +1093,10 @@ export async function getProfiles(dids: string[]) {
     const publicResults = await Promise.all(
       chunks.map((chunk) => appViewAgent.getProfiles({ actors: chunk }))
     );
-    
+
     let profiles = publicResults.flatMap((r) => r.data.profiles);
     console.log('[getProfiles] Got', profiles.length, 'profiles from public AppView');
-    
+
     // If user is authenticated, hydrate viewer relationships by fetching their following list
     const bskyAgent = getAgent();
     if (bskyAgent.session?.did) {
@@ -1102,7 +1104,7 @@ export async function getProfiles(dids: string[]) {
         // Fetch user's following list to check who they follow
         const followingDids = new Set<string>();
         let cursor: string | undefined;
-        
+
         // Fetch up to 200 follows to check against (4 pages of 50)
         for (let i = 0; i < 4; i++) {
           const followsResult = await bskyAgent.getFollows({
@@ -1110,15 +1112,15 @@ export async function getProfiles(dids: string[]) {
             limit: 50,
             cursor,
           });
-          
+
           followsResult.data.follows.forEach((f) => followingDids.add(f.did));
           cursor = followsResult.data.cursor;
-          
+
           if (!cursor) break; // No more pages
         }
-        
+
         console.log('[getProfiles] Fetched', followingDids.size, 'follows for viewer hydration');
-        
+
         // Apply viewer.following to profiles
         profiles = profiles.map((profile) => {
           const isFollowing = followingDids.has(profile.did);
@@ -1127,11 +1129,13 @@ export async function getProfiles(dids: string[]) {
             viewer: {
               ...profile.viewer,
               // Set following to a truthy value if following, undefined if not
-              following: isFollowing ? `at://${bskyAgent.session?.did}/app.bsky.graph.follow/placeholder` : undefined,
+              following: isFollowing
+                ? `at://${bskyAgent.session?.did}/app.bsky.graph.follow/placeholder`
+                : undefined,
             },
           };
         });
-        
+
         console.log('[getProfiles] Hydrated viewer data for', profiles.length, 'profiles');
       } catch (err) {
         console.log('[getProfiles] Could not hydrate viewer data:', err);

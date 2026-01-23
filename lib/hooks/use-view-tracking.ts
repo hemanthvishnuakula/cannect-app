@@ -67,11 +67,12 @@ function queueView(postUri: string, source: string = 'feed') {
 /**
  * Hook to track views for a single post
  * Attach the returned ref to the post container element
+ * Works with React Native Web by finding the underlying DOM node
  */
 export function useTrackPostView(postUri: string | undefined, source: string = 'feed') {
   const currentDid = useCurrentDid();
   const hasTracked = useRef(false);
-  const elementRef = useRef<HTMLDivElement>(null);
+  const elementRef = useRef<any>(null);
 
   // Update global viewer DID
   useEffect(() => {
@@ -83,8 +84,49 @@ export function useTrackPostView(postUri: string | undefined, source: string = '
   useEffect(() => {
     if (!postUri || hasTracked.current) return;
 
-    const element = elementRef.current;
-    if (!element) return;
+    // Skip on native (no IntersectionObserver)
+    if (typeof window === 'undefined' || typeof IntersectionObserver === 'undefined') {
+      // On native, just track immediately when mounted (simpler approach)
+      hasTracked.current = true;
+      queueView(postUri, source);
+      return;
+    }
+
+    const refValue = elementRef.current;
+    if (!refValue) return;
+
+    // React Native Web: the ref might be a View with a DOM node inside
+    // Try to get the underlying DOM element
+    let element: Element | null = null;
+    
+    if (refValue instanceof Element) {
+      // Direct DOM element
+      element = refValue;
+    } else if (refValue._nativeTag || refValue.canonical) {
+      // React Native Web internal - try to find DOM node
+      // @ts-ignore - accessing internal property
+      element = refValue._nativeTag || refValue;
+    } else if (typeof refValue.measure === 'function') {
+      // React Native view - try findDOMNode equivalent for web
+      try {
+        // @ts-ignore - findNodeHandle for web
+        const { findDOMNode } = require('react-dom');
+        element = findDOMNode(refValue);
+      } catch {
+        // Fallback: just track immediately
+        hasTracked.current = true;
+        queueView(postUri, source);
+        return;
+      }
+    }
+
+    if (!element || !(element instanceof Element)) {
+      // Can't observe, just track immediately
+      console.debug('[ViewTracking] Could not find DOM element, tracking immediately');
+      hasTracked.current = true;
+      queueView(postUri, source);
+      return;
+    }
 
     const observer = new IntersectionObserver(
       (entries) => {
@@ -199,9 +241,7 @@ export function useTrendingPosts(hours: number = 24, limit: number = 20) {
   return useQuery<{ period: string; posts: Array<{ postUri: string; views: number }> }>({
     queryKey: ['trending-posts', hours, limit],
     queryFn: async () => {
-      const response = await fetch(
-        `${FEED_API_URL}/api/trending?hours=${hours}&limit=${limit}`
-      );
+      const response = await fetch(`${FEED_API_URL}/api/trending?hours=${hours}&limit=${limit}`);
       if (!response.ok) throw new Error('Failed to fetch trending posts');
       return response.json();
     },
@@ -226,7 +266,7 @@ function hashCode(str: string): number {
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
     const char = str.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
+    hash = (hash << 5) - hash + char;
     hash = hash & hash; // Convert to 32bit integer
   }
   return Math.abs(hash);
@@ -234,13 +274,13 @@ function hashCode(str: string): number {
 
 /**
  * Calculate estimated view count based on engagement metrics
- * 
+ *
  * Since most posts come from Bluesky and don't have our view tracking,
  * we estimate views based on typical engagement ratios:
  * - ~2-5% of viewers like a post → 1 like ≈ 25-40 views
  * - ~0.5-1% of viewers comment → 1 comment ≈ 75-150 views
  * - ~0.2-0.5% of viewers repost → 1 repost ≈ 150-300 views
- * 
+ *
  * We add some variance to make it look natural, not formulaic.
  * The variance is deterministic based on postUri so it's consistent.
  */
@@ -253,32 +293,32 @@ export function calculateEstimatedViews(
 ): number {
   // Base multipliers (conservative estimates)
   const LIKE_MULTIPLIER = 30; // 1 like ≈ 30 views
-  const COMMENT_MULTIPLIER = 100; // 1 comment ≈ 100 views  
+  const COMMENT_MULTIPLIER = 100; // 1 comment ≈ 100 views
   const REPOST_MULTIPLIER = 200; // 1 repost ≈ 200 views
-  
+
   // Calculate engagement-based views
   const likeViews = likeCount * LIKE_MULTIPLIER;
   const commentViews = replyCount * COMMENT_MULTIPLIER;
   const repostViews = repostCount * REPOST_MULTIPLIER;
-  
+
   // Total estimated from engagement
   const engagementViews = likeViews + commentViews + repostViews;
-  
+
   // Use the higher of tracked views or engagement-based estimate
   // This ensures posts with actual tracking aren't underestimated
   const baseViews = Math.max(trackedViews, engagementViews);
-  
+
   // Add a small variance (±10%) to make it look natural
   // Use post URI hash for consistent variance per post
   const hash = postUri ? hashCode(postUri) : 0;
-  const variance = 0.9 + ((hash % 20) / 100); // 0.90 to 1.10
-  
+  const variance = 0.9 + (hash % 20) / 100; // 0.90 to 1.10
+
   // Minimum 1 view if there's any engagement
   const totalEngagement = likeCount + replyCount + repostCount;
   if (totalEngagement === 0 && trackedViews === 0) {
     return 0;
   }
-  
+
   return Math.max(1, Math.round(baseViews * variance));
 }
 
@@ -305,7 +345,10 @@ export function useEstimatedViewCount(
       const response = await fetch(`${FEED_API_URL}/api/estimated-views?${params}`);
       if (!response.ok) {
         // Fallback to local calculation if API fails
-        return { postUri, estimatedViews: calculateEstimatedViews(0, likeCount, replyCount, repostCount, postUri) };
+        return {
+          postUri,
+          estimatedViews: calculateEstimatedViews(0, likeCount, replyCount, repostCount, postUri),
+        };
       }
       return response.json();
     },
@@ -313,8 +356,15 @@ export function useEstimatedViewCount(
     staleTime: 5 * 60 * 1000, // 5 minutes - views are stable
     gcTime: 30 * 60 * 1000, // 30 minutes
     // Return local calculation while loading
-    placeholderData: postUri ? { postUri, estimatedViews: calculateEstimatedViews(0, likeCount, replyCount, repostCount, postUri) } : undefined,
+    placeholderData: postUri
+      ? {
+          postUri,
+          estimatedViews: calculateEstimatedViews(0, likeCount, replyCount, repostCount, postUri),
+        }
+      : undefined,
   });
-  
-  return data?.estimatedViews || calculateEstimatedViews(0, likeCount, replyCount, repostCount, postUri);
+
+  return (
+    data?.estimatedViews || calculateEstimatedViews(0, likeCount, replyCount, repostCount, postUri)
+  );
 }

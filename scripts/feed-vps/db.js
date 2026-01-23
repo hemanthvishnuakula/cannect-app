@@ -369,7 +369,7 @@ function recordViewsBatch(views) {
       insertViewsBatch.run(view.postUri, view.viewerDid || null, view.source || 'feed');
     }
   });
-  
+
   try {
     insertMany(views);
     return true;
@@ -458,11 +458,11 @@ function calculateEstimatedViewCount(likeCount, replyCount, repostCount, postUri
   let hash = 0;
   for (let i = 0; i < (postUri || '').length; i++) {
     const char = postUri.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
+    hash = (hash << 5) - hash + char;
     hash = hash & hash;
   }
   hash = Math.abs(hash);
-  const variance = 0.9 + ((hash % 20) / 100); // 0.90 to 1.10
+  const variance = 0.9 + (hash % 20) / 100; // 0.90 to 1.10
 
   if (likeCount === 0 && replyCount === 0 && repostCount === 0) {
     return 0;
@@ -478,20 +478,26 @@ function calculateEstimatedViewCount(likeCount, replyCount, repostCount, postUri
 function setEstimatedViews(postUri, likeCount, replyCount, repostCount) {
   // Get actual tracked viewport views
   const actualViews = getPostViewCount(postUri);
-  
+
   // Calculate engagement-based estimate
-  const engagementEstimate = calculateEstimatedViewCount(likeCount, replyCount, repostCount, postUri);
-  
+  const engagementEstimate = calculateEstimatedViewCount(
+    likeCount,
+    replyCount,
+    repostCount,
+    postUri
+  );
+
   // Combine: use higher of actual vs engagement, then add any overflow
   // This ensures actual views always count, plus engagement estimate for reach
   // Formula: max(actual, engagement) + min(actual, engagement) * 0.2
   // This gives weight to both metrics without double counting
-  const combined = Math.max(actualViews, engagementEstimate) + 
-                   Math.round(Math.min(actualViews, engagementEstimate) * 0.2);
-  
+  const combined =
+    Math.max(actualViews, engagementEstimate) +
+    Math.round(Math.min(actualViews, engagementEstimate) * 0.2);
+
   // Ensure at least actual views are shown
   const finalViews = Math.max(actualViews, combined);
-  
+
   try {
     upsertEstimatedViews.run(postUri, likeCount, replyCount, repostCount, finalViews);
     return finalViews;

@@ -519,7 +519,7 @@ app.get('/api/views/author', generalLimiter, async (req, res) => {
 /**
  * Get or calculate estimated views for a single post
  * GET /api/estimated-views?uri=at://...&likes=10&replies=2&reposts=1
- * 
+ *
  * If stored, returns stored value. Otherwise calculates and stores it.
  */
 app.get('/api/estimated-views', generalLimiter, async (req, res) => {
@@ -532,26 +532,26 @@ app.get('/api/estimated-views', generalLimiter, async (req, res) => {
 
     // Check if we have a stored value
     const stored = db.getStoredEstimatedViews(uri);
-    
+
     // Parse engagement counts from query
     const likeCount = parseInt(likes) || 0;
     const replyCount = parseInt(replies) || 0;
     const repostCount = parseInt(reposts) || 0;
-    
+
     // Get current actual viewport views
     const actualViews = db.getPostViewCount(uri);
 
     // If stored, check if we need to recalculate
     if (stored) {
-      const engagementChanged = 
+      const engagementChanged =
         Math.abs(stored.like_count - likeCount) > 2 ||
         Math.abs(stored.reply_count - replyCount) > 1 ||
         Math.abs(stored.repost_count - repostCount) > 1;
-      
+
       // Also recalculate if actual views have increased significantly
       // (stored value should always be >= actual, so if actual is higher, recalc needed)
       const viewsIncreased = actualViews > stored.estimated_views;
-      
+
       if (!engagementChanged && !viewsIncreased) {
         return res.json({
           postUri: uri,
@@ -564,7 +564,7 @@ app.get('/api/estimated-views', generalLimiter, async (req, res) => {
 
     // Calculate and store new value (now incorporates actual viewport views)
     const estimated = db.setEstimatedViews(uri, likeCount, replyCount, repostCount);
-    
+
     res.json({
       postUri: uri,
       estimatedViews: estimated,
@@ -581,6 +581,8 @@ app.get('/api/estimated-views', generalLimiter, async (req, res) => {
  * Get estimated views for multiple posts at once (batch)
  * POST /api/estimated-views/batch
  * Body: { posts: [{ uri: "at://...", likes: 10, replies: 2, reposts: 1 }, ...] }
+ * 
+ * Always recalculates to ensure viewport views are included
  */
 app.post('/api/estimated-views/batch', generalLimiter, async (req, res) => {
   try {
@@ -595,30 +597,20 @@ app.post('/api/estimated-views/batch', generalLimiter, async (req, res) => {
       return res.status(400).json({ error: 'Max 100 posts per batch' });
     }
 
-    // Get all URIs
-    const uris = posts.map((p) => p.uri).filter(Boolean);
-    
-    // Get stored values
-    const storedViews = db.getEstimatedViewsBatch(uris);
-    
-    // Build result, calculating any missing values
+    // Build result, always recalculating to include latest viewport views
     const result = {};
     for (const post of posts) {
       if (!post.uri) continue;
-      
-      const stored = storedViews[post.uri];
-      if (stored !== undefined) {
-        result[post.uri] = stored;
-      } else {
-        // Calculate and store
-        const estimated = db.setEstimatedViews(
-          post.uri,
-          post.likes || 0,
-          post.replies || 0,
-          post.reposts || 0
-        );
-        result[post.uri] = estimated;
-      }
+
+      // Always recalculate to ensure viewport views are included
+      // setEstimatedViews combines engagement estimate with actual viewport views
+      const estimated = db.setEstimatedViews(
+        post.uri,
+        post.likes || 0,
+        post.replies || 0,
+        post.reposts || 0
+      );
+      result[post.uri] = estimated;
     }
 
     res.json({ views: result });
@@ -686,20 +678,20 @@ app.get('/xrpc/app.bsky.feed.getFeedSkeleton', (req, res) => {
     // ==========================================================================
     if (boostedPosts.length > 0) {
       const hour = new Date().getUTCHours();
-      
+
       // Calculate position based on time (rotates position 2-8 throughout day)
       // Changes every 3 hours
       const timeSlot = Math.floor(hour / 3); // 0-7 time slots per day
       const basePosition = 2 + (timeSlot % 7); // Position 2-8
-      
+
       // Select which boost to show (rotates through boosts based on hour)
       const boostIndex = hour % boostedPosts.length;
       const boostToInject = boostedPosts[boostIndex];
-      
+
       // Determine if we should inject on this page
       let shouldInject = false;
       let position = basePosition;
-      
+
       if (offset === 0) {
         // First page: always inject
         shouldInject = true;
@@ -709,13 +701,15 @@ app.get('/xrpc/app.bsky.feed.getFeedSkeleton', (req, res) => {
         // Vary position on subsequent pages
         position = 2 + ((offset / 30) % 7);
       }
-      
+
       if (shouldInject && position < feedItems.length) {
         // Check if this boost is already in the feed
         const alreadyInFeed = feedItems.some((item) => item.post === boostToInject.post_uri);
         if (!alreadyInFeed) {
           feedItems.splice(position, 0, { post: boostToInject.post_uri });
-          console.log(`[Feed] Injected boost at pos ${position} (hour: ${hour}, offset: ${offset})`);
+          console.log(
+            `[Feed] Injected boost at pos ${position} (hour: ${hour}, offset: ${offset})`
+          );
         }
       }
     }
