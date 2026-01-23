@@ -275,14 +275,15 @@ function hashCode(str: string): number {
 /**
  * Calculate estimated view count based on engagement metrics
  *
- * Since most posts come from Bluesky and don't have our view tracking,
- * we estimate views based on typical engagement ratios:
- * - ~2-5% of viewers like a post → 1 like ≈ 25-40 views
- * - ~0.5-1% of viewers comment → 1 comment ≈ 75-150 views
- * - ~0.2-0.5% of viewers repost → 1 repost ≈ 150-300 views
+ * Strategy: More natural, gradual view counts
+ * - Lower engagement multipliers (realistic ~20-30% engagement rate for likes)
+ * - Base views for any post with engagement
+ * - Logarithmic scaling to prevent huge jumps from single engagements
  *
- * We add some variance to make it look natural, not formulaic.
- * The variance is deterministic based on postUri so it's consistent.
+ * New multipliers:
+ * - 1 like ≈ 4 views (was 30)
+ * - 1 reply ≈ 12 views (was 100)
+ * - 1 repost ≈ 18 views (was 200)
  */
 export function calculateEstimatedViews(
   trackedViews: number,
@@ -291,27 +292,44 @@ export function calculateEstimatedViews(
   repostCount: number,
   postUri?: string
 ): number {
-  // Base multipliers (conservative estimates)
-  const LIKE_MULTIPLIER = 30; // 1 like ≈ 30 views
-  const COMMENT_MULTIPLIER = 100; // 1 comment ≈ 100 views
-  const REPOST_MULTIPLIER = 200; // 1 repost ≈ 200 views
+  // Much lower, more realistic multipliers
+  const LIKE_MULTIPLIER = 4;
+  const COMMENT_MULTIPLIER = 12;
+  const REPOST_MULTIPLIER = 18;
 
-  // Calculate engagement-based views
+  // Base views - if there's ANY engagement, post was seen by at least a few people
+  const BASE_VIEWS = likeCount > 0 || replyCount > 0 || repostCount > 0 ? 3 : 0;
+
+  // Calculate raw engagement views
   const likeViews = likeCount * LIKE_MULTIPLIER;
   const commentViews = replyCount * COMMENT_MULTIPLIER;
   const repostViews = repostCount * REPOST_MULTIPLIER;
 
-  // Total estimated from engagement
-  const engagementViews = likeViews + commentViews + repostViews;
+  const rawEngagementViews = likeViews + commentViews + repostViews;
 
-  // Use the higher of tracked views or engagement-based estimate
-  // This ensures posts with actual tracking aren't underestimated
-  const baseViews = Math.max(trackedViews, engagementViews);
+  // Apply logarithmic scaling for high engagement to prevent unrealistic numbers
+  let scaledViews: number;
+  if (rawEngagementViews <= 20) {
+    scaledViews = rawEngagementViews; // Linear for low engagement
+  } else if (rawEngagementViews <= 100) {
+    // Slight reduction: 20 + 80% of overflow
+    scaledViews = 20 + Math.round((rawEngagementViews - 20) * 0.8);
+  } else {
+    // More reduction for high engagement
+    scaledViews = 84 + Math.round((rawEngagementViews - 100) * 0.5);
+  }
+
+  const engagementViews = BASE_VIEWS + scaledViews;
+
+  // Combine with tracked viewport views
+  // Use higher of tracked vs engagement, add smaller portion of the other
+  const baseViews =
+    Math.max(trackedViews, engagementViews) +
+    Math.round(Math.min(trackedViews, engagementViews) * 0.2);
 
   // Add a small variance (±10%) to make it look natural
-  // Use post URI hash for consistent variance per post
   const hash = postUri ? hashCode(postUri) : 0;
-  const variance = 0.9 + (hash % 20) / 100; // 0.90 to 1.10
+  const variance = 0.9 + (hash % 21) / 100; // 0.90 to 1.10
 
   // Minimum 1 view if there's any engagement
   const totalEngagement = likeCount + replyCount + repostCount;

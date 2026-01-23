@@ -441,20 +441,49 @@ function cleanupViews(maxAgeSeconds = 30 * 24 * 60 * 60) {
 
 /**
  * Calculate estimated views based on engagement metrics
- * Formula: (likes × 30) + (replies × 100) + (reposts × 200) with ±10% variance
+ * 
+ * Strategy: More natural, gradual view counts
+ * - Lower engagement multipliers (realistic ~3-5% engagement rate)
+ * - Base views for any post with engagement (people scrolled past it)
+ * - Logarithmic scaling to prevent huge jumps from single engagements
+ * 
+ * New multipliers:
+ * - 1 like ≈ 3-5 views (was 30) - ~20-30% like rate is normal
+ * - 1 reply ≈ 10-15 views (was 100) - replies are rarer
+ * - 1 repost ≈ 15-20 views (was 200) - reposts indicate high value
  */
 function calculateEstimatedViewCount(likeCount, replyCount, repostCount, postUri) {
-  const LIKE_MULTIPLIER = 30;
-  const COMMENT_MULTIPLIER = 100;
-  const REPOST_MULTIPLIER = 200;
+  // Much lower, more realistic multipliers
+  const LIKE_MULTIPLIER = 4;
+  const COMMENT_MULTIPLIER = 12;
+  const REPOST_MULTIPLIER = 18;
+  
+  // Base views - if there's ANY engagement, post was seen by at least a few people
+  const BASE_VIEWS = (likeCount > 0 || replyCount > 0 || repostCount > 0) ? 3 : 0;
 
+  // Calculate raw engagement views
   const likeViews = likeCount * LIKE_MULTIPLIER;
   const commentViews = replyCount * COMMENT_MULTIPLIER;
   const repostViews = repostCount * REPOST_MULTIPLIER;
+  
+  const rawEngagementViews = likeViews + commentViews + repostViews;
+  
+  // Apply logarithmic scaling for high engagement to prevent unrealistic numbers
+  // This means first engagements count more, diminishing returns after
+  let scaledViews;
+  if (rawEngagementViews <= 20) {
+    scaledViews = rawEngagementViews; // Linear for low engagement
+  } else if (rawEngagementViews <= 100) {
+    // Slight reduction: 20 + 80% of overflow
+    scaledViews = 20 + Math.round((rawEngagementViews - 20) * 0.8);
+  } else {
+    // More reduction for high engagement
+    scaledViews = 84 + Math.round((rawEngagementViews - 100) * 0.5);
+  }
 
-  const baseViews = likeViews + commentViews + repostViews;
+  const baseViews = BASE_VIEWS + scaledViews;
 
-  // Deterministic variance based on post URI hash
+  // Deterministic variance based on post URI hash (±10%)
   let hash = 0;
   for (let i = 0; i < (postUri || '').length; i++) {
     const char = postUri.charCodeAt(i);
@@ -462,7 +491,7 @@ function calculateEstimatedViewCount(likeCount, replyCount, repostCount, postUri
     hash = hash & hash;
   }
   hash = Math.abs(hash);
-  const variance = 0.9 + (hash % 20) / 100; // 0.90 to 1.10
+  const variance = 0.9 + (hash % 21) / 100; // 0.90 to 1.10
 
   if (likeCount === 0 && replyCount === 0 && repostCount === 0) {
     return 0;
