@@ -637,21 +637,11 @@ async function generateStoryImage(uri) {
           type: 'span',
           props: {
             style: {
-              fontSize: 24,
-              marginRight: 8,
-            },
-            children: '🌿',
-          },
-        },
-        {
-          type: 'span',
-          props: {
-            style: {
               color: '#10B981',
               fontSize: 22,
               fontWeight: 600,
             },
-            children: 'cannect.space',
+            children: 'cannect.net',
           },
         },
       ],
