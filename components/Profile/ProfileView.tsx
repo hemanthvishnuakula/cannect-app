@@ -150,7 +150,7 @@ export function ProfileView({
             {profileData.banner ? (
               <Image
                 source={{ uri: profileData.banner }}
-                className="w-full h-32"
+                style={{ width: '100%', height: 128 }}
                 contentFit="cover"
                 cachePolicy="memory-disk"
                 recyclingKey={profileData.banner}
@@ -162,24 +162,40 @@ export function ProfileView({
 
             {/* Profile Info */}
             <View className="px-4 -mt-12">
-              {/* Avatar */}
-              {profileData.avatar ? (
-                <Image
-                  source={{ uri: getOptimizedAvatarUrl(profileData.avatar, 96) }}
-                  className="w-24 h-24 rounded-full border-4 border-background"
-                  contentFit="cover"
-                  cachePolicy="memory-disk"
-                  recyclingKey={profileData.avatar}
-                  transition={50}
-                  priority="high"
-                />
-              ) : (
-                <View className="w-24 h-24 rounded-full border-4 border-background bg-surface-elevated items-center justify-center">
+              {/* Avatar with placeholder */}
+              <View
+                style={{
+                  width: 96,
+                  height: 96,
+                  borderRadius: 48,
+                  borderWidth: 4,
+                  borderColor: '#0A0A0A',
+                  backgroundColor: '#27272A',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                {profileData.avatar ? (
+                  <Image
+                    source={{ uri: getOptimizedAvatarUrl(profileData.avatar, 96) }}
+                    style={{
+                      width: 88,
+                      height: 88,
+                      borderRadius: 44,
+                    }}
+                    contentFit="cover"
+                    cachePolicy="memory-disk"
+                    recyclingKey={profileData.avatar}
+                    transition={200}
+                    priority="high"
+                    placeholder={{ blurhash: 'L6PZfSi_.AyE_3t7t7R**0o#DgR4' }}
+                  />
+                ) : (
                   <Text className="text-text-muted text-3xl">
                     {(profileData.handle || '?')[0].toUpperCase()}
                   </Text>
-                </View>
-              )}
+                )}
+              </View>
 
               {/* Actions - conditional based on own profile */}
               <View className="absolute right-4 top-14 flex-row gap-2">
