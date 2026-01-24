@@ -57,9 +57,7 @@ export function ThreadPost({ post, onImagePress, isBoosted = false }: ThreadPost
     router.push(`/user/${author.handle}`);
   };
 
-  // Check if cannect.space or pds.cannect.space user
-  const isCannectUser =
-    author.handle.endsWith('.cannect.space') || author.handle.endsWith('.pds.cannect.space');
+
 
   // Truncate long handles
   const displayHandle =
@@ -95,16 +93,7 @@ export function ThreadPost({ post, onImagePress, isBoosted = false }: ThreadPost
             <Text className="text-text-primary text-[15px] font-bold flex-shrink" numberOfLines={1}>
               {author.displayName || author.handle}
             </Text>
-            {/* Network badge - cannect (green) or global */}
-            {isCannectUser ? (
-              <View className="ml-2 px-2 py-0.5 rounded-full bg-primary/20 flex-shrink-0">
-                <Text className="text-primary text-xs font-medium">cannect</Text>
-              </View>
-            ) : (
-              <View className="ml-2 px-2 py-0.5 rounded-full bg-surface-elevated flex-shrink-0">
-                <Text className="text-text-muted text-xs font-medium">global</Text>
-              </View>
-            )}
+
             {/* Boosted badge */}
             {isBoosted && (
               <View className="ml-1.5 px-2 py-0.5 rounded-full bg-amber-500/20 flex-shrink-0">
