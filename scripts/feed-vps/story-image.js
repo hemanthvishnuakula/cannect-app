@@ -210,9 +210,9 @@ async function generateStoryImage(uri) {
   const repostCount = post.repostCount || 0;
   const likeCount = post.likeCount || 0;
 
-  // Get view count from our database
-  const viewStats = db.getPostViewStats(uri);
-  const viewCount = viewStats.total_views || 0;
+  // Get view count (tracked + engagement-based, same as app)
+  // First update engagement to ensure we have latest data
+  const viewCount = db.updateEngagement(uri, likeCount, replyCount, repostCount);
 
   // Format large numbers (e.g., 1234 -> 1.2K)
   const formatCount = (num) => {
