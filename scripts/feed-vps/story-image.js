@@ -276,31 +276,17 @@ async function generateStoryImage(uri) {
                           children: displayName,
                         },
                       },
-                      // Green verified badge
+                      // Green verified checkmark
                       {
-                        type: 'div',
+                        type: 'span',
                         props: {
                           style: {
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            width: 24,
-                            height: 24,
+                            color: '#10B981',
+                            fontSize: 24,
+                            fontWeight: 700,
                             marginLeft: 8,
-                            backgroundColor: '#10B981',
-                            borderRadius: 12,
                           },
-                          children: {
-                            type: 'span',
-                            props: {
-                              style: {
-                                color: '#FFFFFF',
-                                fontSize: 14,
-                                fontWeight: 700,
-                              },
-                              children: '✓',
-                            },
-                          },
+                          children: '✓',
                         },
                       },
                     ],
@@ -517,140 +503,6 @@ async function generateStoryImage(uri) {
     });
   }
 
-  // Add engagement stats row (order: Replies, Reposts, Likes, Views)
-  // Always show icons, hide count if zero (matches app behavior)
-  const statItems = [];
-
-  // Replies
-  statItems.push({
-    type: 'div',
-    props: {
-      style: {
-        display: 'flex',
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginRight: 24,
-      },
-      children: [
-        {
-          type: 'span',
-          props: {
-            style: { fontSize: 20, marginRight: replyCount > 0 ? 6 : 0 },
-            children: '💬',
-          },
-        },
-        replyCount > 0 ? {
-          type: 'span',
-          props: {
-            style: { color: '#A1A1AA', fontSize: 22 },
-            children: formatCount(replyCount),
-          },
-        } : null,
-      ].filter(Boolean),
-    },
-  });
-
-  // Reposts
-  statItems.push({
-    type: 'div',
-    props: {
-      style: {
-        display: 'flex',
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginRight: 24,
-      },
-      children: [
-        {
-          type: 'span',
-          props: {
-            style: { fontSize: 20, marginRight: repostCount > 0 ? 6 : 0 },
-            children: '🔁',
-          },
-        },
-        repostCount > 0 ? {
-          type: 'span',
-          props: {
-            style: { color: '#A1A1AA', fontSize: 22 },
-            children: formatCount(repostCount),
-          },
-        } : null,
-      ].filter(Boolean),
-    },
-  });
-
-  // Likes
-  statItems.push({
-    type: 'div',
-    props: {
-      style: {
-        display: 'flex',
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginRight: 24,
-      },
-      children: [
-        {
-          type: 'span',
-          props: {
-            style: { fontSize: 20, marginRight: likeCount > 0 ? 6 : 0 },
-            children: '❤️',
-          },
-        },
-        likeCount > 0 ? {
-          type: 'span',
-          props: {
-            style: { color: '#A1A1AA', fontSize: 22 },
-            children: formatCount(likeCount),
-          },
-        } : null,
-      ].filter(Boolean),
-    },
-  });
-
-  // Views (last)
-  statItems.push({
-    type: 'div',
-    props: {
-      style: {
-        display: 'flex',
-        flexDirection: 'row',
-        alignItems: 'center',
-      },
-      children: [
-        {
-          type: 'span',
-          props: {
-            style: { fontSize: 20, marginRight: viewCount > 0 ? 6 : 0 },
-            children: '👁️',
-          },
-        },
-        viewCount > 0 ? {
-          type: 'span',
-          props: {
-            style: { color: '#A1A1AA', fontSize: 22 },
-            children: formatCount(viewCount),
-          },
-        } : null,
-      ].filter(Boolean),
-    },
-  });
-
-  cardChildren.push({
-    type: 'div',
-    props: {
-      style: {
-        display: 'flex',
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginTop: 20,
-        paddingTop: 16,
-        borderTop: '1px solid #27272A',
-      },
-      children: statItems,
-    },
-  });
-
   // Add branding at bottom
   cardChildren.push({
     type: 'div',
@@ -659,9 +511,9 @@ async function generateStoryImage(uri) {
         display: 'flex',
         flexDirection: 'row',
         alignItems: 'center',
-        marginTop: 16,
+        marginTop: 24,
         paddingTop: 24,
-        borderTop: 'none',
+        borderTop: '1px solid #27272A',
       },
       children: [
         {
