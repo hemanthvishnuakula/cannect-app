@@ -276,21 +276,21 @@ async function generateStoryImage(uri) {
                           children: displayName,
                         },
                       },
-                      // Simple green checkmark
+                      // Bold green checkmark
                       {
                         type: 'svg',
                         props: {
-                          width: 20,
-                          height: 20,
+                          width: 26,
+                          height: 26,
                           viewBox: '0 0 24 24',
                           fill: 'none',
-                          style: { marginLeft: 8 },
+                          style: { marginLeft: 10 },
                           children: {
                             type: 'path',
                             props: {
                               d: 'M20 6L9 17L4 12',
                               stroke: '#10B981',
-                              strokeWidth: 3,
+                              strokeWidth: 4,
                               strokeLinecap: 'round',
                               strokeLinejoin: 'round',
                             },
