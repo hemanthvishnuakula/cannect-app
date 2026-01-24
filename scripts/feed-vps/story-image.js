@@ -578,6 +578,7 @@ async function generateStoryImage(uri) {
               margin: 48,
               border: '2px solid #27272A',
               maxWidth: 984,
+              width: 984,
               maxHeight: 1800,
               overflow: 'hidden',
             },
