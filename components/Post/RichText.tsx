@@ -144,7 +144,7 @@ export const RichText = memo(function RichText({
 
   return (
     <Text
-      className={`text-text-primary text-[15px] leading-snug ${className}`}
+      className={`text-zinc-300 text-[15px] leading-relaxed ${className}`}
       numberOfLines={numberOfLines}
     >
       {segments.map((segment, index) => {

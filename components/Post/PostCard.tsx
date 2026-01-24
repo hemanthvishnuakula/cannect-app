@@ -196,7 +196,7 @@ export function PostCard({
               style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
             >
               <Text
-                className="text-[15px] font-bold text-text-primary flex-shrink"
+                className="text-[16px] font-bold text-text-primary flex-shrink"
                 numberOfLines={1}
               >
                 {author.displayName || author.handle}
