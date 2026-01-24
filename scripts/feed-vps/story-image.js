@@ -479,146 +479,138 @@ async function generateStoryImage(uri) {
   }
 
   // Add engagement stats row (order: Replies, Reposts, Likes, Views)
-  const hasStats = replyCount > 0 || repostCount > 0 || likeCount > 0 || viewCount > 0;
-  if (hasStats) {
-    const statItems = [];
+  // Always show icons, hide count if zero (matches app behavior)
+  const statItems = [];
 
-    // Replies first
-    if (replyCount > 0) {
-      statItems.push({
-        type: 'div',
-        props: {
-          style: {
-            display: 'flex',
-            flexDirection: 'row',
-            alignItems: 'center',
-            marginRight: 24,
-          },
-          children: [
-            {
-              type: 'span',
-              props: {
-                style: { fontSize: 20, marginRight: 6 },
-                children: '💬',
-              },
-            },
-            {
-              type: 'span',
-              props: {
-                style: { color: '#A1A1AA', fontSize: 22 },
-                children: formatCount(replyCount),
-              },
-            },
-          ],
-        },
-      });
-    }
-
-    if (repostCount > 0) {
-      statItems.push({
-        type: 'div',
-        props: {
-          style: {
-            display: 'flex',
-            flexDirection: 'row',
-            alignItems: 'center',
-            marginRight: 24,
-          },
-          children: [
-            {
-              type: 'span',
-              props: {
-                style: { fontSize: 20, marginRight: 6 },
-                children: '🔁',
-              },
-            },
-            {
-              type: 'span',
-              props: {
-                style: { color: '#A1A1AA', fontSize: 22 },
-                children: formatCount(repostCount),
-              },
-            },
-          ],
-        },
-      });
-    }
-
-    if (likeCount > 0) {
-      statItems.push({
-        type: 'div',
-        props: {
-          style: {
-            display: 'flex',
-            flexDirection: 'row',
-            alignItems: 'center',
-            marginRight: 24,
-          },
-          children: [
-            {
-              type: 'span',
-              props: {
-                style: { fontSize: 20, marginRight: 6 },
-                children: '❤️',
-              },
-            },
-            {
-              type: 'span',
-              props: {
-                style: { color: '#A1A1AA', fontSize: 22 },
-                children: formatCount(likeCount),
-              },
-            },
-          ],
-        },
-      });
-    }
-
-    // Views last (eye icon)
-    if (viewCount > 0) {
-      statItems.push({
-        type: 'div',
-        props: {
-          style: {
-            display: 'flex',
-            flexDirection: 'row',
-            alignItems: 'center',
-          },
-          children: [
-            {
-              type: 'span',
-              props: {
-                style: { fontSize: 20, marginRight: 6 },
-                children: '👁️',
-              },
-            },
-            {
-              type: 'span',
-              props: {
-                style: { color: '#A1A1AA', fontSize: 22 },
-                children: formatCount(viewCount),
-              },
-            },
-          ],
-        },
-      });
-    }
-
-    cardChildren.push({
-      type: 'div',
-      props: {
-        style: {
-          display: 'flex',
-          flexDirection: 'row',
-          alignItems: 'center',
-          marginTop: 20,
-          paddingTop: 16,
-          borderTop: '1px solid #27272A',
-        },
-        children: statItems,
+  // Replies
+  statItems.push({
+    type: 'div',
+    props: {
+      style: {
+        display: 'flex',
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginRight: 24,
       },
-    });
-  }
+      children: [
+        {
+          type: 'span',
+          props: {
+            style: { fontSize: 20, marginRight: replyCount > 0 ? 6 : 0 },
+            children: '💬',
+          },
+        },
+        replyCount > 0 ? {
+          type: 'span',
+          props: {
+            style: { color: '#A1A1AA', fontSize: 22 },
+            children: formatCount(replyCount),
+          },
+        } : null,
+      ].filter(Boolean),
+    },
+  });
+
+  // Reposts
+  statItems.push({
+    type: 'div',
+    props: {
+      style: {
+        display: 'flex',
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginRight: 24,
+      },
+      children: [
+        {
+          type: 'span',
+          props: {
+            style: { fontSize: 20, marginRight: repostCount > 0 ? 6 : 0 },
+            children: '🔁',
+          },
+        },
+        repostCount > 0 ? {
+          type: 'span',
+          props: {
+            style: { color: '#A1A1AA', fontSize: 22 },
+            children: formatCount(repostCount),
+          },
+        } : null,
+      ].filter(Boolean),
+    },
+  });
+
+  // Likes
+  statItems.push({
+    type: 'div',
+    props: {
+      style: {
+        display: 'flex',
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginRight: 24,
+      },
+      children: [
+        {
+          type: 'span',
+          props: {
+            style: { fontSize: 20, marginRight: likeCount > 0 ? 6 : 0 },
+            children: '❤️',
+          },
+        },
+        likeCount > 0 ? {
+          type: 'span',
+          props: {
+            style: { color: '#A1A1AA', fontSize: 22 },
+            children: formatCount(likeCount),
+          },
+        } : null,
+      ].filter(Boolean),
+    },
+  });
+
+  // Views (last)
+  statItems.push({
+    type: 'div',
+    props: {
+      style: {
+        display: 'flex',
+        flexDirection: 'row',
+        alignItems: 'center',
+      },
+      children: [
+        {
+          type: 'span',
+          props: {
+            style: { fontSize: 20, marginRight: viewCount > 0 ? 6 : 0 },
+            children: '👁️',
+          },
+        },
+        viewCount > 0 ? {
+          type: 'span',
+          props: {
+            style: { color: '#A1A1AA', fontSize: 22 },
+            children: formatCount(viewCount),
+          },
+        } : null,
+      ].filter(Boolean),
+    },
+  });
+
+  cardChildren.push({
+    type: 'div',
+    props: {
+      style: {
+        display: 'flex',
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginTop: 20,
+        paddingTop: 16,
+        borderTop: '1px solid #27272A',
+      },
+      children: statItems,
+    },
+  });
 
   // Add branding at bottom
   cardChildren.push({
@@ -628,9 +620,9 @@ async function generateStoryImage(uri) {
         display: 'flex',
         flexDirection: 'row',
         alignItems: 'center',
-        marginTop: hasStats ? 16 : 32,
+        marginTop: 16,
         paddingTop: 24,
-        borderTop: hasStats ? 'none' : '1px solid #27272A',
+        borderTop: 'none',
       },
       children: [
         {
