@@ -276,17 +276,39 @@ async function generateStoryImage(uri) {
                           children: displayName,
                         },
                       },
-                      // Green verified checkmark
+                      // Green verified checkmark (circle with check)
                       {
-                        type: 'span',
+                        type: 'div',
                         props: {
                           style: {
-                            color: '#10B981',
-                            fontSize: 24,
-                            fontWeight: 700,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            width: 22,
+                            height: 22,
                             marginLeft: 8,
+                            backgroundColor: '#10B981',
+                            borderRadius: 11,
                           },
-                          children: '✓',
+                          children: {
+                            type: 'svg',
+                            props: {
+                              width: 12,
+                              height: 12,
+                              viewBox: '0 0 24 24',
+                              fill: 'none',
+                              children: {
+                                type: 'path',
+                                props: {
+                                  d: 'M20 6L9 17L4 12',
+                                  stroke: 'white',
+                                  strokeWidth: 4,
+                                  strokeLinecap: 'round',
+                                  strokeLinejoin: 'round',
+                                },
+                              },
+                            },
+                          },
                         },
                       },
                     ],
