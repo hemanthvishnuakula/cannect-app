@@ -1053,7 +1053,19 @@ app.listen(PORT, async () => {
   console.log(`Server:    http://localhost:${PORT}`);
   console.log(`Hostname:  ${HOSTNAME}`);
   console.log(`Feed URI:  ${FEED_URI}`);
-  console.log(`Posts:     ${db.getCount()}`);
+
+  const postCount = db.getCount();
+  console.log(`Posts:     ${postCount}`);
+
+  // SAFETY CHECK: Warn if database seems empty (possible mount issue)
+  if (postCount < 1000) {
+    console.log('='.repeat(60));
+    console.log('⚠️  WARNING: Database has fewer than 1000 posts!');
+    console.log('⚠️  This may indicate a volume mount issue.');
+    console.log('⚠️  Expected 10,000+ posts. Check /app/data mount.');
+    console.log('='.repeat(60));
+  }
+
   console.log('='.repeat(60));
 
   // Fetch cannect.space users first
