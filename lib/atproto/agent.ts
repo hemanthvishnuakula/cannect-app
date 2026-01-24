@@ -812,11 +812,20 @@ export async function getActorLikes(actor: string, cursor?: string, limit = 50) 
 
 /**
  * Get a single post thread
- * Uses public AppView for reliability - works without auth and avoids PDS mismatch issues
+ * Uses authenticated agent when logged in to get viewer state (likes, reposts)
+ * Falls back to public AppView when not logged in
  */
 export async function getPostThread(uri: string, depth = 6, parentHeight = 80) {
-  // Use public AppView for thread fetching - it's more reliable than PDS
-  // and doesn't require auth, avoiding race conditions during session restore
+  // Use authenticated agent if user is logged in to get viewer state
+  // This is needed for like/repost status to display correctly
+  const bskyAgent = getAgent();
+  if (bskyAgent.session) {
+    // Authenticated - use the logged-in agent for viewer state
+    const result = await bskyAgent.getPostThread({ uri, depth, parentHeight });
+    return result;
+  }
+  
+  // Not logged in - use public AppView
   const publicAgent = getPublicAgent();
   const result = await publicAgent.getPostThread({ uri, depth, parentHeight });
   return result;
