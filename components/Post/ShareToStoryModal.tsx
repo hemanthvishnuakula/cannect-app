@@ -13,7 +13,7 @@ import { View, Text, Pressable, Modal, Platform, Alert, ActivityIndicator } from
 import { Image } from 'expo-image';
 import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system';
-import { X, Share2, Download, RefreshCw } from 'lucide-react-native';
+import { X, Share2, RefreshCw } from 'lucide-react-native';
 import { triggerImpact, triggerNotification } from '@/lib/utils/haptics';
 import type { AppBskyFeedDefs } from '@atproto/api';
 
@@ -73,27 +73,41 @@ export function ShareToStoryModal({ visible, onClose, post }: ShareToStoryModalP
 
     try {
       if (Platform.OS === 'web') {
-        // Web: Fetch image as blob and download directly
+        // Fetch image as blob
         const response = await fetch(imageUrl, {
           mode: 'cors',
           credentials: 'omit',
         });
-        
+
         if (!response.ok) {
           throw new Error(`Failed to fetch image: ${response.status}`);
         }
-        
+
         const blob = await response.blob();
+        const fileName = `cannect-post-${Date.now()}.png`;
+
+        // Try Web Share API first (works best on iOS PWA)
+        if (navigator.share && navigator.canShare) {
+          const file = new File([blob], fileName, { type: 'image/png' });
+          const shareData = { files: [file] };
+
+          if (navigator.canShare(shareData)) {
+            await navigator.share(shareData);
+            triggerNotification('success');
+            onClose();
+            return;
+          }
+        }
+
+        // Fallback: download via blob URL
         const blobUrl = URL.createObjectURL(blob);
-        
         const link = document.createElement('a');
         link.href = blobUrl;
-        link.download = `cannect-post-${Date.now()}.png`;
+        link.download = fileName;
         link.style.display = 'none';
         document.body.appendChild(link);
         link.click();
-        
-        // Clean up after a short delay
+
         setTimeout(() => {
           document.body.removeChild(link);
           URL.revokeObjectURL(blobUrl);
@@ -224,13 +238,9 @@ export function ShareToStoryModal({ visible, onClose, post }: ShareToStoryModalP
               <ActivityIndicator size="small" color="#FAFAFA" />
             ) : (
               <>
-                {Platform.OS === 'web' ? (
-                  <Download size={20} color="#FAFAFA" />
-                ) : (
-                  <Share2 size={20} color="#FAFAFA" />
-                )}
+                <Share2 size={20} color="#FAFAFA" />
                 <Text className="text-white text-base font-semibold ml-2">
-                  {Platform.OS === 'web' ? 'Download Image' : 'Save & Share'}
+                  Save & Share
                 </Text>
               </>
             )}
@@ -240,9 +250,7 @@ export function ShareToStoryModal({ visible, onClose, post }: ShareToStoryModalP
         {/* Helper text */}
         {!error && !isLoading && (
           <Text className="text-text-muted text-xs mt-4 text-center">
-            {Platform.OS === 'web'
-              ? 'Image will download, then upload to Instagram Stories'
-              : 'Opens share menu to post to Instagram Stories'}
+            Opens share menu to save or post to Instagram Stories
           </Text>
         )}
       </View>

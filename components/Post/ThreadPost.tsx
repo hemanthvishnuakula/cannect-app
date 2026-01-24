@@ -57,8 +57,6 @@ export function ThreadPost({ post, onImagePress, isBoosted = false }: ThreadPost
     router.push(`/user/${author.handle}`);
   };
 
-
-
   // Truncate long handles
   const displayHandle =
     author.handle.length > 25 ? `@${author.handle.slice(0, 25)}…` : `@${author.handle}`;
