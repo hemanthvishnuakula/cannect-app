@@ -276,37 +276,23 @@ async function generateStoryImage(uri) {
                           children: displayName,
                         },
                       },
-                      // Green verified checkmark (circle with check)
+                      // Simple green checkmark
                       {
-                        type: 'div',
+                        type: 'svg',
                         props: {
-                          style: {
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            width: 22,
-                            height: 22,
-                            marginLeft: 8,
-                            backgroundColor: '#10B981',
-                            borderRadius: 11,
-                          },
+                          width: 20,
+                          height: 20,
+                          viewBox: '0 0 24 24',
+                          fill: 'none',
+                          style: { marginLeft: 8 },
                           children: {
-                            type: 'svg',
+                            type: 'path',
                             props: {
-                              width: 12,
-                              height: 12,
-                              viewBox: '0 0 24 24',
-                              fill: 'none',
-                              children: {
-                                type: 'path',
-                                props: {
-                                  d: 'M20 6L9 17L4 12',
-                                  stroke: 'white',
-                                  strokeWidth: 4,
-                                  strokeLinecap: 'round',
-                                  strokeLinejoin: 'round',
-                                },
-                              },
+                              d: 'M20 6L9 17L4 12',
+                              stroke: '#10B981',
+                              strokeWidth: 3,
+                              strokeLinecap: 'round',
+                              strokeLinejoin: 'round',
                             },
                           },
                         },
