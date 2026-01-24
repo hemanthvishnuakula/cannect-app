@@ -824,7 +824,7 @@ export async function getPostThread(uri: string, depth = 6, parentHeight = 80) {
     const result = await bskyAgent.getPostThread({ uri, depth, parentHeight });
     return result;
   }
-  
+
   // Not logged in - use public AppView
   const publicAgent = getPublicAgent();
   const result = await publicAgent.getPostThread({ uri, depth, parentHeight });

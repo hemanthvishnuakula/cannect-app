@@ -451,10 +451,15 @@ export function useActorLikes(actor: string | undefined) {
 
 /**
  * Get a post thread with ancestors and replies
+ * Includes viewer DID in query key to refetch with auth after session restore
  */
 export function usePostThread(uri: string | undefined) {
+  // Include viewer DID in query key so thread refetches when session is restored
+  // This ensures viewer state (likes, reposts) is correct after hard refresh
+  const { did: viewerDid } = useAuthStore();
+  
   return useQuery({
-    queryKey: ['thread', uri],
+    queryKey: ['thread', uri, viewerDid],
     queryFn: async () => {
       if (!uri) throw new Error('URI required');
       const result = await atproto.getPostThread(uri);
