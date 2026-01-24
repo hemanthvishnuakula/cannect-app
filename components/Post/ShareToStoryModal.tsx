@@ -74,8 +74,14 @@ export function ShareToStoryModal({ visible, onClose, post }: ShareToStoryModalP
     try {
       if (Platform.OS === 'web') {
         // Web: Fetch image as blob and download directly
-        const response = await fetch(imageUrl);
-        if (!response.ok) throw new Error('Failed to fetch image');
+        const response = await fetch(imageUrl, {
+          mode: 'cors',
+          credentials: 'omit',
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Failed to fetch image: ${response.status}`);
+        }
         
         const blob = await response.blob();
         const blobUrl = URL.createObjectURL(blob);
@@ -83,12 +89,15 @@ export function ShareToStoryModal({ visible, onClose, post }: ShareToStoryModalP
         const link = document.createElement('a');
         link.href = blobUrl;
         link.download = `cannect-post-${Date.now()}.png`;
+        link.style.display = 'none';
         document.body.appendChild(link);
         link.click();
-        document.body.removeChild(link);
         
-        // Clean up blob URL
-        URL.revokeObjectURL(blobUrl);
+        // Clean up after a short delay
+        setTimeout(() => {
+          document.body.removeChild(link);
+          URL.revokeObjectURL(blobUrl);
+        }, 100);
 
         triggerNotification('success');
         onClose();
