@@ -439,13 +439,20 @@ app.get('/api/profile-image', generalLimiter, async (req, res) => {
     // Clean handle (remove @ if present)
     const cleanHandle = handle.replace(/^@/, '');
 
-    // Get user's reach from database
+    // Get user's reach from database (same logic as /api/reach endpoint)
     // First we need to resolve handle to DID
     const { BskyAgent } = require('@atproto/api');
     const agent = new BskyAgent({ service: 'https://public.api.bsky.app' });
     const profile = await agent.getProfile({ actor: cleanHandle });
     const userDid = profile.data.did;
-    const reach = db.getUserReach(userDid);
+
+    // Get reach with auto-recalculation if stale (like /api/reach does)
+    const STALE_THRESHOLD = 5 * 60; // 5 minutes in seconds
+    const now = Math.floor(Date.now() / 1000);
+    const data = db.getUserReachData(userDid);
+    const isStale = now - data.last_updated > STALE_THRESHOLD;
+    const isNew = data.last_updated === 0;
+    const reach = isNew || isStale ? db.updateUserReach(userDid) : data.total_reach;
 
     // Generate the image
     const pngBuffer = await generateProfileImage(cleanHandle, reach);
