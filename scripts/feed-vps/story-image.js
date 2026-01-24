@@ -257,14 +257,53 @@ async function generateStoryImage(uri) {
               },
               children: [
                 {
-                  type: 'span',
+                  type: 'div',
                   props: {
                     style: {
-                      color: '#FAFAFA',
-                      fontSize: 28,
-                      fontWeight: 700,
+                      display: 'flex',
+                      flexDirection: 'row',
+                      alignItems: 'center',
                     },
-                    children: displayName,
+                    children: [
+                      {
+                        type: 'span',
+                        props: {
+                          style: {
+                            color: '#FAFAFA',
+                            fontSize: 28,
+                            fontWeight: 700,
+                          },
+                          children: displayName,
+                        },
+                      },
+                      // Green verified badge
+                      {
+                        type: 'div',
+                        props: {
+                          style: {
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            width: 24,
+                            height: 24,
+                            marginLeft: 8,
+                            backgroundColor: '#10B981',
+                            borderRadius: 12,
+                          },
+                          children: {
+                            type: 'span',
+                            props: {
+                              style: {
+                                color: '#FFFFFF',
+                                fontSize: 14,
+                                fontWeight: 700,
+                              },
+                              children: '✓',
+                            },
+                          },
+                        },
+                      },
+                    ],
                   },
                 },
                 {
