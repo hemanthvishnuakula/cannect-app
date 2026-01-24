@@ -20,6 +20,7 @@ const db = require('./db');
 const { shouldIncludePost, getPostText } = require('./feed-logic');
 const { verifyWithAI } = require('./ai-filter');
 const { generateStoryImage, loadFonts } = require('./story-image');
+const { generateProfileImage, loadFonts: loadProfileFonts } = require('./profile-image');
 
 // =============================================================================
 // Configuration
@@ -418,6 +419,47 @@ app.get('/api/story-image', generalLimiter, async (req, res) => {
     res.send(pngBuffer);
   } catch (err) {
     console.error('[StoryImage] Error:', err.message);
+    return res.status(500).json({ error: 'Failed to generate image' });
+  }
+});
+
+/**
+ * Generate shareable profile card image
+ * GET /api/profile-image?handle=user.cannect.space
+ * Returns: PNG image (1080x1920)
+ */
+app.get('/api/profile-image', generalLimiter, async (req, res) => {
+  try {
+    const { handle } = req.query;
+
+    if (!handle) {
+      return res.status(400).json({ error: 'Missing handle parameter' });
+    }
+
+    // Clean handle (remove @ if present)
+    const cleanHandle = handle.replace(/^@/, '');
+
+    // Get user's reach from database
+    // First we need to resolve handle to DID
+    const { BskyAgent } = require('@atproto/api');
+    const agent = new BskyAgent({ service: 'https://public.api.bsky.app' });
+    const profile = await agent.getProfile({ actor: cleanHandle });
+    const userDid = profile.data.did;
+    const reach = db.getUserReach(userDid);
+
+    // Generate the image
+    const pngBuffer = await generateProfileImage(cleanHandle, reach);
+
+    // Set cache headers (cache for 1 hour)
+    res.set({
+      'Content-Type': 'image/png',
+      'Content-Length': pngBuffer.length,
+      'Cache-Control': 'public, max-age=3600',
+    });
+
+    res.send(pngBuffer);
+  } catch (err) {
+    console.error('[ProfileImage] Error:', err.message);
     return res.status(500).json({ error: 'Failed to generate image' });
   }
 });

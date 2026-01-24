@@ -14,7 +14,7 @@ import { View, Text, Pressable, ActivityIndicator, RefreshControl } from 'react-
 import { Image } from 'expo-image';
 import { FlashList } from '@shopify/flash-list';
 import { useRouter } from 'expo-router';
-import { LogOut, Edit3, MessageCircle, Pin } from 'lucide-react-native';
+import { LogOut, Edit3, MessageCircle, Pin, Share2 } from 'lucide-react-native';
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import {
   useAuthorFeed,
@@ -25,6 +25,7 @@ import {
   useBoostedPosts,
 } from '@/lib/hooks';
 import { PostCard } from '@/components/Post';
+import { ShareProfileModal } from '@/components/Profile/ShareProfileModal';
 import { FollowButton, useToast } from '@/components/ui';
 import { getOptimizedAvatarUrl } from '@/lib/utils/avatar';
 import { triggerImpact } from '@/lib/utils/haptics';
@@ -71,6 +72,7 @@ export function ProfileView({
 }: ProfileViewProps) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<ProfileTab>('posts');
+  const [showShareModal, setShowShareModal] = useState(false);
   const listRef = useRef<FlashList<any>>(null);
 
   // Scroll to top when trigger changes
@@ -211,6 +213,12 @@ export function ProfileView({
                       <Text className="text-text-primary font-semibold ml-2">Edit Profile</Text>
                     </Pressable>
                     <Pressable
+                      onPress={() => setShowShareModal(true)}
+                      className="bg-surface-elevated border border-border p-2 rounded-full items-center justify-center active:opacity-70"
+                    >
+                      <Share2 size={18} color="#10B981" />
+                    </Pressable>
+                    <Pressable
                       onPress={onLogout}
                       className="bg-surface-elevated border border-border p-2 rounded-full items-center justify-center active:opacity-70"
                     >
@@ -345,6 +353,13 @@ export function ProfileView({
             </View>
           ) : null
         }
+      />
+
+      {/* Share Profile Modal */}
+      <ShareProfileModal
+        visible={showShareModal}
+        onClose={() => setShowShareModal(false)}
+        handle={profileData.handle}
       />
     </>
   );

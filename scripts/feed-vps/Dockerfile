@@ -13,7 +13,6 @@ RUN npm install --omit=dev
 
 # Copy source code
 COPY *.js ./
-COPY .env ./
 
 # Create data directory (will be mounted as volume)
 RUN mkdir -p /app/data

@@ -1,5 +1,5 @@
 /**
- * ShareToStoryModal - Modal for sharing posts to Instagram Stories
+ * ShareProfileModal - Modal for sharing profile cards
  *
  * Uses server-generated images for consistent rendering.
  * Flow:
@@ -15,38 +15,35 @@ import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system';
 import { X, Share2, RefreshCw } from 'lucide-react-native';
 import { triggerImpact, triggerNotification } from '@/lib/utils/haptics';
-import type { AppBskyFeedDefs } from '@atproto/api';
 
-type PostView = AppBskyFeedDefs.PostView;
+// Server endpoint for profile images
+const PROFILE_IMAGE_API = 'https://feed.cannect.space/api/profile-image';
 
-// Server endpoint for story images
-const STORY_IMAGE_API = 'https://feed.cannect.space/api/story-image';
-
-interface ShareToStoryModalProps {
+interface ShareProfileModalProps {
   visible: boolean;
   onClose: () => void;
-  post: PostView;
+  handle: string;
 }
 
-export function ShareToStoryModal({ visible, onClose, post }: ShareToStoryModalProps) {
+export function ShareProfileModal({ visible, onClose, handle }: ShareProfileModalProps) {
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isSharing, setIsSharing] = useState(false);
 
-  // Generate the story image URL
-  const storyImageUrl = `${STORY_IMAGE_API}?uri=${encodeURIComponent(post.uri)}`;
+  // Generate the profile image URL
+  const profileImageUrl = `${PROFILE_IMAGE_API}?handle=${encodeURIComponent(handle)}`;
 
   // Load image when modal opens
   useEffect(() => {
     if (visible) {
       setIsLoading(true);
       setError(null);
-      setImageUrl(storyImageUrl);
+      setImageUrl(profileImageUrl);
     } else {
       setImageUrl(null);
     }
-  }, [visible, storyImageUrl]);
+  }, [visible, profileImageUrl]);
 
   const handleImageLoad = useCallback(() => {
     setIsLoading(false);
@@ -62,8 +59,8 @@ export function ShareToStoryModal({ visible, onClose, post }: ShareToStoryModalP
     setIsLoading(true);
     setError(null);
     // Add cache buster
-    setImageUrl(`${storyImageUrl}&t=${Date.now()}`);
-  }, [storyImageUrl]);
+    setImageUrl(`${profileImageUrl}&t=${Date.now()}`);
+  }, [profileImageUrl]);
 
   const handleSaveAndShare = useCallback(async () => {
     if (!imageUrl) return;
@@ -84,7 +81,7 @@ export function ShareToStoryModal({ visible, onClose, post }: ShareToStoryModalP
         }
 
         const blob = await response.blob();
-        const fileName = `cannect-post-${Date.now()}.png`;
+        const fileName = `cannect-profile-${handle.replace(/\./g, '-')}-${Date.now()}.png`;
 
         // Try Web Share API first (works best on iOS PWA)
         if (navigator.share && navigator.canShare) {
@@ -117,7 +114,7 @@ export function ShareToStoryModal({ visible, onClose, post }: ShareToStoryModalP
         onClose();
       } else {
         // Mobile: Download to temp file and share
-        const filename = `cannect-story-${Date.now()}.png`;
+        const filename = `cannect-profile-${handle.replace(/\./g, '-')}-${Date.now()}.png`;
         const fileUri = `${FileSystem.cacheDirectory}${filename}`;
 
         // Download the image
@@ -133,7 +130,7 @@ export function ShareToStoryModal({ visible, onClose, post }: ShareToStoryModalP
         if (isAvailable) {
           await Sharing.shareAsync(downloadResult.uri, {
             mimeType: 'image/png',
-            dialogTitle: 'Share to Instagram Stories',
+            dialogTitle: 'Share Profile',
             UTI: 'public.png',
           });
           triggerNotification('success');
@@ -144,7 +141,7 @@ export function ShareToStoryModal({ visible, onClose, post }: ShareToStoryModalP
         onClose();
       }
     } catch (err) {
-      console.error('[ShareToStory] Share failed:', err);
+      console.error('[ShareProfile] Share failed:', err);
       triggerNotification('error');
       if (Platform.OS === 'web') {
         window.alert('Failed to download image. Please try again.');
@@ -154,7 +151,7 @@ export function ShareToStoryModal({ visible, onClose, post }: ShareToStoryModalP
     } finally {
       setIsSharing(false);
     }
-  }, [imageUrl, onClose]);
+  }, [imageUrl, handle, onClose]);
 
   return (
     <Modal
@@ -175,7 +172,7 @@ export function ShareToStoryModal({ visible, onClose, post }: ShareToStoryModalP
         </Pressable>
 
         {/* Title */}
-        <Text className="text-text-primary text-lg font-semibold mb-4">Share to Stories</Text>
+        <Text className="text-text-primary text-lg font-semibold mb-4">Share Profile</Text>
 
         {/* Image Preview */}
         <View
@@ -248,7 +245,7 @@ export function ShareToStoryModal({ visible, onClose, post }: ShareToStoryModalP
         {/* Helper text */}
         {!error && !isLoading && (
           <Text className="text-text-muted text-xs mt-4 text-center">
-            Opens share menu to save or post to Instagram Stories
+            Opens share menu to save or post to Stories
           </Text>
         )}
       </View>
