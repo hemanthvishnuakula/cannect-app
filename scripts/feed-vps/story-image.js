@@ -519,9 +519,11 @@ async function generateStoryImage(uri) {
         display: 'flex',
         flexDirection: 'row',
         alignItems: 'center',
+        justifyContent: 'space-between',
         marginTop: 24,
         paddingTop: 24,
         borderTop: '1px solid #27272A',
+        width: '100%',
       },
       children: [
         {
@@ -533,6 +535,17 @@ async function generateStoryImage(uri) {
               fontWeight: 600,
             },
             children: 'cannect.net',
+          },
+        },
+        {
+          type: 'span',
+          props: {
+            style: {
+              color: '#71717A',
+              fontSize: 18,
+              fontWeight: 500,
+            },
+            children: 'Connect. Share. Grow.',
           },
         },
       ],
