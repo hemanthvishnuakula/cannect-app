@@ -278,54 +278,47 @@ export default function ComposeScreen() {
     []
   );
 
-  // Check if text is selected
-  const hasSelection = selectionStart !== selectionEnd;
+  // Toggle states for bold and italic
+  const [isBoldActive, setIsBoldActive] = useState(false);
+  const [isItalicActive, setIsItalicActive] = useState(false);
 
-  // Apply bold formatting to selected text
+  // Toggle bold mode - inserts ** markers at cursor
   const handleBold = useCallback(() => {
-    if (!hasSelection) return;
+    const pos = cursorPosition;
+    const before = content.slice(0, pos);
+    const after = content.slice(pos);
 
-    const before = content.slice(0, selectionStart);
-    const selected = content.slice(selectionStart, selectionEnd);
-    const after = content.slice(selectionEnd);
-
-    // Check if already bold, if so remove it
-    if (selected.startsWith('**') && selected.endsWith('**') && selected.length > 4) {
-      const newContent = before + selected.slice(2, -2) + after;
-      setContent(newContent);
+    if (isBoldActive) {
+      // Closing bold - insert **
+      setContent(before + '**' + after);
+      setIsBoldActive(false);
     } else {
-      const newContent = before + '**' + selected + '**' + after;
-      setContent(newContent);
+      // Opening bold - insert **
+      setContent(before + '**' + after);
+      setIsBoldActive(true);
     }
 
     triggerImpact('light');
-  }, [content, selectionStart, selectionEnd, hasSelection]);
+  }, [content, cursorPosition, isBoldActive]);
 
-  // Apply italic formatting to selected text
+  // Toggle italic mode - inserts * markers at cursor
   const handleItalic = useCallback(() => {
-    if (!hasSelection) return;
+    const pos = cursorPosition;
+    const before = content.slice(0, pos);
+    const after = content.slice(pos);
 
-    const before = content.slice(0, selectionStart);
-    const selected = content.slice(selectionStart, selectionEnd);
-    const after = content.slice(selectionEnd);
-
-    // Check if already italic (single *), if so remove it
-    // But avoid matching ** (bold)
-    if (
-      selected.startsWith('*') &&
-      selected.endsWith('*') &&
-      !selected.startsWith('**') &&
-      selected.length > 2
-    ) {
-      const newContent = before + selected.slice(1, -1) + after;
-      setContent(newContent);
+    if (isItalicActive) {
+      // Closing italic - insert *
+      setContent(before + '*' + after);
+      setIsItalicActive(false);
     } else {
-      const newContent = before + '*' + selected + '*' + after;
-      setContent(newContent);
+      // Opening italic - insert *
+      setContent(before + '*' + after);
+      setIsItalicActive(true);
     }
 
     triggerImpact('light');
-  }, [content, selectionStart, selectionEnd, hasSelection]);
+  }, [content, cursorPosition, isItalicActive]);
 
   // Handle mention selection
   const handleMentionSelect = useCallback(
@@ -647,21 +640,19 @@ export default function ComposeScreen() {
           {/* Inline Toolbar - Below Text */}
           <View className="flex-row items-center justify-between ml-13 mt-3 pb-3 border-b border-border">
             <View className="flex-row gap-4 items-center">
-              {/* Bold button */}
+              {/* Bold button - toggle mode */}
               <Pressable
                 onPress={handleBold}
-                disabled={!hasSelection}
-                className={`p-1 rounded ${hasSelection ? 'bg-surface-elevated' : 'opacity-40'}`}
+                className={`p-1.5 rounded ${isBoldActive ? 'bg-accent-primary' : 'bg-surface-elevated'}`}
               >
-                <Bold size={20} color={hasSelection ? '#10B981' : '#6B7280'} />
+                <Bold size={20} color={isBoldActive ? '#FFFFFF' : '#10B981'} />
               </Pressable>
-              {/* Italic button */}
+              {/* Italic button - toggle mode */}
               <Pressable
                 onPress={handleItalic}
-                disabled={!hasSelection}
-                className={`p-1 rounded ${hasSelection ? 'bg-surface-elevated' : 'opacity-40'}`}
+                className={`p-1.5 rounded ${isItalicActive ? 'bg-accent-primary' : 'bg-surface-elevated'}`}
               >
-                <Italic size={20} color={hasSelection ? '#10B981' : '#6B7280'} />
+                <Italic size={20} color={isItalicActive ? '#FFFFFF' : '#10B981'} />
               </Pressable>
               {/* Divider */}
               <View className="w-px h-5 bg-border mx-1" />
