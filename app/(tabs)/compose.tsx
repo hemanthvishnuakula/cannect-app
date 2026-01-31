@@ -42,7 +42,7 @@ import { triggerImpact } from '@/lib/utils/haptics';
 const MAX_LENGTH = 300; // Bluesky character limit
 
 // OG API endpoint for link previews
-const OG_API_URL = '/api';
+const OG_API_URL = 'https://api.cannect.space';
 
 // URL regex pattern
 const URL_REGEX = /https?:\/\/[^\s<>"{}|\\^`\[\]]+/gi;
@@ -535,7 +535,13 @@ export default function ComposeScreen() {
       }
 
       // Handle link preview embed (only if no other embed)
-      if (!embed && linkPreview && linkPreview.title && !linkPreview.loading && !linkPreview.error) {
+      if (
+        !embed &&
+        linkPreview &&
+        linkPreview.title &&
+        !linkPreview.loading &&
+        !linkPreview.error
+      ) {
         let thumbBlob = undefined;
 
         // Upload thumbnail if available
