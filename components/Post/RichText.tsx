@@ -1,15 +1,20 @@
 /**
- * RichText - Renders post text with facets (mentions, links, hashtags)
+ * RichText - Renders post text with facets (mentions, links, hashtags) and markdown (bold, italic)
  *
  * Bluesky posts include a "facets" array that marks ranges of text as:
  * - Mentions (@user) → navigate to profile
  * - Links (URLs) → open in browser
  * - Hashtags (#tag) → search for tag
  *
+ * Additionally, we parse markdown-style formatting:
+ * - **bold** → bold text
+ * - *italic* → italic text
+ * - ***bold italic*** → both
+ *
  * This component parses those facets and renders interactive text.
  */
 
-import { Text, Linking } from 'react-native';
+import { Text, Linking, type TextStyle } from 'react-native';
 import { useRouter } from 'expo-router';
 import { memo, useMemo } from 'react';
 import type { AppBskyRichtextFacet } from '@atproto/api';
@@ -29,6 +34,70 @@ interface TextSegment {
   text: string;
   type: 'text' | 'mention' | 'link' | 'hashtag';
   value?: string; // DID for mention, URL for link, tag for hashtag
+  isBold?: boolean;
+  isItalic?: boolean;
+}
+
+/**
+ * Parse markdown formatting (bold and italic) from text
+ * Returns an array of segments with formatting info
+ */
+function parseMarkdown(text: string): { text: string; isBold: boolean; isItalic: boolean }[] {
+  const segments: { text: string; isBold: boolean; isItalic: boolean }[] = [];
+
+  // Regex to match **bold**, *italic*, or ***bold italic***
+  const pattern = /(\*\*\*(.+?)\*\*\*|\*\*(.+?)\*\*|\*([^*]+?)\*)/g;
+
+  let lastIndex = 0;
+  let match;
+
+  while ((match = pattern.exec(text)) !== null) {
+    // Add text before the match
+    if (match.index > lastIndex) {
+      segments.push({
+        text: text.slice(lastIndex, match.index),
+        isBold: false,
+        isItalic: false,
+      });
+    }
+
+    // Determine the type of formatting
+    if (match[2]) {
+      // ***bold italic***
+      segments.push({
+        text: match[2],
+        isBold: true,
+        isItalic: true,
+      });
+    } else if (match[3]) {
+      // **bold**
+      segments.push({
+        text: match[3],
+        isBold: true,
+        isItalic: false,
+      });
+    } else if (match[4]) {
+      // *italic*
+      segments.push({
+        text: match[4],
+        isBold: false,
+        isItalic: true,
+      });
+    }
+
+    lastIndex = match.index + match[0].length;
+  }
+
+  // Add remaining text
+  if (lastIndex < text.length) {
+    segments.push({
+      text: text.slice(lastIndex),
+      isBold: false,
+      isItalic: false,
+    });
+  }
+
+  return segments.length > 0 ? segments : [{ text, isBold: false, isItalic: false }];
 }
 
 /**
@@ -36,7 +105,8 @@ interface TextSegment {
  */
 function parseTextWithFacets(text: string, facets?: AppBskyRichtextFacet.Main[]): TextSegment[] {
   if (!facets || facets.length === 0) {
-    return [{ text, type: 'text' }];
+    // No facets, just parse markdown
+    return parseMarkdown(text).map((seg) => ({ ...seg, type: 'text' as const }));
   }
 
   // Sort facets by byte start position
@@ -57,13 +127,12 @@ function parseTextWithFacets(text: string, facets?: AppBskyRichtextFacet.Main[])
     const byteStart = facet.index?.byteStart ?? 0;
     const byteEnd = facet.index?.byteEnd ?? 0;
 
-    // Add plain text before this facet
+    // Add plain text before this facet (with markdown parsing)
     if (byteStart > currentBytePos) {
       const plainBytes = textBytes.slice(currentBytePos, byteStart);
-      segments.push({
-        text: decoder.decode(plainBytes),
-        type: 'text',
-      });
+      const plainText = decoder.decode(plainBytes);
+      const markdownSegments = parseMarkdown(plainText);
+      segments.push(...markdownSegments.map((seg) => ({ ...seg, type: 'text' as const })));
     }
 
     // Get the faceted text
@@ -94,24 +163,21 @@ function parseTextWithFacets(text: string, facets?: AppBskyRichtextFacet.Main[])
           value: (feature as any).tag,
         });
       } else {
-        // Unknown facet type, render as plain text
-        segments.push({
-          text: facetText,
-          type: 'text',
-        });
+        // Unknown facet type, render as plain text with markdown
+        const markdownSegments = parseMarkdown(facetText);
+        segments.push(...markdownSegments.map((seg) => ({ ...seg, type: 'text' as const })));
       }
     }
 
     currentBytePos = byteEnd;
   }
 
-  // Add remaining text after last facet
+  // Add remaining text after last facet (with markdown parsing)
   if (currentBytePos < textBytes.length) {
     const remainingBytes = textBytes.slice(currentBytePos);
-    segments.push({
-      text: decoder.decode(remainingBytes),
-      type: 'text',
-    });
+    const remainingText = decoder.decode(remainingBytes);
+    const markdownSegments = parseMarkdown(remainingText);
+    segments.push(...markdownSegments.map((seg) => ({ ...seg, type: 'text' as const })));
   }
 
   return segments;
@@ -142,18 +208,33 @@ export const RichText = memo(function RichText({
     router.push(`/search?q=${encodeURIComponent('#' + tag)}` as any);
   };
 
+  // Build text style based on formatting
+  const getTextStyle = (segment: TextSegment): TextStyle => {
+    const style: TextStyle = {};
+    if (segment.isBold) {
+      style.fontWeight = 'bold';
+    }
+    if (segment.isItalic) {
+      style.fontStyle = 'italic';
+    }
+    return style;
+  };
+
   return (
     <Text
       className={`text-zinc-300 text-[15px] leading-relaxed ${className}`}
       numberOfLines={numberOfLines}
     >
       {segments.map((segment, index) => {
+        const textStyle = getTextStyle(segment);
+
         switch (segment.type) {
           case 'mention':
             return (
               <Text
                 key={index}
                 className="text-primary"
+                style={textStyle}
                 onPress={() => segment.value && handleMentionPress(segment.value)}
               >
                 {segment.text}
@@ -165,6 +246,7 @@ export const RichText = memo(function RichText({
               <Text
                 key={index}
                 className="text-primary"
+                style={textStyle}
                 onPress={() => segment.value && handleLinkPress(segment.value)}
               >
                 {segment.text}
@@ -176,6 +258,7 @@ export const RichText = memo(function RichText({
               <Text
                 key={index}
                 className="text-primary"
+                style={textStyle}
                 onPress={() => segment.value && handleHashtagPress(segment.value)}
               >
                 {segment.text}
@@ -183,7 +266,11 @@ export const RichText = memo(function RichText({
             );
 
           default:
-            return <Text key={index}>{segment.text}</Text>;
+            return (
+              <Text key={index} style={textStyle}>
+                {segment.text}
+              </Text>
+            );
         }
       })}
     </Text>

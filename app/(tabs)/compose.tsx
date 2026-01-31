@@ -19,7 +19,15 @@ import {
 } from 'react-native';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { X, Image as ImageIcon, Video as VideoIcon, Quote, Trash2 } from 'lucide-react-native';
+import {
+  X,
+  Image as ImageIcon,
+  Video as VideoIcon,
+  Quote,
+  Trash2,
+  Bold,
+  Italic,
+} from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { router, useLocalSearchParams } from 'expo-router';
 import { RichText } from '@atproto/api';
@@ -77,7 +85,10 @@ export default function ComposeScreen() {
   const [mentionQuery, setMentionQuery] = useState('');
   const [mentionVisible, setMentionVisible] = useState(false);
   const [cursorPosition, setCursorPosition] = useState(0);
+  const [selectionStart, setSelectionStart] = useState(0);
+  const [selectionEnd, setSelectionEnd] = useState(0);
   const mentionStartRef = useRef<number>(-1);
+  const textInputRef = useRef<TextInput>(null);
 
   // Video file input ref for web
   const videoInputRef = useRef<HTMLInputElement | null>(null);
@@ -259,10 +270,62 @@ export default function ComposeScreen() {
   // Handle cursor position change
   const handleSelectionChange = useCallback(
     (e: NativeSyntheticEvent<TextInputSelectionChangeEventData>) => {
-      setCursorPosition(e.nativeEvent.selection.end);
+      const { start, end } = e.nativeEvent.selection;
+      setCursorPosition(end);
+      setSelectionStart(start);
+      setSelectionEnd(end);
     },
     []
   );
+
+  // Check if text is selected
+  const hasSelection = selectionStart !== selectionEnd;
+
+  // Apply bold formatting to selected text
+  const handleBold = useCallback(() => {
+    if (!hasSelection) return;
+
+    const before = content.slice(0, selectionStart);
+    const selected = content.slice(selectionStart, selectionEnd);
+    const after = content.slice(selectionEnd);
+
+    // Check if already bold, if so remove it
+    if (selected.startsWith('**') && selected.endsWith('**') && selected.length > 4) {
+      const newContent = before + selected.slice(2, -2) + after;
+      setContent(newContent);
+    } else {
+      const newContent = before + '**' + selected + '**' + after;
+      setContent(newContent);
+    }
+
+    triggerImpact('light');
+  }, [content, selectionStart, selectionEnd, hasSelection]);
+
+  // Apply italic formatting to selected text
+  const handleItalic = useCallback(() => {
+    if (!hasSelection) return;
+
+    const before = content.slice(0, selectionStart);
+    const selected = content.slice(selectionStart, selectionEnd);
+    const after = content.slice(selectionEnd);
+
+    // Check if already italic (single *), if so remove it
+    // But avoid matching ** (bold)
+    if (
+      selected.startsWith('*') &&
+      selected.endsWith('*') &&
+      !selected.startsWith('**') &&
+      selected.length > 2
+    ) {
+      const newContent = before + selected.slice(1, -1) + after;
+      setContent(newContent);
+    } else {
+      const newContent = before + '*' + selected + '*' + after;
+      setContent(newContent);
+    }
+
+    triggerImpact('light');
+  }, [content, selectionStart, selectionEnd, hasSelection]);
 
   // Handle mention selection
   const handleMentionSelect = useCallback(
@@ -583,7 +646,25 @@ export default function ComposeScreen() {
 
           {/* Inline Toolbar - Below Text */}
           <View className="flex-row items-center justify-between ml-13 mt-3 pb-3 border-b border-border">
-            <View className="flex-row gap-4">
+            <View className="flex-row gap-4 items-center">
+              {/* Bold button */}
+              <Pressable
+                onPress={handleBold}
+                disabled={!hasSelection}
+                className={`p-1 rounded ${hasSelection ? 'bg-surface-elevated' : 'opacity-40'}`}
+              >
+                <Bold size={20} color={hasSelection ? '#10B981' : '#6B7280'} />
+              </Pressable>
+              {/* Italic button */}
+              <Pressable
+                onPress={handleItalic}
+                disabled={!hasSelection}
+                className={`p-1 rounded ${hasSelection ? 'bg-surface-elevated' : 'opacity-40'}`}
+              >
+                <Italic size={20} color={hasSelection ? '#10B981' : '#6B7280'} />
+              </Pressable>
+              {/* Divider */}
+              <View className="w-px h-5 bg-border mx-1" />
               <Pressable
                 onPress={handlePickImage}
                 disabled={images.length >= 4 || video !== null}
