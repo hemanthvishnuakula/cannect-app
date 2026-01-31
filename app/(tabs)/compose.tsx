@@ -42,7 +42,7 @@ import { triggerImpact } from '@/lib/utils/haptics';
 const MAX_LENGTH = 300; // Bluesky character limit
 
 // OG API endpoint for link previews
-const OG_API_URL = 'http://72.62.163.135:8095';
+const OG_API_URL = '/api';
 
 // URL regex pattern
 const URL_REGEX = /https?:\/\/[^\s<>"{}|\\^`\[\]]+/gi;
