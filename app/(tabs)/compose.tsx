@@ -557,18 +557,29 @@ export default function ComposeScreen() {
         if (linkPreview.image) {
           try {
             setUploadStatus('Uploading link thumbnail...');
-            const thumbResponse = await fetch(linkPreview.image);
-            const thumbData = await thumbResponse.blob();
-            const thumbArrayBuffer = await thumbData.arrayBuffer();
-            const thumbUint8Array = new Uint8Array(thumbArrayBuffer);
-
-            const thumbMimeType = thumbResponse.headers.get('content-type') || 'image/jpeg';
-            const uploadResult = await atproto.uploadBlob(thumbUint8Array, thumbMimeType);
-            thumbBlob = uploadResult.data.blob;
-            console.log('[Compose] Thumbnail uploaded');
+            const thumbResponse = await fetch(linkPreview.image, { mode: 'cors' });
+            
+            if (!thumbResponse.ok) {
+              console.log('[Compose] Thumbnail fetch failed:', thumbResponse.status);
+            } else {
+              const thumbData = await thumbResponse.blob();
+              
+              // Skip if image is too large (> 1MB)
+              if (thumbData.size > 1000000) {
+                console.log('[Compose] Thumbnail too large, skipping:', thumbData.size);
+              } else {
+                const thumbArrayBuffer = await thumbData.arrayBuffer();
+                const thumbUint8Array = new Uint8Array(thumbArrayBuffer);
+                const thumbMimeType = thumbResponse.headers.get('content-type') || 'image/jpeg';
+                
+                const uploadResult = await atproto.uploadBlob(thumbUint8Array, thumbMimeType);
+                thumbBlob = uploadResult.data.blob;
+                console.log('[Compose] Thumbnail uploaded');
+              }
+            }
           } catch (thumbErr) {
-            console.warn('[Compose] Failed to upload link thumbnail:', thumbErr);
-            // Continue without thumbnail
+            // Silently continue without thumbnail - it's optional
+            console.log('[Compose] Thumbnail skipped:', (thumbErr as Error).message);
           }
         }
 
@@ -849,7 +860,7 @@ export default function ComposeScreen() {
                   <Image
                     source={{ uri: linkPreview.image }}
                     className="w-full h-32"
-                    resizeMode="cover"
+                    contentFit="cover"
                   />
                 )}
                 <View className="p-3">
