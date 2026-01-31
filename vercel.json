@@ -9,7 +9,7 @@
       "destination": "/index.html"
     },
     {
-      "source": "/((?!api|_next|_expo|sw\\.js|manifest\\.json|offline\\.html|icons|screenshots).*)",
+      "source": "/((?!api|_next|_expo|sw\\.js|manifest\\.json|offline\\.html|icons|screenshots|reports).*)",
       "destination": "/index.html"
     }
   ],
