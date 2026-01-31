@@ -21,6 +21,7 @@ app.add_middleware(
     allow_origins=[
         "https://cannect.space",
         "https://cannect.net",
+        "https://www.cannect.net",
         "https://cannect-app.vercel.app",
         "https://cannect-one.vercel.app",
         "http://localhost:8081",
