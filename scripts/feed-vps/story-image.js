@@ -343,25 +343,28 @@ async function generateStoryImage(uri) {
                           children: displayName,
                         },
                       },
-                      // Bold green checkmark
+                      // Filled green circle with white checkmark
                       {
                         type: 'svg',
                         props: {
                           width: 26,
                           height: 26,
                           viewBox: '0 0 24 24',
-                          fill: 'none',
                           style: { marginLeft: 10 },
-                          children: {
-                            type: 'path',
-                            props: {
-                              d: 'M20 6L9 17L4 12',
-                              stroke: '#10B981',
-                              strokeWidth: 4,
-                              strokeLinecap: 'round',
-                              strokeLinejoin: 'round',
+                          children: [
+                            { type: 'circle', props: { cx: 12, cy: 12, r: 10, fill: '#10B981' } },
+                            {
+                              type: 'path',
+                              props: {
+                                d: 'M8 12l2.5 2.5L16 9',
+                                stroke: '#FFFFFF',
+                                strokeWidth: 2.5,
+                                strokeLinecap: 'round',
+                                strokeLinejoin: 'round',
+                                fill: 'none',
+                              },
                             },
-                          },
+                          ],
                         },
                       },
                     ],
