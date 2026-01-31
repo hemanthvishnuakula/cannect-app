@@ -212,7 +212,7 @@ export const RichText = memo(function RichText({
   const getTextStyle = (segment: TextSegment): TextStyle => {
     const style: TextStyle = {};
     if (segment.isBold) {
-      style.fontWeight = 'bold';
+      style.fontWeight = '700'; // Use numeric for better cross-platform support
     }
     if (segment.isItalic) {
       style.fontStyle = 'italic';
