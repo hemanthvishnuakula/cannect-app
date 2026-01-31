@@ -20,12 +20,14 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "https://cannect.space",
+        "https://cannect.net",
+        "https://cannect-app.vercel.app",
         "https://cannect-one.vercel.app",
         "http://localhost:8081",
         "http://localhost:19006",
     ],
     allow_credentials=True,
-    allow_methods=["GET", "POST"],
+    allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
 )
 
