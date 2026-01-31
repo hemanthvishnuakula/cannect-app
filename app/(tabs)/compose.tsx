@@ -145,8 +145,10 @@ export default function ComposeScreen() {
       setLinkPreview({ url: firstUrl, loading: true });
 
       try {
+        console.log('[Compose] Fetching OG for:', firstUrl);
         const response = await fetch(`${OG_API_URL}/og?url=${encodeURIComponent(firstUrl)}`);
         const data = await response.json();
+        console.log('[Compose] OG response:', data);
 
         if (data.error) {
           setLinkPreview({ url: firstUrl, error: data.error });
@@ -157,6 +159,7 @@ export default function ComposeScreen() {
             description: data.description,
             image: data.image,
           });
+          console.log('[Compose] Link preview set:', data.title);
         }
       } catch (err) {
         console.error('[Compose] Failed to fetch link preview:', err);
@@ -535,6 +538,11 @@ export default function ComposeScreen() {
       }
 
       // Handle link preview embed (only if no other embed)
+      console.log('[Compose] Checking link preview:', { 
+        hasEmbed: !!embed, 
+        linkPreview: linkPreview ? { url: linkPreview.url, title: linkPreview.title, loading: linkPreview.loading, error: linkPreview.error } : null 
+      });
+      
       if (
         !embed &&
         linkPreview &&
@@ -542,6 +550,7 @@ export default function ComposeScreen() {
         !linkPreview.loading &&
         !linkPreview.error
       ) {
+        console.log('[Compose] Creating external embed for:', linkPreview.url);
         let thumbBlob = undefined;
 
         // Upload thumbnail if available
@@ -556,6 +565,7 @@ export default function ComposeScreen() {
             const thumbMimeType = thumbResponse.headers.get('content-type') || 'image/jpeg';
             const uploadResult = await atproto.uploadBlob(thumbUint8Array, thumbMimeType);
             thumbBlob = uploadResult.data.blob;
+            console.log('[Compose] Thumbnail uploaded');
           } catch (thumbErr) {
             console.warn('[Compose] Failed to upload link thumbnail:', thumbErr);
             // Continue without thumbnail
@@ -571,6 +581,7 @@ export default function ComposeScreen() {
             ...(thumbBlob && { thumb: thumbBlob }),
           },
         };
+        console.log('[Compose] External embed created:', embed);
       }
 
       setIsUploading(false);
