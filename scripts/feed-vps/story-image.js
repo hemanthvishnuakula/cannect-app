@@ -427,34 +427,83 @@ async function generateStoryImage(uri) {
     },
   ];
 
-  // Add post text if exists with link highlighting
+  // Add post text if exists with link highlighting and proper line breaks
   if (text) {
-    // Parse text with facets to identify links
-    const textSegments = parseTextWithFacets(text, facets);
     const fontSize = postImage || externalEmbed ? 28 : 32;
+    
+    // Split text by newlines to preserve paragraph formatting
+    const lines = text.split('\n');
+    const lineElements = [];
+    
+    // Track byte position for facet matching
+    let byteOffset = 0;
+    const encoder = new TextEncoder();
+    
+    for (let lineIdx = 0; lineIdx < lines.length; lineIdx++) {
+      const line = lines[lineIdx];
+      const lineBytes = encoder.encode(line).length;
+      
+      // Find facets that apply to this line
+      const lineFacets = facets.filter(f => {
+        const start = f.index.byteStart;
+        const end = f.index.byteEnd;
+        return start >= byteOffset && start < byteOffset + lineBytes;
+      }).map(f => ({
+        ...f,
+        index: {
+          byteStart: f.index.byteStart - byteOffset,
+          byteEnd: Math.min(f.index.byteEnd - byteOffset, lineBytes),
+        }
+      }));
+      
+      // Parse this line with its facets
+      const lineSegments = parseTextWithFacets(line, lineFacets);
+      
+      // Create spans for this line
+      const lineSpans = lineSegments.map((segment, idx) => ({
+        type: 'span',
+        props: {
+          key: `${lineIdx}-${idx}`,
+          style: {
+            color: segment.isLink ? '#10B981' : '#FAFAFA',
+            fontSize,
+            lineHeight: 1.5,
+            fontWeight: segment.isLink ? 600 : 400,
+          },
+          children: segment.text,
+        },
+      }));
+      
+      // Add line as a div (for proper line break)
+      if (line.trim() || lineIdx < lines.length - 1) {
+        lineElements.push({
+          type: 'div',
+          props: {
+            key: `line-${lineIdx}`,
+            style: {
+              display: 'flex',
+              flexDirection: 'row',
+              flexWrap: 'wrap',
+              minHeight: line.trim() ? 'auto' : fontSize * 0.5, // Empty lines get half height
+            },
+            children: lineSpans.length > 0 ? lineSpans : null,
+          },
+        });
+      }
+      
+      // Update byte offset (+1 for the newline character)
+      byteOffset += lineBytes + 1;
+    }
 
     cardChildren.push({
       type: 'div',
       props: {
         style: {
           display: 'flex',
-          flexDirection: 'row',
-          flexWrap: 'wrap',
+          flexDirection: 'column',
           marginBottom: postImage || quotedPost || externalEmbed ? 20 : 0,
         },
-        children: textSegments.map((segment, idx) => ({
-          type: 'span',
-          props: {
-            key: idx,
-            style: {
-              color: segment.isLink ? '#10B981' : '#FAFAFA',
-              fontSize,
-              lineHeight: 1.5,
-              fontWeight: segment.isLink ? 600 : 400,
-            },
-            children: segment.text,
-          },
-        })),
+        children: lineElements,
       },
     });
   }
