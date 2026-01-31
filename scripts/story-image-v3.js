@@ -38,7 +38,7 @@ async function loadFonts() {
 
   try {
     console.log('[StoryImage] Loading fonts...');
-    
+
     // Regular - Using Open Sans which has proper italic variants
     const regularRes = await fetch(
       'https://fonts.gstatic.com/s/opensans/v44/memSYaGs126MiZpBA-UvWbX2vVnXBbObj2OVZyOOSr4dVJWUgsjZ0C4n.ttf'
@@ -358,22 +358,26 @@ function createRichTextParagraphs(text, facets = [], baseFontSize = 32) {
   if (!text) return [];
 
   let segments = parseRichText(text, facets);
-  
+
   // Debug: log segments before spacing
   console.log(`[StoryImage] Before spacing: ${segments.length} segments`);
   segments.forEach((s, i) => {
-    if (s.isHashtag || (i > 0 && segments[i-1].isHashtag)) {
-      console.log(`[StoryImage]   Seg ${i}: "${s.text.replace(/\n/g, '\\n')}" isHashtag=${s.isHashtag}`);
+    if (s.isHashtag || (i > 0 && segments[i - 1].isHashtag)) {
+      console.log(
+        `[StoryImage]   Seg ${i}: "${s.text.replace(/\n/g, '\\n')}" isHashtag=${s.isHashtag}`
+      );
     }
   });
-  
+
   segments = addHashtagSpacing(segments);
 
   // Debug log
-  const hashtagCount = segments.filter(s => s.isHashtag).length;
-  const italicCount = segments.filter(s => s.fontStyle === 'italic').length;
-  const boldCount = segments.filter(s => s.fontWeight === 700).length;
-  console.log(`[StoryImage] Parsed: ${segments.length} segments, ${hashtagCount} hashtags, ${boldCount} bold, ${italicCount} italic`);
+  const hashtagCount = segments.filter((s) => s.isHashtag).length;
+  const italicCount = segments.filter((s) => s.fontStyle === 'italic').length;
+  const boldCount = segments.filter((s) => s.fontWeight === 700).length;
+  console.log(
+    `[StoryImage] Parsed: ${segments.length} segments, ${hashtagCount} hashtags, ${boldCount} bold, ${italicCount} italic`
+  );
 
   const paragraphs = [];
   let currentParagraph = [];
@@ -462,12 +466,39 @@ async function generateStoryImage(uri) {
                 props: {
                   style: { display: 'flex', flexDirection: 'row', alignItems: 'center' },
                   children: [
-                    { type: 'span', props: { style: { color: COLORS.text, fontSize: 28, fontWeight: 700, fontFamily: 'Inter' }, children: displayName } },
+                    {
+                      type: 'span',
+                      props: {
+                        style: {
+                          color: COLORS.text,
+                          fontSize: 28,
+                          fontWeight: 700,
+                          fontFamily: 'Inter',
+                        },
+                        children: displayName,
+                      },
+                    },
                     {
                       type: 'svg',
                       props: {
-                        width: 26, height: 26, viewBox: '0 0 24 24', fill: 'none', style: { marginLeft: 10 },
-                        children: { type: 'path', props: { d: 'M20 6L9 17L4 12', stroke: COLORS.green, strokeWidth: 4, strokeLinecap: 'round', strokeLinejoin: 'round' } },
+                        width: 24,
+                        height: 24,
+                        viewBox: '0 0 24 24',
+                        style: { marginLeft: 8 },
+                        children: [
+                          { type: 'circle', props: { cx: 12, cy: 12, r: 10, fill: COLORS.green } },
+                          {
+                            type: 'path',
+                            props: {
+                              d: 'M8 12l2.5 2.5L16 9',
+                              stroke: '#FFFFFF',
+                              strokeWidth: 2.5,
+                              strokeLinecap: 'round',
+                              strokeLinejoin: 'round',
+                              fill: 'none',
+                            },
+                          },
+                        ],
                       },
                     },
                   ],
@@ -476,13 +507,45 @@ async function generateStoryImage(uri) {
               {
                 type: 'div',
                 props: {
-                  style: { display: 'flex', flexDirection: 'row', alignItems: 'center', marginTop: 4 },
+                  style: {
+                    display: 'flex',
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    marginTop: 4,
+                  },
                   children: isCannect
                     ? [
-                        { type: 'span', props: { style: { color: COLORS.muted, fontSize: 20, fontFamily: 'Inter' }, children: handle } },
-                        { type: 'span', props: { style: { marginLeft: 10, backgroundColor: 'rgba(16, 185, 129, 0.2)', color: COLORS.green, fontSize: 16, fontWeight: 600, padding: '3px 10px', borderRadius: 10, fontFamily: 'Inter' }, children: 'cannect' } },
+                        {
+                          type: 'span',
+                          props: {
+                            style: { color: COLORS.muted, fontSize: 20, fontFamily: 'Inter' },
+                            children: handle,
+                          },
+                        },
+                        {
+                          type: 'span',
+                          props: {
+                            style: {
+                              marginLeft: 10,
+                              backgroundColor: 'rgba(16, 185, 129, 0.2)',
+                              color: COLORS.green,
+                              fontSize: 16,
+                              fontWeight: 600,
+                              padding: '3px 10px',
+                              borderRadius: 10,
+                              fontFamily: 'Inter',
+                            },
+                            children: 'cannect',
+                          },
+                        },
                       ]
-                    : { type: 'span', props: { style: { color: COLORS.muted, fontSize: 20, fontFamily: 'Inter' }, children: handle } },
+                    : {
+                        type: 'span',
+                        props: {
+                          style: { color: COLORS.muted, fontSize: 20, fontFamily: 'Inter' },
+                          children: handle,
+                        },
+                      },
                 },
               },
             ],
@@ -499,7 +562,11 @@ async function generateStoryImage(uri) {
     cardChildren.push({
       type: 'div',
       props: {
-        style: { display: 'flex', flexDirection: 'column', marginBottom: postImage || quotedPost ? 20 : 0 },
+        style: {
+          display: 'flex',
+          flexDirection: 'column',
+          marginBottom: postImage || quotedPost ? 20 : 0,
+        },
         children: richTextParagraphs,
       },
     });
@@ -520,28 +587,74 @@ async function generateStoryImage(uri) {
     cardChildren.push({
       type: 'div',
       props: {
-        style: { display: 'flex', flexDirection: 'column', backgroundColor: COLORS.border, borderRadius: 16, padding: 16, marginBottom: postImage ? 20 : 0, border: '1px solid #3F3F46' },
+        style: {
+          display: 'flex',
+          flexDirection: 'column',
+          backgroundColor: COLORS.border,
+          borderRadius: 16,
+          padding: 16,
+          marginBottom: postImage ? 20 : 0,
+          border: '1px solid #3F3F46',
+        },
         children: [
           {
             type: 'div',
             props: {
-              style: { display: 'flex', flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
+              style: {
+                display: 'flex',
+                flexDirection: 'row',
+                alignItems: 'center',
+                marginBottom: 10,
+              },
               children: [
-                qAvatarUrl ? { type: 'img', props: { src: qAvatarUrl, style: { width: 32, height: 32, borderRadius: 16, marginRight: 10 } } } : null,
+                qAvatarUrl
+                  ? {
+                      type: 'img',
+                      props: {
+                        src: qAvatarUrl,
+                        style: { width: 32, height: 32, borderRadius: 16, marginRight: 10 },
+                      },
+                    }
+                  : null,
                 {
                   type: 'div',
                   props: {
                     style: { display: 'flex', flexDirection: 'column' },
                     children: [
-                      { type: 'span', props: { style: { color: COLORS.text, fontSize: 18, fontWeight: 600, fontFamily: 'Inter' }, children: qDisplayName } },
-                      { type: 'span', props: { style: { color: COLORS.muted, fontSize: 16, fontFamily: 'Inter' }, children: qHandle } },
+                      {
+                        type: 'span',
+                        props: {
+                          style: {
+                            color: COLORS.text,
+                            fontSize: 18,
+                            fontWeight: 600,
+                            fontFamily: 'Inter',
+                          },
+                          children: qDisplayName,
+                        },
+                      },
+                      {
+                        type: 'span',
+                        props: {
+                          style: { color: COLORS.muted, fontSize: 16, fontFamily: 'Inter' },
+                          children: qHandle,
+                        },
+                      },
                     ],
                   },
                 },
               ].filter(Boolean),
             },
           },
-          truncatedText ? { type: 'div', props: { style: { display: 'flex', flexDirection: 'column' }, children: quotedRichText } } : null,
+          truncatedText
+            ? {
+                type: 'div',
+                props: {
+                  style: { display: 'flex', flexDirection: 'column' },
+                  children: quotedRichText,
+                },
+              }
+            : null,
         ].filter(Boolean),
       },
     });
@@ -551,7 +664,10 @@ async function generateStoryImage(uri) {
   if (postImage) {
     cardChildren.push({
       type: 'img',
-      props: { src: postImage, style: { width: '100%', maxHeight: 600, borderRadius: 16, objectFit: 'cover' } },
+      props: {
+        src: postImage,
+        style: { width: '100%', maxHeight: 600, borderRadius: 16, objectFit: 'cover' },
+      },
     });
   }
 
@@ -559,10 +675,31 @@ async function generateStoryImage(uri) {
   cardChildren.push({
     type: 'div',
     props: {
-      style: { display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 24, paddingTop: 24, borderTop: `1px solid ${COLORS.border}`, width: '100%' },
+      style: {
+        display: 'flex',
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginTop: 24,
+        paddingTop: 24,
+        borderTop: `1px solid ${COLORS.border}`,
+        width: '100%',
+      },
       children: [
-        { type: 'span', props: { style: { color: COLORS.green, fontSize: 22, fontWeight: 600, fontFamily: 'Inter' }, children: 'cannect.net' } },
-        { type: 'span', props: { style: { color: COLORS.muted, fontSize: 18, fontWeight: 500, fontFamily: 'Inter' }, children: 'Connect. Share. Grow.' } },
+        {
+          type: 'span',
+          props: {
+            style: { color: COLORS.green, fontSize: 22, fontWeight: 600, fontFamily: 'Inter' },
+            children: 'cannect.net',
+          },
+        },
+        {
+          type: 'span',
+          props: {
+            style: { color: COLORS.muted, fontSize: 18, fontWeight: 500, fontFamily: 'Inter' },
+            children: 'Connect. Share. Grow.',
+          },
+        },
       ],
     },
   });
@@ -571,11 +708,32 @@ async function generateStoryImage(uri) {
     {
       type: 'div',
       props: {
-        style: { width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.background, fontFamily: 'Inter' },
+        style: {
+          width: '100%',
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: COLORS.background,
+          fontFamily: 'Inter',
+        },
         children: {
           type: 'div',
           props: {
-            style: { display: 'flex', flexDirection: 'column', backgroundColor: COLORS.card, borderRadius: 32, padding: 40, margin: 48, border: `2px solid ${COLORS.border}`, maxWidth: 984, width: 984, maxHeight: 1800, overflow: 'hidden' },
+            style: {
+              display: 'flex',
+              flexDirection: 'column',
+              backgroundColor: COLORS.card,
+              borderRadius: 32,
+              padding: 40,
+              margin: 48,
+              border: `2px solid ${COLORS.border}`,
+              maxWidth: 984,
+              width: 984,
+              maxHeight: 1800,
+              overflow: 'hidden',
+            },
             children: cardChildren,
           },
         },
@@ -601,7 +759,9 @@ async function generateStoryImage(uri) {
   const pngData = resvg.render();
   const pngBuffer = pngData.asPng();
 
-  console.log(`[StoryImage] Generated for ${uri.substring(0, 50)}... (hasImage: ${!!postImage}, hasFacets: ${facets.length > 0})`);
+  console.log(
+    `[StoryImage] Generated for ${uri.substring(0, 50)}... (hasImage: ${!!postImage}, hasFacets: ${facets.length > 0})`
+  );
   return pngBuffer;
 }
 

@@ -41,6 +41,22 @@ import { triggerImpact } from '@/lib/utils/haptics';
 
 const MAX_LENGTH = 300; // Bluesky character limit
 
+// OG API endpoint for link previews
+const OG_API_URL = 'http://72.62.163.135:8095';
+
+// URL regex pattern
+const URL_REGEX = /https?:\/\/[^\s<>"{}|\\^`\[\]]+/gi;
+
+// Link preview data
+interface LinkPreview {
+  url: string;
+  title?: string;
+  description?: string;
+  image?: string;
+  loading?: boolean;
+  error?: string;
+}
+
 // Quoted post preview data
 interface QuotedPost {
   uri: string;
@@ -81,6 +97,10 @@ export default function ComposeScreen() {
   const [isLoadingQuote, setIsLoadingQuote] = useState(false);
   const [discardMenuVisible, setDiscardMenuVisible] = useState(false);
 
+  // Link preview state
+  const [linkPreview, setLinkPreview] = useState<LinkPreview | null>(null);
+  const linkPreviewFetchedRef = useRef<string | null>(null);
+
   // Mention autocomplete state
   const [mentionQuery, setMentionQuery] = useState('');
   const [mentionVisible, setMentionVisible] = useState(false);
@@ -95,6 +115,57 @@ export default function ComposeScreen() {
 
   const createPostMutation = useCreatePost();
   const { isAuthenticated, profile, handle } = useAuthStore();
+
+  // Detect URLs in content and fetch link preview
+  useEffect(() => {
+    // Don't fetch link preview if we already have media or quote
+    if (images.length > 0 || video || isQuote) {
+      setLinkPreview(null);
+      return;
+    }
+
+    const urls = content.match(URL_REGEX);
+    const firstUrl = urls?.[0];
+
+    // If no URL found, clear preview
+    if (!firstUrl) {
+      setLinkPreview(null);
+      linkPreviewFetchedRef.current = null;
+      return;
+    }
+
+    // Don't refetch if we already fetched this URL
+    if (linkPreviewFetchedRef.current === firstUrl) {
+      return;
+    }
+
+    // Debounce: wait for user to stop typing
+    const timeoutId = setTimeout(async () => {
+      linkPreviewFetchedRef.current = firstUrl;
+      setLinkPreview({ url: firstUrl, loading: true });
+
+      try {
+        const response = await fetch(`${OG_API_URL}/og?url=${encodeURIComponent(firstUrl)}`);
+        const data = await response.json();
+
+        if (data.error) {
+          setLinkPreview({ url: firstUrl, error: data.error });
+        } else {
+          setLinkPreview({
+            url: data.url || firstUrl,
+            title: data.title,
+            description: data.description,
+            image: data.image,
+          });
+        }
+      } catch (err) {
+        console.error('[Compose] Failed to fetch link preview:', err);
+        setLinkPreview({ url: firstUrl, error: 'Failed to load preview' });
+      }
+    }, 500);
+
+    return () => clearTimeout(timeoutId);
+  }, [content, images.length, video, isQuote]);
 
   // Fetch quoted post data for preview
   useEffect(() => {
@@ -463,6 +534,39 @@ export default function ComposeScreen() {
         }
       }
 
+      // Handle link preview embed (only if no other embed)
+      if (!embed && linkPreview && linkPreview.title && !linkPreview.loading && !linkPreview.error) {
+        let thumbBlob = undefined;
+
+        // Upload thumbnail if available
+        if (linkPreview.image) {
+          try {
+            setUploadStatus('Uploading link thumbnail...');
+            const thumbResponse = await fetch(linkPreview.image);
+            const thumbData = await thumbResponse.blob();
+            const thumbArrayBuffer = await thumbData.arrayBuffer();
+            const thumbUint8Array = new Uint8Array(thumbArrayBuffer);
+
+            const thumbMimeType = thumbResponse.headers.get('content-type') || 'image/jpeg';
+            const uploadResult = await atproto.uploadBlob(thumbUint8Array, thumbMimeType);
+            thumbBlob = uploadResult.data.blob;
+          } catch (thumbErr) {
+            console.warn('[Compose] Failed to upload link thumbnail:', thumbErr);
+            // Continue without thumbnail
+          }
+        }
+
+        embed = {
+          $type: 'app.bsky.embed.external',
+          external: {
+            uri: linkPreview.url,
+            title: linkPreview.title || '',
+            description: linkPreview.description || '',
+            ...(thumbBlob && { thumb: thumbBlob }),
+          },
+        };
+      }
+
       setIsUploading(false);
 
       // Build reply reference if this is a reply
@@ -489,6 +593,8 @@ export default function ComposeScreen() {
       setContent('');
       setImages([]);
       setVideo(null);
+      setLinkPreview(null);
+      linkPreviewFetchedRef.current = '';
       router.back();
     } catch (err: any) {
       console.error('[Compose] Post creation error:', err.message);
@@ -513,6 +619,7 @@ export default function ComposeScreen() {
     rootCid,
     createPostMutation,
     canPost,
+    linkPreview,
   ]);
 
   const hasDraft = content.trim() || images.length > 0 || video;
@@ -530,6 +637,8 @@ export default function ComposeScreen() {
     setImages([]);
     setVideo(null);
     setQuotedPost(null);
+    setLinkPreview(null);
+    linkPreviewFetchedRef.current = '';
     setDiscardMenuVisible(false);
     router.back();
   };
@@ -708,6 +817,45 @@ export default function ComposeScreen() {
               </View>
               <Pressable
                 onPress={removeVideo}
+                className="absolute -top-2 -right-2 w-6 h-6 bg-black/70 rounded-full items-center justify-center"
+              >
+                <X size={14} color="#fff" />
+              </Pressable>
+            </View>
+          )}
+
+          {/* Link Preview */}
+          {linkPreview && !images.length && !video && (
+            <View className="mt-4 ml-13 relative">
+              <View className="bg-surface-elevated rounded-xl border border-border overflow-hidden">
+                {linkPreview.image && (
+                  <Image
+                    source={{ uri: linkPreview.image }}
+                    className="w-full h-32"
+                    resizeMode="cover"
+                  />
+                )}
+                <View className="p-3">
+                  {linkPreview.title && (
+                    <Text className="text-text-primary font-medium text-sm" numberOfLines={2}>
+                      {linkPreview.title}
+                    </Text>
+                  )}
+                  {linkPreview.description && (
+                    <Text className="text-text-muted text-xs mt-1" numberOfLines={2}>
+                      {linkPreview.description}
+                    </Text>
+                  )}
+                  <Text className="text-text-muted text-xs mt-1" numberOfLines={1}>
+                    {new URL(linkPreview.url).hostname}
+                  </Text>
+                </View>
+              </View>
+              <Pressable
+                onPress={() => {
+                  setLinkPreview(null);
+                  linkPreviewFetchedRef.current = '';
+                }}
                 className="absolute -top-2 -right-2 w-6 h-6 bg-black/70 rounded-full items-center justify-center"
               >
                 <X size={14} color="#fff" />

@@ -690,7 +690,9 @@ async function generateStoryImage(uri) {
 
     const maxQuoteLength = 200;
     const truncatedQuoteText =
-      quotedText.length > maxQuoteLength ? quotedText.substring(0, maxQuoteLength) + '...' : quotedText;
+      quotedText.length > maxQuoteLength
+        ? quotedText.substring(0, maxQuoteLength) + '...'
+        : quotedText;
 
     const quotedRichText = createRichTextParagraphs(truncatedQuoteText, quotedFacets, 22);
 

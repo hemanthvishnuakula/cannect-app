@@ -1,0 +1,14 @@
+[Unit]
+Description=Cannect OG Metadata API
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/og-api
+ExecStart=/usr/bin/python3 -m uvicorn og_server:app --host 0.0.0.0 --port 8095
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
