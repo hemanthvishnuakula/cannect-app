@@ -520,7 +520,7 @@ async function generateStoryImage(uri) {
           src: externalEmbed.thumb,
           style: {
             width: '100%',
-            height: 180,
+            height: 140,
             borderRadius: '12px 12px 0 0',
             objectFit: 'cover',
           },
@@ -723,7 +723,7 @@ async function generateStoryImage(uri) {
         src: postImage,
         style: {
           width: '100%',
-          maxHeight: 600,
+          maxHeight: 450,
           borderRadius: 16,
           objectFit: 'cover',
         },
@@ -785,6 +785,9 @@ async function generateStoryImage(uri) {
           justifyContent: 'center',
           backgroundColor: '#0A0A0A',
           fontFamily: 'Inter',
+          // Instagram Stories safe zone: ~250px top/bottom for UI elements
+          paddingTop: 180,
+          paddingBottom: 180,
         },
         children: {
           type: 'div',
@@ -794,12 +797,12 @@ async function generateStoryImage(uri) {
               flexDirection: 'column',
               backgroundColor: '#18181B',
               borderRadius: 32,
-              padding: 40,
-              margin: 48,
+              padding: 36,
+              marginLeft: 32,
+              marginRight: 32,
               border: '2px solid #27272A',
-              maxWidth: 984,
-              width: 984,
-              maxHeight: 1800,
+              width: 1016, // 1080 - 32*2 margins
+              maxHeight: 1360, // 1920 - 180*2 safe zone - 32 extra padding
               overflow: 'hidden',
             },
             children: cardChildren,
