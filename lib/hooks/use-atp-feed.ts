@@ -457,7 +457,7 @@ export function usePostThread(uri: string | undefined) {
   // Include viewer DID in query key so thread refetches when session is restored
   // This ensures viewer state (likes, reposts) is correct after hard refresh
   const { did: viewerDid } = useAuthStore();
-  
+
   return useQuery({
     queryKey: ['thread', uri, viewerDid],
     queryFn: async () => {
