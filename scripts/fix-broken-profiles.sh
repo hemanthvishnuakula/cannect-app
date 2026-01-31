@@ -4,7 +4,7 @@
 # This creates new commits that will be picked up by the firehose
 
 PDS_HOST="http://localhost:3000"
-ADMIN_PASSWORD="05ae258b5462447d5b98e23d8db4ac0c"
+ADMIN_PASSWORD="${PDS_ADMIN_PASSWORD:-}"
 
 # List of broken user DIDs (from our analysis)
 BROKEN_DIDS=(

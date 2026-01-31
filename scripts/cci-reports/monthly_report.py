@@ -25,11 +25,11 @@ from reportlab.graphics import renderPDF
 
 # Database
 DB_CONFIG = {
-    'host': 'localhost',
-    'port': 5432,
-    'dbname': 'cannect_intel',
-    'user': 'cci',
-    'password': 'cci_secure_2026'
+    'host': os.getenv('DB_HOST', 'localhost'),
+    'port': int(os.getenv('DB_PORT', '5432')),
+    'dbname': os.getenv('DB_NAME', 'cannect_intel'),
+    'user': os.getenv('DB_USER', 'cci'),
+    'password': os.getenv('DB_PASSWORD', '')
 }
 
 # Professional color palette - minimal and clean

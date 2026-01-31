@@ -105,11 +105,11 @@ IMPORTANT:
 def get_db_connection():
     """Get PostgreSQL connection."""
     return psycopg2.connect(
-        host='localhost',
-        port=5432,
-        database='cannect_intel',
-        user='cci',
-        password='cci_secure_2026'
+        host=os.getenv('DB_HOST', 'localhost'),
+        port=int(os.getenv('DB_PORT', '5432')),
+        database=os.getenv('DB_NAME', 'cannect_intel'),
+        user=os.getenv('DB_USER', 'cci'),
+        password=os.getenv('DB_PASSWORD', '')
     )
 
 
