@@ -134,12 +134,7 @@ function getPostImage(post) {
     return embed.images[0].fullsize || embed.images[0].thumb;
   }
 
-  // External embed with thumb
-  if (embed.$type === 'app.bsky.embed.external#view' && embed.external?.thumb) {
-    return embed.external.thumb;
-  }
-
-  // Record with media
+  // Record with media - check media for images
   if (embed.$type === 'app.bsky.embed.recordWithMedia#view' && embed.media) {
     if (embed.media.$type === 'app.bsky.embed.images#view' && embed.media.images?.length > 0) {
       return embed.media.images[0].fullsize || embed.media.images[0].thumb;
@@ -147,6 +142,76 @@ function getPostImage(post) {
   }
 
   return null;
+}
+
+/**
+ * Get external embed (link preview) from post
+ */
+function getExternalEmbed(post) {
+  const embed = post.embed;
+  if (!embed) return null;
+
+  // Direct external embed
+  if (embed.$type === 'app.bsky.embed.external#view' && embed.external) {
+    return {
+      uri: embed.external.uri,
+      title: embed.external.title,
+      description: embed.external.description,
+      thumb: embed.external.thumb,
+    };
+  }
+
+  return null;
+}
+
+/**
+ * Parse post text with facets to identify links
+ * Returns array of text segments with their styling
+ */
+function parseTextWithFacets(text, facets) {
+  if (!facets || facets.length === 0) {
+    return [{ text, isLink: false }];
+  }
+
+  const segments = [];
+  let lastIndex = 0;
+
+  // Sort facets by byte start
+  const sortedFacets = [...facets].sort((a, b) => a.index.byteStart - b.index.byteStart);
+
+  // Convert string to bytes for proper slicing
+  const encoder = new TextEncoder();
+  const decoder = new TextDecoder();
+  const bytes = encoder.encode(text);
+
+  for (const facet of sortedFacets) {
+    const { byteStart, byteEnd } = facet.index;
+    
+    // Check if this facet is a link
+    const isLink = facet.features?.some(
+      (f) => f.$type === 'app.bsky.richtext.facet#link'
+    );
+
+    // Add text before this facet
+    if (byteStart > lastIndex) {
+      const beforeBytes = bytes.slice(lastIndex, byteStart);
+      segments.push({ text: decoder.decode(beforeBytes), isLink: false });
+    }
+
+    // Add the facet text
+    const facetBytes = bytes.slice(byteStart, byteEnd);
+    segments.push({ text: decoder.decode(facetBytes), isLink });
+
+    lastIndex = byteEnd;
+  }
+
+  // Add remaining text after last facet
+  if (lastIndex < bytes.length) {
+    const remainingBytes = bytes.slice(lastIndex);
+    segments.push({ text: decoder.decode(remainingBytes), isLink: false });
+  }
+
+  return segments;
 }
 
 /**
@@ -198,12 +263,14 @@ async function generateStoryImage(uri) {
   const author = post.author;
   const record = post.record;
   const text = record.text || '';
+  const facets = record.facets || [];
   const displayName = author.displayName || author.handle;
   const handle = `@${author.handle}`;
   const avatarUrl = getAvatarUrl(author);
   const isCannect = isCannectUser(author.handle);
   const postImage = getPostImage(post);
   const quotedPost = getQuotedPost(post);
+  const externalEmbed = getExternalEmbed(post);
 
   // Engagement stats
   const replyCount = post.replyCount || 0;
@@ -357,10 +424,118 @@ async function generateStoryImage(uri) {
     },
   ];
 
-  // Add post text if exists
-  // Split by newlines to preserve paragraph formatting
+  // Add post text if exists with link highlighting
   if (text) {
-    const paragraphs = text.split(/\n+/).filter((p) => p.trim());
+    // Parse text with facets to identify links
+    const textSegments = parseTextWithFacets(text, facets);
+    const fontSize = postImage || externalEmbed ? 28 : 32;
+
+    cardChildren.push({
+      type: 'div',
+      props: {
+        style: {
+          display: 'flex',
+          flexDirection: 'row',
+          flexWrap: 'wrap',
+          marginBottom: postImage || quotedPost || externalEmbed ? 20 : 0,
+        },
+        children: textSegments.map((segment, idx) => ({
+          type: 'span',
+          props: {
+            key: idx,
+            style: {
+              color: segment.isLink ? '#10B981' : '#FAFAFA',
+              fontSize,
+              lineHeight: 1.5,
+              fontWeight: segment.isLink ? 600 : 400,
+            },
+            children: segment.text,
+          },
+        })),
+      },
+    });
+  }
+
+  // Add external embed (link preview) if exists
+  if (externalEmbed) {
+    const embedChildren = [];
+
+    // Add thumbnail if available
+    if (externalEmbed.thumb) {
+      embedChildren.push({
+        type: 'img',
+        props: {
+          src: externalEmbed.thumb,
+          style: {
+            width: '100%',
+            height: 180,
+            borderRadius: '12px 12px 0 0',
+            objectFit: 'cover',
+          },
+        },
+      });
+    }
+
+    // Add title and description
+    embedChildren.push({
+      type: 'div',
+      props: {
+        style: {
+          display: 'flex',
+          flexDirection: 'column',
+          padding: 16,
+        },
+        children: [
+          // Title
+          externalEmbed.title ? {
+            type: 'span',
+            props: {
+              style: {
+                color: '#FAFAFA',
+                fontSize: 22,
+                fontWeight: 600,
+                marginBottom: 6,
+              },
+              children: externalEmbed.title.length > 60 
+                ? externalEmbed.title.substring(0, 60) + '...'
+                : externalEmbed.title,
+            },
+          } : null,
+          // Description
+          externalEmbed.description ? {
+            type: 'span',
+            props: {
+              style: {
+                color: '#A1A1AA',
+                fontSize: 18,
+                lineHeight: 1.4,
+                marginBottom: 8,
+              },
+              children: externalEmbed.description.length > 100
+                ? externalEmbed.description.substring(0, 100) + '...'
+                : externalEmbed.description,
+            },
+          } : null,
+          // Domain
+          {
+            type: 'span',
+            props: {
+              style: {
+                color: '#71717A',
+                fontSize: 16,
+              },
+              children: (() => {
+                try {
+                  return new URL(externalEmbed.uri).hostname;
+                } catch {
+                  return externalEmbed.uri;
+                }
+              })(),
+            },
+          },
+        ].filter(Boolean),
+      },
+    });
 
     cardChildren.push({
       type: 'div',
@@ -368,20 +543,13 @@ async function generateStoryImage(uri) {
         style: {
           display: 'flex',
           flexDirection: 'column',
-          gap: 16,
-          marginBottom: postImage || quotedPost ? 20 : 0,
+          backgroundColor: '#27272A',
+          borderRadius: 12,
+          overflow: 'hidden',
+          border: '1px solid #3F3F46',
+          marginBottom: postImage ? 20 : 0,
         },
-        children: paragraphs.map((paragraph) => ({
-          type: 'div',
-          props: {
-            style: {
-              color: '#FAFAFA',
-              fontSize: postImage ? 28 : 32,
-              lineHeight: 1.5,
-            },
-            children: paragraph,
-          },
-        })),
+        children: embedChildren,
       },
     });
   }
