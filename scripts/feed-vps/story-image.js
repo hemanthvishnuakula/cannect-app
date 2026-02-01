@@ -186,11 +186,9 @@ function parseTextWithFacets(text, facets) {
 
   for (const facet of sortedFacets) {
     const { byteStart, byteEnd } = facet.index;
-    
+
     // Check if this facet is a link
-    const isLink = facet.features?.some(
-      (f) => f.$type === 'app.bsky.richtext.facet#link'
-    );
+    const isLink = facet.features?.some((f) => f.$type === 'app.bsky.richtext.facet#link');
 
     // Add text before this facet
     if (byteStart > lastIndex) {
@@ -430,35 +428,37 @@ async function generateStoryImage(uri) {
   // Add post text if exists with link highlighting and proper line breaks
   if (text) {
     const fontSize = postImage || externalEmbed ? 28 : 32;
-    
+
     // Split text by newlines to preserve paragraph formatting
     const lines = text.split('\n');
     const lineElements = [];
-    
+
     // Track byte position for facet matching
     let byteOffset = 0;
     const encoder = new TextEncoder();
-    
+
     for (let lineIdx = 0; lineIdx < lines.length; lineIdx++) {
       const line = lines[lineIdx];
       const lineBytes = encoder.encode(line).length;
-      
+
       // Find facets that apply to this line
-      const lineFacets = facets.filter(f => {
-        const start = f.index.byteStart;
-        const end = f.index.byteEnd;
-        return start >= byteOffset && start < byteOffset + lineBytes;
-      }).map(f => ({
-        ...f,
-        index: {
-          byteStart: f.index.byteStart - byteOffset,
-          byteEnd: Math.min(f.index.byteEnd - byteOffset, lineBytes),
-        }
-      }));
-      
+      const lineFacets = facets
+        .filter((f) => {
+          const start = f.index.byteStart;
+          const end = f.index.byteEnd;
+          return start >= byteOffset && start < byteOffset + lineBytes;
+        })
+        .map((f) => ({
+          ...f,
+          index: {
+            byteStart: f.index.byteStart - byteOffset,
+            byteEnd: Math.min(f.index.byteEnd - byteOffset, lineBytes),
+          },
+        }));
+
       // Parse this line with its facets
       const lineSegments = parseTextWithFacets(line, lineFacets);
-      
+
       // Create spans for this line
       const lineSpans = lineSegments.map((segment, idx) => ({
         type: 'span',
@@ -467,13 +467,13 @@ async function generateStoryImage(uri) {
           style: {
             color: segment.isLink ? '#10B981' : '#FAFAFA',
             fontSize,
-            lineHeight: 1.5,
+            lineHeight: 1.8, // Increased for more vertical space
             fontWeight: segment.isLink ? 600 : 400,
           },
           children: segment.text,
         },
       }));
-      
+
       // Add line as a div (for proper line break)
       if (line.trim() || lineIdx < lines.length - 1) {
         lineElements.push({
@@ -484,13 +484,13 @@ async function generateStoryImage(uri) {
               display: 'flex',
               flexDirection: 'row',
               flexWrap: 'wrap',
-              minHeight: line.trim() ? 'auto' : fontSize * 0.5, // Empty lines get half height
+              minHeight: line.trim() ? fontSize * 2.1 : fontSize * 1.0, // Increased for more vertical space
             },
             children: lineSpans.length > 0 ? lineSpans : null,
           },
         });
       }
-      
+
       // Update byte offset (+1 for the newline character)
       byteOffset += lineBytes + 1;
     }
@@ -503,6 +503,7 @@ async function generateStoryImage(uri) {
           flexDirection: 'column',
           marginBottom: postImage || quotedPost || externalEmbed ? 20 : 0,
         },
+        gap: fontSize * 0.6, // Add vertical gap between lines
         children: lineElements,
       },
     });
@@ -539,35 +540,41 @@ async function generateStoryImage(uri) {
         },
         children: [
           // Title
-          externalEmbed.title ? {
-            type: 'span',
-            props: {
-              style: {
-                color: '#FAFAFA',
-                fontSize: 22,
-                fontWeight: 600,
-                marginBottom: 6,
-              },
-              children: externalEmbed.title.length > 60 
-                ? externalEmbed.title.substring(0, 60) + '...'
-                : externalEmbed.title,
-            },
-          } : null,
+          externalEmbed.title
+            ? {
+                type: 'span',
+                props: {
+                  style: {
+                    color: '#FAFAFA',
+                    fontSize: 22,
+                    fontWeight: 600,
+                    marginBottom: 6,
+                  },
+                  children:
+                    externalEmbed.title.length > 60
+                      ? externalEmbed.title.substring(0, 60) + '...'
+                      : externalEmbed.title,
+                },
+              }
+            : null,
           // Description
-          externalEmbed.description ? {
-            type: 'span',
-            props: {
-              style: {
-                color: '#A1A1AA',
-                fontSize: 18,
-                lineHeight: 1.4,
-                marginBottom: 8,
-              },
-              children: externalEmbed.description.length > 100
-                ? externalEmbed.description.substring(0, 100) + '...'
-                : externalEmbed.description,
-            },
-          } : null,
+          externalEmbed.description
+            ? {
+                type: 'span',
+                props: {
+                  style: {
+                    color: '#A1A1AA',
+                    fontSize: 18,
+                    lineHeight: 1.4,
+                    marginBottom: 8,
+                  },
+                  children:
+                    externalEmbed.description.length > 100
+                      ? externalEmbed.description.substring(0, 100) + '...'
+                      : externalEmbed.description,
+                },
+              }
+            : null,
           // Domain
           {
             type: 'span',
