@@ -691,8 +691,8 @@ async function generateStoryImage(uri) {
           justifyContent: 'center',
           backgroundColor: '#0F0F0F',
           fontFamily: 'Inter',
-          paddingTop: 180,
-          paddingBottom: 180,
+          paddingTop: 80,
+          paddingBottom: 80,
         },
         children: {
           type: 'div',
