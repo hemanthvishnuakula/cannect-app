@@ -367,8 +367,9 @@ async function generateStoryImage(uri) {
                 fontSize: 16,
               },
               children: (() => {
-                try { return new URL(externalEmbed.uri).hostname; } 
-                catch { return externalEmbed.uri; }
+                try { 
+                  return new URL(externalEmbed.uri).hostname.replace(/^www\./, ''); 
+                } catch { return externalEmbed.uri; }
               })(),
             },
           },
@@ -416,20 +417,26 @@ async function generateStoryImage(uri) {
       // Parse line with facets
       const lineSegments = parseTextWithFacets(line, lineFacets);
       
-      // Create spans for this line
-      const lineSpans = lineSegments.map((segment, idx) => ({
-        type: 'span',
-        props: {
-          key: `${lineIdx}-${idx}`,
-          style: {
-            color: segment.isLink ? '#10B981' : '#1F2937',
-            fontSize,
-            lineHeight: 1.6,
-            fontWeight: 400,
+      // Create spans for this line (strip https://www. from link text)
+      const lineSpans = lineSegments.map((segment, idx) => {
+        let displayText = segment.text;
+        if (segment.isLink) {
+          displayText = displayText.replace(/^https?:\/\/(www\.)?/, '');
+        }
+        return {
+          type: 'span',
+          props: {
+            key: `${lineIdx}-${idx}`,
+            style: {
+              color: segment.isLink ? '#10B981' : '#1F2937',
+              fontSize,
+              lineHeight: 1.6,
+              fontWeight: 400,
+            },
+            children: displayText,
           },
-          children: segment.text,
-        },
-      }));
+        };
+      });
       
       // Add line div
       if (line.trim() || lineIdx < lines.length - 1) {
@@ -477,10 +484,10 @@ async function generateStoryImage(uri) {
                 type: 'img',
                 props: {
                   src: avatarUrl,
-                  width: 48,
-                  height: 48,
+                  width: 52,
+                  height: 52,
                   style: {
-                    borderRadius: 24,
+                    borderRadius: 26,
                   },
                 },
               },
@@ -509,7 +516,7 @@ async function generateStoryImage(uri) {
                             props: {
                               style: {
                                 color: '#0F172A',
-                                fontSize: 22,
+                                fontSize: 24,
                                 fontWeight: 700,
                               },
                               children: displayName,
@@ -542,7 +549,7 @@ async function generateStoryImage(uri) {
                         ],
                       },
                     },
-                    // Handle
+                    // Handle (hide .cannect.space)
                     {
                       type: 'span',
                       props: {
@@ -551,7 +558,7 @@ async function generateStoryImage(uri) {
                           fontSize: 17,
                           marginTop: 2,
                         },
-                        children: handle,
+                        children: handle.replace('.cannect.space', ''),
                       },
                     },
                   ],
