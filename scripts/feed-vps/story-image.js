@@ -290,108 +290,130 @@ async function generateStoryImage(uri) {
 
   // === MODERN X-LIKE DESIGN ===
   // Dark background, white card, clean minimal layout
-  // Card is narrower for more vertical look
+  // Layout: Header (avatar+name | logo) → Text → Preview → Metrics
   
-  const cardWidth = 820; // Narrower card for less stretch
+  const cardWidth = 820;
   const cardMargin = (1080 - cardWidth) / 2;
 
   // Build card content
   const cardContent = [];
 
-  // 1. IMAGE AT TOP (if exists) - full width, rounded top corners
-  if (postImage) {
-    cardContent.push({
-      type: 'img',
-      props: {
-        src: postImage,
-        style: {
-          width: '100%',
-          height: 340,
-          objectFit: 'cover',
-          borderRadius: '24px 24px 0 0',
-        },
+  // 1. HEADER: Avatar + Name/Handle (left) | Logo (right)
+  cardContent.push({
+    type: 'div',
+    props: {
+      style: {
+        display: 'flex',
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: '24px 28px 16px 28px',
       },
-    });
-  }
-
-  // 2. EXTERNAL LINK PREVIEW (if exists and no post image)
-  if (externalEmbed && !postImage) {
-    const embedElements = [];
-    
-    // Thumbnail
-    if (externalEmbed.thumb) {
-      embedElements.push({
-        type: 'img',
-        props: {
-          src: externalEmbed.thumb,
-          style: {
-            width: '100%',
-            height: 200,
-            objectFit: 'cover',
-            borderRadius: '24px 24px 0 0',
+      children: [
+        // Left: Avatar + Name/Handle
+        {
+          type: 'div',
+          props: {
+            style: {
+              display: 'flex',
+              flexDirection: 'row',
+              alignItems: 'center',
+            },
+            children: [
+              // Avatar
+              {
+                type: 'img',
+                props: {
+                  src: avatarUrl,
+                  width: 48,
+                  height: 48,
+                  style: {
+                    borderRadius: 24,
+                  },
+                },
+              },
+              // Name + Handle column
+              {
+                type: 'div',
+                props: {
+                  style: {
+                    display: 'flex',
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    marginLeft: 12,
+                    gap: 8,
+                  },
+                  children: [
+                    // Name
+                    {
+                      type: 'span',
+                      props: {
+                        style: {
+                          color: '#0F172A',
+                          fontSize: 18,
+                          fontWeight: 700,
+                        },
+                        children: displayName,
+                      },
+                    },
+                    // Checkmark
+                    {
+                      type: 'svg',
+                      props: {
+                        width: 18,
+                        height: 18,
+                        viewBox: '0 0 24 24',
+                        children: [
+                          { type: 'circle', props: { cx: 12, cy: 12, r: 10, fill: '#10B981' } },
+                          {
+                            type: 'path',
+                            props: {
+                              d: 'M8 12l2.5 2.5L16 9',
+                              stroke: '#FFFFFF',
+                              strokeWidth: 2.5,
+                              strokeLinecap: 'round',
+                              strokeLinejoin: 'round',
+                              fill: 'none',
+                            },
+                          },
+                        ],
+                      },
+                    },
+                    // Handle
+                    {
+                      type: 'span',
+                      props: {
+                        style: {
+                          color: '#6B7280',
+                          fontSize: 16,
+                        },
+                        children: handle.replace('.cannect.space', ''),
+                      },
+                    },
+                  ],
+                },
+              },
+            ],
           },
         },
-      });
-    }
-    
-    // Title overlay at bottom of image
-    embedElements.push({
-      type: 'div',
-      props: {
-        style: {
-          display: 'flex',
-          flexDirection: 'column',
-          padding: 20,
-          backgroundColor: '#F9FAFB',
-        },
-        children: [
-          externalEmbed.title ? {
-            type: 'span',
-            props: {
-              style: {
-                color: '#0F172A',
-                fontSize: 22,
-                fontWeight: 600,
-                marginBottom: 6,
-              },
-              children: externalEmbed.title.length > 80 
-                ? externalEmbed.title.substring(0, 80) + '...' 
-                : externalEmbed.title,
-            },
-          } : null,
-          {
-            type: 'span',
-            props: {
-              style: {
-                color: '#6B7280',
-                fontSize: 16,
-              },
-              children: (() => {
-                try { 
-                  return new URL(externalEmbed.uri).hostname.replace(/^www\./, ''); 
-                } catch { return externalEmbed.uri; }
-              })(),
+        // Right: Logo
+        {
+          type: 'img',
+          props: {
+            src: 'https://cannect.net/favicon.png',
+            width: 32,
+            height: 32,
+            style: {
+              borderRadius: 8,
             },
           },
-        ].filter(Boolean),
-      },
-    });
-    
-    cardContent.push({
-      type: 'div',
-      props: {
-        style: {
-          display: 'flex',
-          flexDirection: 'column',
         },
-        children: embedElements,
-      },
-    });
-  }
+      ],
+    },
+  });
 
-  // 3. CONTENT SECTION
-  // Parse text with facets for link highlighting and newlines
-  const fontSize = postImage || externalEmbed ? 24 : 28;
+  // 2. POST TEXT with links and newlines
+  const fontSize = 22;
   const textElements = [];
   
   if (text) {
@@ -417,21 +439,16 @@ async function generateStoryImage(uri) {
       // Parse line with facets
       const lineSegments = parseTextWithFacets(line, lineFacets);
       
-      // Create spans for this line (strip https://www. and trailing paths/params from link text)
+      // Create spans for this line
       const lineSpans = lineSegments.map((segment, idx) => {
         let displayText = segment.text;
         if (segment.isLink) {
-          // Remove protocol and www
           displayText = displayText.replace(/^https?:\/\/(www\.)?/, '');
-          // Remove trailing slash
           displayText = displayText.replace(/\/$/, '');
-          // Remove query params and fragments (keep just domain + path)
           displayText = displayText.split('?')[0].split('#')[0];
-          // If it's just a domain with a long path, truncate intelligently
           const parts = displayText.split('/');
           if (parts.length > 2) {
-            // Keep domain and first path segment, indicate more with ...
-            displayText = parts[0] + '/' + parts[1] + (parts.length > 2 ? '/...' : '');
+            displayText = parts[0] + '/' + parts[1] + '/...';
           }
         }
         return {
@@ -441,7 +458,7 @@ async function generateStoryImage(uri) {
             style: {
               color: segment.isLink ? '#10B981' : '#1F2937',
               fontSize,
-              lineHeight: 1.6,
+              lineHeight: 1.5,
               fontWeight: 400,
             },
             children: displayText,
@@ -449,7 +466,6 @@ async function generateStoryImage(uri) {
         };
       });
       
-      // Add line div
       if (line.trim() || lineIdx < lines.length - 1) {
         textElements.push({
           type: 'div',
@@ -459,7 +475,7 @@ async function generateStoryImage(uri) {
               display: 'flex',
               flexDirection: 'row',
               flexWrap: 'wrap',
-              minHeight: line.trim() ? fontSize * 1.8 : fontSize * 0.8,
+              minHeight: line.trim() ? fontSize * 1.5 : fontSize * 0.6,
             },
             children: lineSpans.length > 0 ? lineSpans : null,
           },
@@ -470,155 +486,106 @@ async function generateStoryImage(uri) {
     }
   }
 
-  cardContent.push({
-    type: 'div',
-    props: {
-      style: {
-        display: 'flex',
-        flexDirection: 'column',
-        padding: '28px 32px',
+  if (textElements.length > 0) {
+    cardContent.push({
+      type: 'div',
+      props: {
+        style: {
+          display: 'flex',
+          flexDirection: 'column',
+          padding: '8px 28px 20px 28px',
+          gap: 2,
+        },
+        children: textElements,
       },
-      children: [
-        // Top row: Author info + Logo in top right
-        {
-          type: 'div',
-          props: {
-            style: {
-              display: 'flex',
-              flexDirection: 'row',
-              alignItems: 'flex-start',
-              justifyContent: 'space-between',
-              marginBottom: 20,
+    });
+  }
+
+  // 3. IMAGE (if exists) - after text
+  if (postImage) {
+    cardContent.push({
+      type: 'img',
+      props: {
+        src: postImage,
+        style: {
+          width: '100%',
+          height: 320,
+          objectFit: 'cover',
+        },
+      },
+    });
+  }
+
+  // 4. EXTERNAL LINK PREVIEW (if exists and no post image)
+  if (externalEmbed && !postImage) {
+    cardContent.push({
+      type: 'div',
+      props: {
+        style: {
+          display: 'flex',
+          flexDirection: 'column',
+          margin: '0 28px 16px 28px',
+          borderRadius: 16,
+          border: '1px solid #E5E7EB',
+          overflow: 'hidden',
+        },
+        children: [
+          externalEmbed.thumb ? {
+            type: 'img',
+            props: {
+              src: externalEmbed.thumb,
+              style: {
+                width: '100%',
+                height: 180,
+                objectFit: 'cover',
+              },
             },
-            children: [
-              // Author row with checkmark
-              {
-                type: 'div',
-                props: {
-                  style: {
-                    display: 'flex',
-                    flexDirection: 'row',
-                    alignItems: 'center',
+          } : null,
+          {
+            type: 'div',
+            props: {
+              style: {
+                display: 'flex',
+                flexDirection: 'column',
+                padding: 16,
+                backgroundColor: '#F9FAFB',
+              },
+              children: [
+                externalEmbed.title ? {
+                  type: 'span',
+                  props: {
+                    style: {
+                      color: '#0F172A',
+                      fontSize: 17,
+                      fontWeight: 600,
+                      marginBottom: 4,
+                    },
+                    children: externalEmbed.title.length > 60 
+                      ? externalEmbed.title.substring(0, 60) + '...' 
+                      : externalEmbed.title,
                   },
-                  children: [
-              // Avatar
-              {
-                type: 'img',
-                props: {
-                  src: avatarUrl,
-                  width: 52,
-                  height: 52,
-                  style: {
-                    borderRadius: 26,
+                } : null,
+                {
+                  type: 'span',
+                  props: {
+                    style: {
+                      color: '#6B7280',
+                      fontSize: 14,
+                    },
+                    children: (() => {
+                      try { 
+                        return new URL(externalEmbed.uri).hostname.replace(/^www\./, ''); 
+                      } catch { return externalEmbed.uri; }
+                    })(),
                   },
                 },
-              },
-              // Name column with checkmark inline
-              {
-                type: 'div',
-                props: {
-                  style: {
-                    display: 'flex',
-                    flexDirection: 'column',
-                    marginLeft: 14,
-                  },
-                  children: [
-                    // Name row with checkmark
-                    {
-                      type: 'div',
-                      props: {
-                        style: {
-                          display: 'flex',
-                          flexDirection: 'row',
-                          alignItems: 'center',
-                        },
-                        children: [
-                          {
-                            type: 'span',
-                            props: {
-                              style: {
-                                color: '#0F172A',
-                                fontSize: 24,
-                                fontWeight: 700,
-                              },
-                              children: displayName,
-                            },
-                          },
-                          // Checkmark RIGHT AFTER name
-                          {
-                            type: 'svg',
-                            props: {
-                              width: 20,
-                              height: 20,
-                              viewBox: '0 0 24 24',
-                              style: { marginLeft: 6 },
-                              children: [
-                                { type: 'circle', props: { cx: 12, cy: 12, r: 10, fill: '#10B981' } },
-                                {
-                                  type: 'path',
-                                  props: {
-                                    d: 'M8 12l2.5 2.5L16 9',
-                                    stroke: '#FFFFFF',
-                                    strokeWidth: 2.5,
-                                    strokeLinecap: 'round',
-                                    strokeLinejoin: 'round',
-                                    fill: 'none',
-                                  },
-                                },
-                              ],
-                            },
-                          },
-                        ],
-                      },
-                    },
-                    // Handle (hide .cannect.space)
-                    {
-                      type: 'span',
-                      props: {
-                        style: {
-                          color: '#6B7280',
-                          fontSize: 17,
-                          marginTop: 2,
-                        },
-                        children: handle.replace('.cannect.space', ''),
-                      },
-                    },
-                  ],
-                },
-              },
-            ],
-          },
-        },
-        // Logo top right
-        {
-          type: 'img',
-          props: {
-            src: 'https://cannect.net/favicon.png',
-            width: 32,
-            height: 32,
-            style: {
-              borderRadius: 8,
+              ].filter(Boolean),
             },
           },
-        },
-      ],
-    },
-  },
-        // Post text with links and newlines
-        textElements.length > 0 ? {
-          type: 'div',
-          props: {
-            style: {
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 4,
-            },
-            children: textElements,
-          },
-        } : null,
-      ].filter(Boolean),
-    },
-  });
+        ].filter(Boolean),
+      },
+    });
+  }
 
   // 4. BOTTOM ROW: Metrics left, cannect.net right (like X)
   const hasMetrics = viewCount > 0 || likeCount > 0 || replyCount > 0 || repostCount > 0;
