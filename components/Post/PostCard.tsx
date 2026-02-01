@@ -141,7 +141,7 @@ export function PostCard({
     <Pressable
       ref={viewTrackingRef as any}
       onPress={handlePress}
-      className={`px-4 pt-3 pb-2 ${showBorder ? 'border-b border-border' : ''} web:hover:bg-surface/50 web:transition-colors`}
+      className={`px-3 pt-2.5 pb-2 ${showBorder ? 'border-b border-neutral-800/50' : ''} web:hover:bg-white/5 web:transition-colors`}
     >
       {/* Repost indicator */}
       {isRepost && repostBy && (
@@ -170,10 +170,10 @@ export function PostCard({
               uri: getOptimizedAvatarWithFallback(
                 author.avatar,
                 author.displayName || author.handle,
-                40
+                36
               ),
             }}
-            className="w-10 h-10 rounded-full bg-surface-elevated"
+            className="w-9 h-9 rounded-full bg-neutral-900"
             contentFit="cover"
             transition={50}
             priority="high"
@@ -183,7 +183,7 @@ export function PostCard({
         </Pressable>
 
         {/* Content */}
-        <View className="flex-1 ml-2.5">
+        <View className="flex-1 ml-2">
           {/* Header - Name, Badge, and Time (single line, name truncates only if needed) */}
           <View className="flex-row items-center">
             <Pressable
@@ -196,7 +196,7 @@ export function PostCard({
               style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
             >
               <Text
-                className="text-[16px] font-bold text-text-primary flex-shrink"
+                className="text-[15px] font-semibold text-text-primary flex-shrink"
                 numberOfLines={1}
               >
                 {author.displayName || author.handle}

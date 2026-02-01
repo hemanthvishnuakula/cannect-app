@@ -164,7 +164,7 @@ function ImageGrid({
   const imageUrls = images.map((img) => img.fullsize || img.thumb);
 
   // Border radius: none for full-width mode
-  const borderClass = fullWidth ? '' : 'rounded-xl';
+  const borderClass = fullWidth ? '' : 'rounded-lg';
 
   if (images.length === 1) {
     const img = images[0];
@@ -190,7 +190,7 @@ function ImageGrid({
           <Image
             source={{ uri: img.thumb }}
             style={{ width: '100%', aspectRatio, maxHeight, minHeight }}
-            className={`bg-surface-elevated ${borderClass}`}
+            className={`bg-neutral-900 ${borderClass}`}
             contentFit="cover"
             transition={50}
             cachePolicy="memory-disk"
@@ -217,7 +217,7 @@ function ImageGrid({
         >
           <Image
             source={{ uri: img.thumb }}
-            className="w-full h-32 rounded-lg bg-surface-elevated"
+            className="w-full h-32 rounded-lg bg-neutral-900"
             contentFit="cover"
             transition={50}
             cachePolicy="memory-disk"
@@ -248,12 +248,12 @@ function LinkPreview({ external }: { external: AppBskyEmbedExternal.ViewExternal
         stopEvent(e);
         handlePress();
       }}
-      className="mt-2 border border-border rounded-xl overflow-hidden"
+      className="mt-2 border border-neutral-800/60 rounded-lg overflow-hidden"
     >
       {external.thumb && (
         <Image
           source={{ uri: external.thumb }}
-          className="w-full h-32 bg-surface-elevated"
+          className="w-full h-32 bg-neutral-900"
           contentFit="cover"
           transition={50}
           cachePolicy="memory-disk"
@@ -283,12 +283,12 @@ function QuotePost({ record }: { record: any }) {
   const text = record.value?.text;
 
   return (
-    <View className="mt-2 border border-border rounded-xl p-3">
+    <View className="mt-2 border border-neutral-800/60 rounded-lg p-3">
       <View className="flex-row items-center mb-1">
         {author?.avatar && (
           <Image
             source={{ uri: getOptimizedAvatarUrl(author.avatar, 20) }}
-            className="w-5 h-5 rounded-full mr-2 bg-surface-elevated flex-shrink-0"
+            className="w-5 h-5 rounded-full mr-2 bg-neutral-900 flex-shrink-0"
             contentFit="cover"
             transition={50}
             cachePolicy="memory-disk"
