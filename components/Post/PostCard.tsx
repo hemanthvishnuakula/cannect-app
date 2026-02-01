@@ -141,7 +141,7 @@ export function PostCard({
     <Pressable
       ref={viewTrackingRef as any}
       onPress={handlePress}
-      className={`px-3 pt-2.5 pb-2 ${showBorder ? 'border-b border-neutral-800/50' : ''} web:hover:bg-white/5 web:transition-colors`}
+      className={`px-3 pt-2.5 pb-2 ${showBorder ? 'border-b border-neutral-800/50' : ''}`}
     >
       {/* Repost indicator */}
       {isRepost && repostBy && (
