@@ -292,7 +292,7 @@ async function generateStoryImage(uri) {
   // Dark background, white card, clean minimal layout
   // Card is narrower for more vertical look
   
-  const cardWidth = 900; // Narrower card (was 1016)
+  const cardWidth = 820; // Narrower card for less stretch
   const cardMargin = (1080 - cardWidth) / 2;
 
   // Build card content
