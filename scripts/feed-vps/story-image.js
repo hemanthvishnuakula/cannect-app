@@ -583,6 +583,34 @@ async function generateStoryImage(uri) {
     },
   });
 
+  // 4. LOGO AT BOTTOM (like X)
+  cardContent.push({
+    type: 'div',
+    props: {
+      style: {
+        display: 'flex',
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '20px 32px 24px 32px',
+        borderTop: '1px solid #F3F4F6',
+      },
+      children: [
+        {
+          type: 'img',
+          props: {
+            src: 'https://cannect.net/favicon.png',
+            width: 28,
+            height: 28,
+            style: {
+              borderRadius: 6,
+            },
+          },
+        },
+      ],
+    },
+  });
+
   const svg = await satoriRender(
     {
       type: 'div',
