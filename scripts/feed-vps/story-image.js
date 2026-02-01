@@ -290,12 +290,10 @@ async function generateStoryImage(uri) {
 
   // === MODERN X-LIKE DESIGN ===
   // Dark background, white card, clean minimal layout
+  // Card is narrower for more vertical look
   
-  // Truncate text for clean display
-  const maxTextLength = postImage ? 180 : 280;
-  const displayText = text.length > maxTextLength 
-    ? text.substring(0, maxTextLength).trim() + '...' 
-    : text;
+  const cardWidth = 900; // Narrower card (was 1016)
+  const cardMargin = (1080 - cardWidth) / 2;
 
   // Build card content
   const cardContent = [];
@@ -308,25 +306,162 @@ async function generateStoryImage(uri) {
         src: postImage,
         style: {
           width: '100%',
-          height: 380,
+          height: 340,
           objectFit: 'cover',
-          borderRadius: '20px 20px 0 0',
+          borderRadius: '24px 24px 0 0',
         },
       },
     });
   }
 
-  // 2. CONTENT SECTION
+  // 2. EXTERNAL LINK PREVIEW (if exists and no post image)
+  if (externalEmbed && !postImage) {
+    const embedElements = [];
+    
+    // Thumbnail
+    if (externalEmbed.thumb) {
+      embedElements.push({
+        type: 'img',
+        props: {
+          src: externalEmbed.thumb,
+          style: {
+            width: '100%',
+            height: 200,
+            objectFit: 'cover',
+            borderRadius: '24px 24px 0 0',
+          },
+        },
+      });
+    }
+    
+    // Title overlay at bottom of image
+    embedElements.push({
+      type: 'div',
+      props: {
+        style: {
+          display: 'flex',
+          flexDirection: 'column',
+          padding: 20,
+          backgroundColor: '#F9FAFB',
+        },
+        children: [
+          externalEmbed.title ? {
+            type: 'span',
+            props: {
+              style: {
+                color: '#0F172A',
+                fontSize: 22,
+                fontWeight: 600,
+                marginBottom: 6,
+              },
+              children: externalEmbed.title.length > 80 
+                ? externalEmbed.title.substring(0, 80) + '...' 
+                : externalEmbed.title,
+            },
+          } : null,
+          {
+            type: 'span',
+            props: {
+              style: {
+                color: '#6B7280',
+                fontSize: 16,
+              },
+              children: (() => {
+                try { return new URL(externalEmbed.uri).hostname; } 
+                catch { return externalEmbed.uri; }
+              })(),
+            },
+          },
+        ].filter(Boolean),
+      },
+    });
+    
+    cardContent.push({
+      type: 'div',
+      props: {
+        style: {
+          display: 'flex',
+          flexDirection: 'column',
+        },
+        children: embedElements,
+      },
+    });
+  }
+
+  // 3. CONTENT SECTION
+  // Parse text with facets for link highlighting and newlines
+  const fontSize = postImage || externalEmbed ? 24 : 28;
+  const textElements = [];
+  
+  if (text) {
+    const lines = text.split('\n');
+    let byteOffset = 0;
+    const encoder = new TextEncoder();
+    
+    for (let lineIdx = 0; lineIdx < lines.length; lineIdx++) {
+      const line = lines[lineIdx];
+      const lineBytes = encoder.encode(line).length;
+      
+      // Find facets for this line
+      const lineFacets = facets
+        .filter((f) => f.index.byteStart >= byteOffset && f.index.byteStart < byteOffset + lineBytes)
+        .map((f) => ({
+          ...f,
+          index: {
+            byteStart: f.index.byteStart - byteOffset,
+            byteEnd: Math.min(f.index.byteEnd - byteOffset, lineBytes),
+          },
+        }));
+      
+      // Parse line with facets
+      const lineSegments = parseTextWithFacets(line, lineFacets);
+      
+      // Create spans for this line
+      const lineSpans = lineSegments.map((segment, idx) => ({
+        type: 'span',
+        props: {
+          key: `${lineIdx}-${idx}`,
+          style: {
+            color: segment.isLink ? '#10B981' : '#1F2937',
+            fontSize,
+            lineHeight: 1.6,
+            fontWeight: segment.isLink ? 600 : 400,
+          },
+          children: segment.text,
+        },
+      }));
+      
+      // Add line div
+      if (line.trim() || lineIdx < lines.length - 1) {
+        textElements.push({
+          type: 'div',
+          props: {
+            key: `line-${lineIdx}`,
+            style: {
+              display: 'flex',
+              flexDirection: 'row',
+              flexWrap: 'wrap',
+              minHeight: line.trim() ? fontSize * 1.8 : fontSize * 0.8,
+            },
+            children: lineSpans.length > 0 ? lineSpans : null,
+          },
+        });
+      }
+      
+      byteOffset += lineBytes + 1;
+    }
+  }
+
   cardContent.push({
     type: 'div',
     props: {
       style: {
         display: 'flex',
         flexDirection: 'column',
-        padding: postImage ? '24px 28px 28px 28px' : '28px',
+        padding: '28px 32px',
       },
       children: [
-        // Author row - compact
+        // Author row with checkmark NEXT TO NAME
         {
           type: 'div',
           props: {
@@ -334,7 +469,7 @@ async function generateStoryImage(uri) {
               display: 'flex',
               flexDirection: 'row',
               alignItems: 'center',
-              marginBottom: 16,
+              marginBottom: 20,
             },
             children: [
               // Avatar
@@ -342,67 +477,81 @@ async function generateStoryImage(uri) {
                 type: 'img',
                 props: {
                   src: avatarUrl,
-                  width: 44,
-                  height: 44,
+                  width: 48,
+                  height: 48,
                   style: {
-                    borderRadius: 22,
-                    border: '2px solid #E5E7EB',
+                    borderRadius: 24,
                   },
                 },
               },
-              // Name & handle
+              // Name column with checkmark inline
               {
                 type: 'div',
                 props: {
                   style: {
                     display: 'flex',
                     flexDirection: 'column',
-                    marginLeft: 12,
-                    flex: 1,
+                    marginLeft: 14,
                   },
                   children: [
+                    // Name row with checkmark
                     {
-                      type: 'span',
+                      type: 'div',
                       props: {
                         style: {
-                          color: '#0F172A',
-                          fontSize: 20,
-                          fontWeight: 700,
+                          display: 'flex',
+                          flexDirection: 'row',
+                          alignItems: 'center',
                         },
-                        children: displayName,
+                        children: [
+                          {
+                            type: 'span',
+                            props: {
+                              style: {
+                                color: '#0F172A',
+                                fontSize: 22,
+                                fontWeight: 700,
+                              },
+                              children: displayName,
+                            },
+                          },
+                          // Checkmark RIGHT AFTER name
+                          {
+                            type: 'svg',
+                            props: {
+                              width: 20,
+                              height: 20,
+                              viewBox: '0 0 24 24',
+                              style: { marginLeft: 6 },
+                              children: [
+                                { type: 'circle', props: { cx: 12, cy: 12, r: 10, fill: '#10B981' } },
+                                {
+                                  type: 'path',
+                                  props: {
+                                    d: 'M8 12l2.5 2.5L16 9',
+                                    stroke: '#FFFFFF',
+                                    strokeWidth: 2.5,
+                                    strokeLinecap: 'round',
+                                    strokeLinejoin: 'round',
+                                    fill: 'none',
+                                  },
+                                },
+                              ],
+                            },
+                          },
+                        ],
                       },
                     },
+                    // Handle
                     {
                       type: 'span',
                       props: {
                         style: {
                           color: '#6B7280',
-                          fontSize: 16,
+                          fontSize: 17,
+                          marginTop: 2,
                         },
                         children: handle,
-                      },
-                    },
-                  ],
-                },
-              },
-              // Verified checkmark
-              {
-                type: 'svg',
-                props: {
-                  width: 22,
-                  height: 22,
-                  viewBox: '0 0 24 24',
-                  children: [
-                    { type: 'circle', props: { cx: 12, cy: 12, r: 10, fill: '#10B981' } },
-                    {
-                      type: 'path',
-                      props: {
-                        d: 'M8 12l2.5 2.5L16 9',
-                        stroke: '#FFFFFF',
-                        strokeWidth: 2.5,
-                        strokeLinecap: 'round',
-                        strokeLinejoin: 'round',
-                        fill: 'none',
                       },
                     },
                   ],
@@ -411,26 +560,23 @@ async function generateStoryImage(uri) {
             ],
           },
         },
-        // Post text - clean, simple
-        displayText
-          ? {
-              type: 'div',
-              props: {
-                style: {
-                  color: '#1F2937',
-                  fontSize: postImage ? 22 : 26,
-                  lineHeight: 1.5,
-                  fontWeight: 400,
-                },
-                children: displayText,
-              },
-            }
-          : null,
+        // Post text with links and newlines
+        textElements.length > 0 ? {
+          type: 'div',
+          props: {
+            style: {
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 4,
+            },
+            children: textElements,
+          },
+        } : null,
       ].filter(Boolean),
     },
   });
 
-  // 3. BRANDING FOOTER - simple "From cannect.net"
+  // 4. BRANDING FOOTER
   cardContent.push({
     type: 'div',
     props: {
@@ -439,8 +585,9 @@ async function generateStoryImage(uri) {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: '16px 28px 24px 28px',
+        padding: '20px 32px 28px 32px',
         borderTop: '1px solid #F3F4F6',
+        marginTop: 'auto',
       },
       children: [
         {
@@ -448,7 +595,7 @@ async function generateStoryImage(uri) {
           props: {
             style: {
               color: '#9CA3AF',
-              fontSize: 16,
+              fontSize: 18,
               fontWeight: 500,
             },
             children: 'From ',
@@ -459,7 +606,7 @@ async function generateStoryImage(uri) {
           props: {
             style: {
               color: '#10B981',
-              fontSize: 16,
+              fontSize: 18,
               fontWeight: 600,
             },
             children: 'cannect.net',
@@ -492,11 +639,11 @@ async function generateStoryImage(uri) {
               display: 'flex',
               flexDirection: 'column',
               backgroundColor: '#FFFFFF',
-              borderRadius: 20,
-              marginLeft: 32,
-              marginRight: 32,
-              width: 1016,
-              maxHeight: 1360,
+              borderRadius: 24,
+              marginLeft: cardMargin,
+              marginRight: cardMargin,
+              width: cardWidth,
+              maxHeight: 1400,
               overflow: 'hidden',
               boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
             },
