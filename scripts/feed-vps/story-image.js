@@ -288,491 +288,181 @@ async function generateStoryImage(uri) {
 
   const satoriRender = await getSatori();
 
-  // Build children array for the card
-  const cardChildren = [
-    // Author row
-    {
-      type: 'div',
-      props: {
-        style: {
-          display: 'flex',
-          flexDirection: 'row',
-          alignItems: 'center',
-          marginBottom: 24,
-        },
-        children: [
-          {
-            type: 'img',
-            props: {
-              src: avatarUrl,
-              width: 64,
-              height: 64,
-              style: {
-                borderRadius: 32,
-              },
-            },
-          },
-          {
-            type: 'div',
-            props: {
-              style: {
-                display: 'flex',
-                flexDirection: 'column',
-                marginLeft: 16,
-              },
-              children: [
-                {
-                  type: 'div',
-                  props: {
-                    style: {
-                      display: 'flex',
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                    },
-                    children: [
-                      {
-                        type: 'span',
-                        props: {
-                          style: {
-                            color: '#0F172A',
-                            fontSize: 28,
-                            fontWeight: 700,
-                          },
-                          children: displayName,
-                        },
-                      },
-                      // Filled green circle with white checkmark
-                      {
-                        type: 'svg',
-                        props: {
-                          width: 26,
-                          height: 26,
-                          viewBox: '0 0 24 24',
-                          style: { marginLeft: 10 },
-                          children: [
-                            { type: 'circle', props: { cx: 12, cy: 12, r: 10, fill: '#10B981' } },
-                            {
-                              type: 'path',
-                              props: {
-                                d: 'M8 12l2.5 2.5L16 9',
-                                stroke: '#FFFFFF',
-                                strokeWidth: 2.5,
-                                strokeLinecap: 'round',
-                                strokeLinejoin: 'round',
-                                fill: 'none',
-                              },
-                            },
-                          ],
-                        },
-                      },
-                    ],
-                  },
-                },
-                {
-                  type: 'div',
-                  props: {
-                    style: {
-                      display: 'flex',
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      marginTop: 4,
-                    },
-                    children: isCannect
-                      ? [
-                          {
-                            type: 'span',
-                            props: {
-                              style: {
-                                color: '#6B7280',
-                                fontSize: 20,
-                              },
-                              children: handle,
-                            },
-                          },
-                          {
-                            type: 'span',
-                            props: {
-                              style: {
-                                marginLeft: 10,
-                                backgroundColor: 'rgba(16, 185, 129, 0.2)',
-                                color: '#10B981',
-                                fontSize: 16,
-                                fontWeight: 600,
-                                padding: '3px 10px',
-                                borderRadius: 10,
-                              },
-                              children: 'cannect',
-                            },
-                          },
-                        ]
-                      : {
-                          type: 'span',
-                          props: {
-                            style: {
-                              color: '#6B7280',
-                              fontSize: 20,
-                            },
-                            children: handle,
-                          },
-                        },
-                  },
-                },
-              ],
-            },
-          },
-        ],
-      },
-    },
-  ];
+  // === MODERN X-LIKE DESIGN ===
+  // Dark background, white card, clean minimal layout
+  
+  // Truncate text for clean display
+  const maxTextLength = postImage ? 180 : 280;
+  const displayText = text.length > maxTextLength 
+    ? text.substring(0, maxTextLength).trim() + '...' 
+    : text;
 
-  // Add post text if exists with link highlighting and proper line breaks
-  if (text) {
-    const fontSize = postImage || externalEmbed ? 28 : 32;
+  // Build card content
+  const cardContent = [];
 
-    // Split text by newlines to preserve paragraph formatting
-    const lines = text.split('\n');
-    const lineElements = [];
-
-    // Track byte position for facet matching
-    let byteOffset = 0;
-    const encoder = new TextEncoder();
-
-    for (let lineIdx = 0; lineIdx < lines.length; lineIdx++) {
-      const line = lines[lineIdx];
-      const lineBytes = encoder.encode(line).length;
-
-      // Find facets that apply to this line
-      const lineFacets = facets
-        .filter((f) => {
-          const start = f.index.byteStart;
-          const end = f.index.byteEnd;
-          return start >= byteOffset && start < byteOffset + lineBytes;
-        })
-        .map((f) => ({
-          ...f,
-          index: {
-            byteStart: f.index.byteStart - byteOffset,
-            byteEnd: Math.min(f.index.byteEnd - byteOffset, lineBytes),
-          },
-        }));
-
-      // Parse this line with its facets
-      const lineSegments = parseTextWithFacets(line, lineFacets);
-
-      // Create spans for this line
-      const lineSpans = lineSegments.map((segment, idx) => ({
-        type: 'span',
-        props: {
-          key: `${lineIdx}-${idx}`,
-          style: {
-            color: segment.isLink ? '#10B981' : '#0F172A',
-            fontSize,
-            lineHeight: 1.8, // Increased for more vertical space
-            fontWeight: segment.isLink ? 600 : 400,
-          },
-          children: segment.text,
-        },
-      }));
-
-      // Add line as a div (for proper line break)
-      if (line.trim() || lineIdx < lines.length - 1) {
-        lineElements.push({
-          type: 'div',
-          props: {
-            key: `line-${lineIdx}`,
-            style: {
-              display: 'flex',
-              flexDirection: 'row',
-              flexWrap: 'wrap',
-              minHeight: line.trim() ? fontSize * 2.1 : fontSize * 1.0, // Increased for more vertical space
-            },
-            children: lineSpans.length > 0 ? lineSpans : null,
-          },
-        });
-      }
-
-      // Update byte offset (+1 for the newline character)
-      byteOffset += lineBytes + 1;
-    }
-
-    cardChildren.push({
-      type: 'div',
-      props: {
-        style: {
-          display: 'flex',
-          flexDirection: 'column',
-          marginBottom: postImage || quotedPost || externalEmbed ? 20 : 0,
-        },
-        gap: fontSize * 0.6, // Add vertical gap between lines
-        children: lineElements,
-      },
-    });
-  }
-
-  // Add external embed (link preview) if exists
-  if (externalEmbed) {
-    const embedChildren = [];
-
-    // Add thumbnail if available
-    if (externalEmbed.thumb) {
-      embedChildren.push({
-        type: 'img',
-        props: {
-          src: externalEmbed.thumb,
-          style: {
-            width: '100%',
-            height: 140,
-            borderRadius: '12px 12px 0 0',
-            objectFit: 'cover',
-          },
-        },
-      });
-    }
-
-    // Add title and description
-    embedChildren.push({
-      type: 'div',
-      props: {
-        style: {
-          display: 'flex',
-          flexDirection: 'column',
-          padding: 16,
-        },
-        children: [
-          // Title
-          externalEmbed.title
-            ? {
-                type: 'span',
-                props: {
-                  style: {
-                    color: '#0F172A',
-                    fontSize: 22,
-                    fontWeight: 600,
-                    marginBottom: 6,
-                  },
-                  children:
-                    externalEmbed.title.length > 60
-                      ? externalEmbed.title.substring(0, 60) + '...'
-                      : externalEmbed.title,
-                },
-              }
-            : null,
-          // Description
-          externalEmbed.description
-            ? {
-                type: 'span',
-                props: {
-                  style: {
-                    color: '#6B7280',
-                    fontSize: 18,
-                    lineHeight: 1.4,
-                    marginBottom: 8,
-                  },
-                  children:
-                    externalEmbed.description.length > 100
-                      ? externalEmbed.description.substring(0, 100) + '...'
-                      : externalEmbed.description,
-                },
-              }
-            : null,
-          // Domain
-          {
-            type: 'span',
-            props: {
-              style: {
-                color: '#71717A',
-                fontSize: 16,
-              },
-              children: (() => {
-                try {
-                  return new URL(externalEmbed.uri).hostname;
-                } catch {
-                  return externalEmbed.uri;
-                }
-              })(),
-            },
-          },
-        ].filter(Boolean),
-      },
-    });
-
-    cardChildren.push({
-      type: 'div',
-      props: {
-        style: {
-          display: 'flex',
-          flexDirection: 'column',
-          backgroundColor: '#F9FAFB',
-          borderRadius: 12,
-          overflow: 'hidden',
-          border: '1px solid #E5E7EB',
-          marginBottom: postImage ? 20 : 0,
-        },
-        children: embedChildren,
-      },
-    });
-  }
-
-  // Add quoted post if exists
-  if (quotedPost) {
-    const quotedAuthor = quotedPost.author;
-    const quotedDisplayName = quotedAuthor?.displayName || quotedAuthor?.handle || 'Unknown';
-    const quotedHandle = quotedAuthor?.handle ? `@${quotedAuthor.handle}` : '';
-    const quotedText = quotedPost.text || '';
-    const quotedAvatarUrl = quotedAuthor ? getAvatarUrl(quotedAuthor) : null;
-
-    // Truncate quoted text if too long
-    const maxQuoteLength = 200;
-    const truncatedQuoteText =
-      quotedText.length > maxQuoteLength
-        ? quotedText.substring(0, maxQuoteLength) + '...'
-        : quotedText;
-
-    cardChildren.push({
-      type: 'div',
-      props: {
-        style: {
-          display: 'flex',
-          flexDirection: 'column',
-          backgroundColor: '#F9FAFB',
-          borderRadius: 16,
-          padding: 16,
-          marginBottom: postImage ? 20 : 0,
-          border: '1px solid #E5E7EB',
-        },
-        children: [
-          // Quoted post author row
-          {
-            type: 'div',
-            props: {
-              style: {
-                display: 'flex',
-                flexDirection: 'row',
-                alignItems: 'center',
-                marginBottom: 10,
-              },
-              children: [
-                // Avatar
-                quotedAvatarUrl
-                  ? {
-                      type: 'img',
-                      props: {
-                        src: quotedAvatarUrl,
-                        style: {
-                          width: 32,
-                          height: 32,
-                          borderRadius: 16,
-                          marginRight: 10,
-                        },
-                      },
-                    }
-                  : null,
-                // Name and handle
-                {
-                  type: 'div',
-                  props: {
-                    style: {
-                      display: 'flex',
-                      flexDirection: 'column',
-                    },
-                    children: [
-                      {
-                        type: 'span',
-                        props: {
-                          style: {
-                            color: '#0F172A',
-                            fontSize: 18,
-                            fontWeight: 600,
-                          },
-                          children: quotedDisplayName,
-                        },
-                      },
-                      {
-                        type: 'span',
-                        props: {
-                          style: {
-                            color: '#6B7280',
-                            fontSize: 16,
-                          },
-                          children: quotedHandle,
-                        },
-                      },
-                    ],
-                  },
-                },
-              ].filter(Boolean),
-            },
-          },
-          // Quoted post text
-          truncatedQuoteText
-            ? {
-                type: 'div',
-                props: {
-                  style: {
-                    color: '#374151',
-                    fontSize: 22,
-                    lineHeight: 1.4,
-                  },
-                  children: truncatedQuoteText,
-                },
-              }
-            : null,
-        ].filter(Boolean),
-      },
-    });
-  }
-
-  // Add post image if exists
+  // 1. IMAGE AT TOP (if exists) - full width, rounded top corners
   if (postImage) {
-    cardChildren.push({
+    cardContent.push({
       type: 'img',
       props: {
         src: postImage,
         style: {
           width: '100%',
-          maxHeight: 450,
-          borderRadius: 16,
+          height: 380,
           objectFit: 'cover',
+          borderRadius: '20px 20px 0 0',
         },
       },
     });
   }
 
-  // Add branding at bottom
-  cardChildren.push({
+  // 2. CONTENT SECTION
+  cardContent.push({
+    type: 'div',
+    props: {
+      style: {
+        display: 'flex',
+        flexDirection: 'column',
+        padding: postImage ? '24px 28px 28px 28px' : '28px',
+      },
+      children: [
+        // Author row - compact
+        {
+          type: 'div',
+          props: {
+            style: {
+              display: 'flex',
+              flexDirection: 'row',
+              alignItems: 'center',
+              marginBottom: 16,
+            },
+            children: [
+              // Avatar
+              {
+                type: 'img',
+                props: {
+                  src: avatarUrl,
+                  width: 44,
+                  height: 44,
+                  style: {
+                    borderRadius: 22,
+                    border: '2px solid #E5E7EB',
+                  },
+                },
+              },
+              // Name & handle
+              {
+                type: 'div',
+                props: {
+                  style: {
+                    display: 'flex',
+                    flexDirection: 'column',
+                    marginLeft: 12,
+                    flex: 1,
+                  },
+                  children: [
+                    {
+                      type: 'span',
+                      props: {
+                        style: {
+                          color: '#0F172A',
+                          fontSize: 20,
+                          fontWeight: 700,
+                        },
+                        children: displayName,
+                      },
+                    },
+                    {
+                      type: 'span',
+                      props: {
+                        style: {
+                          color: '#6B7280',
+                          fontSize: 16,
+                        },
+                        children: handle,
+                      },
+                    },
+                  ],
+                },
+              },
+              // Verified checkmark
+              {
+                type: 'svg',
+                props: {
+                  width: 22,
+                  height: 22,
+                  viewBox: '0 0 24 24',
+                  children: [
+                    { type: 'circle', props: { cx: 12, cy: 12, r: 10, fill: '#10B981' } },
+                    {
+                      type: 'path',
+                      props: {
+                        d: 'M8 12l2.5 2.5L16 9',
+                        stroke: '#FFFFFF',
+                        strokeWidth: 2.5,
+                        strokeLinecap: 'round',
+                        strokeLinejoin: 'round',
+                        fill: 'none',
+                      },
+                    },
+                  ],
+                },
+              },
+            ],
+          },
+        },
+        // Post text - clean, simple
+        displayText
+          ? {
+              type: 'div',
+              props: {
+                style: {
+                  color: '#1F2937',
+                  fontSize: postImage ? 22 : 26,
+                  lineHeight: 1.5,
+                  fontWeight: 400,
+                },
+                children: displayText,
+              },
+            }
+          : null,
+      ].filter(Boolean),
+    },
+  });
+
+  // 3. BRANDING FOOTER - simple "From cannect.net"
+  cardContent.push({
     type: 'div',
     props: {
       style: {
         display: 'flex',
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'space-between',
-        marginTop: 24,
-        paddingTop: 24,
-        borderTop: '1px solid #E5E7EB',
-        width: '100%',
+        justifyContent: 'center',
+        padding: '16px 28px 24px 28px',
+        borderTop: '1px solid #F3F4F6',
       },
       children: [
         {
           type: 'span',
           props: {
             style: {
-              color: '#10B981',
-              fontSize: 22,
-              fontWeight: 600,
+              color: '#9CA3AF',
+              fontSize: 16,
+              fontWeight: 500,
             },
-            children: 'cannect.net',
+            children: 'From ',
           },
         },
         {
           type: 'span',
           props: {
             style: {
-              color: '#71717A',
-              fontSize: 18,
-              fontWeight: 500,
+              color: '#10B981',
+              fontSize: 16,
+              fontWeight: 600,
             },
-            children: 'Connect. Share. Grow.',
+            children: 'cannect.net',
           },
         },
       ],
@@ -790,9 +480,8 @@ async function generateStoryImage(uri) {
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          backgroundColor: '#FFFFFF',
+          backgroundColor: '#0F0F0F',
           fontFamily: 'Inter',
-          // Instagram Stories safe zone: ~250px top/bottom for UI elements
           paddingTop: 180,
           paddingBottom: 180,
         },
@@ -803,17 +492,15 @@ async function generateStoryImage(uri) {
               display: 'flex',
               flexDirection: 'column',
               backgroundColor: '#FFFFFF',
-              borderRadius: 24,
-              padding: 36,
+              borderRadius: 20,
               marginLeft: 32,
               marginRight: 32,
-              border: '1px solid #E5E7EB',
-              boxShadow: '0 4px 24px rgba(0, 0, 0, 0.08)',
-              width: 1016, // 1080 - 32*2 margins
-              maxHeight: 1360, // 1920 - 180*2 safe zone - 32 extra padding
+              width: 1016,
+              maxHeight: 1360,
               overflow: 'hidden',
+              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
             },
-            children: cardChildren,
+            children: cardContent,
           },
         },
       },
@@ -835,7 +522,6 @@ async function generateStoryImage(uri) {
           style: 'normal',
         },
       ],
-      // Load emojis dynamically from Twemoji CDN
       loadAdditionalAsset: async (code, segment) => {
         if (code === 'emoji') {
           return fetchTwemoji(segment);
