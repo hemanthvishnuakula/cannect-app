@@ -468,17 +468,28 @@ async function generateStoryImage(uri) {
         padding: '28px 32px',
       },
       children: [
-        // Author row with checkmark NEXT TO NAME
+        // Top row: Author info + Logo in top right
         {
           type: 'div',
           props: {
             style: {
               display: 'flex',
               flexDirection: 'row',
-              alignItems: 'center',
+              alignItems: 'flex-start',
+              justifyContent: 'space-between',
               marginBottom: 20,
             },
             children: [
+              // Author row with checkmark
+              {
+                type: 'div',
+                props: {
+                  style: {
+                    display: 'flex',
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                  },
+                  children: [
               // Avatar
               {
                 type: 'img',
@@ -567,6 +578,21 @@ async function generateStoryImage(uri) {
             ],
           },
         },
+        // Logo top right
+        {
+          type: 'img',
+          props: {
+            src: 'https://cannect.net/favicon.png',
+            width: 32,
+            height: 32,
+            style: {
+              borderRadius: 8,
+            },
+          },
+        },
+      ],
+    },
+  },
         // Post text with links and newlines
         textElements.length > 0 ? {
           type: 'div',
@@ -583,7 +609,9 @@ async function generateStoryImage(uri) {
     },
   });
 
-  // 4. LOGO AT BOTTOM (like X)
+  // 4. BOTTOM ROW: Metrics left, cannect.net right (like X)
+  const hasMetrics = viewCount > 0 || likeCount > 0 || replyCount > 0 || repostCount > 0;
+  
   cardContent.push({
     type: 'div',
     props: {
@@ -591,20 +619,81 @@ async function generateStoryImage(uri) {
         display: 'flex',
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'center',
-        padding: '20px 32px 24px 32px',
+        justifyContent: 'space-between',
+        padding: '16px 32px 24px 32px',
         borderTop: '1px solid #F3F4F6',
       },
       children: [
-        {
-          type: 'img',
+        // Metrics on left (thin grey text)
+        hasMetrics ? {
+          type: 'div',
           props: {
-            src: 'https://cannect.net/favicon.png',
-            width: 28,
-            height: 28,
             style: {
-              borderRadius: 6,
+              display: 'flex',
+              flexDirection: 'row',
+              gap: 16,
             },
+            children: [
+              viewCount > 0 ? {
+                type: 'span',
+                props: {
+                  style: {
+                    color: '#9CA3AF',
+                    fontSize: 15,
+                    fontWeight: 400,
+                  },
+                  children: `${formatCount(viewCount)} views`,
+                },
+              } : null,
+              likeCount > 0 ? {
+                type: 'span',
+                props: {
+                  style: {
+                    color: '#9CA3AF',
+                    fontSize: 15,
+                    fontWeight: 400,
+                  },
+                  children: `${formatCount(likeCount)} likes`,
+                },
+              } : null,
+              replyCount > 0 ? {
+                type: 'span',
+                props: {
+                  style: {
+                    color: '#9CA3AF',
+                    fontSize: 15,
+                    fontWeight: 400,
+                  },
+                  children: `${formatCount(replyCount)} replies`,
+                },
+              } : null,
+              repostCount > 0 ? {
+                type: 'span',
+                props: {
+                  style: {
+                    color: '#9CA3AF',
+                    fontSize: 15,
+                    fontWeight: 400,
+                  },
+                  children: `${formatCount(repostCount)} reposts`,
+                },
+              } : null,
+            ].filter(Boolean),
+          },
+        } : {
+          type: 'div',
+          props: { children: null },
+        },
+        // cannect.net on right (thin grey text)
+        {
+          type: 'span',
+          props: {
+            style: {
+              color: '#9CA3AF',
+              fontSize: 15,
+              fontWeight: 400,
+            },
+            children: 'cannect.net',
           },
         },
       ],
