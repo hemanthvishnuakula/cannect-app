@@ -334,7 +334,7 @@ async function generateStoryImage(uri) {
                         type: 'span',
                         props: {
                           style: {
-                            color: '#FAFAFA',
+                            color: '#0F172A',
                             fontSize: 28,
                             fontWeight: 700,
                           },
@@ -383,7 +383,7 @@ async function generateStoryImage(uri) {
                             type: 'span',
                             props: {
                               style: {
-                                color: '#71717A',
+                                color: '#6B7280',
                                 fontSize: 20,
                               },
                               children: handle,
@@ -409,7 +409,7 @@ async function generateStoryImage(uri) {
                           type: 'span',
                           props: {
                             style: {
-                              color: '#71717A',
+                              color: '#6B7280',
                               fontSize: 20,
                             },
                             children: handle,
@@ -465,7 +465,7 @@ async function generateStoryImage(uri) {
         props: {
           key: `${lineIdx}-${idx}`,
           style: {
-            color: segment.isLink ? '#10B981' : '#FAFAFA',
+            color: segment.isLink ? '#10B981' : '#0F172A',
             fontSize,
             lineHeight: 1.8, // Increased for more vertical space
             fontWeight: segment.isLink ? 600 : 400,
@@ -545,7 +545,7 @@ async function generateStoryImage(uri) {
                 type: 'span',
                 props: {
                   style: {
-                    color: '#FAFAFA',
+                    color: '#0F172A',
                     fontSize: 22,
                     fontWeight: 600,
                     marginBottom: 6,
@@ -563,7 +563,7 @@ async function generateStoryImage(uri) {
                 type: 'span',
                 props: {
                   style: {
-                    color: '#A1A1AA',
+                    color: '#6B7280',
                     fontSize: 18,
                     lineHeight: 1.4,
                     marginBottom: 8,
@@ -602,10 +602,10 @@ async function generateStoryImage(uri) {
         style: {
           display: 'flex',
           flexDirection: 'column',
-          backgroundColor: '#27272A',
+          backgroundColor: '#F9FAFB',
           borderRadius: 12,
           overflow: 'hidden',
-          border: '1px solid #3F3F46',
+          border: '1px solid #E5E7EB',
           marginBottom: postImage ? 20 : 0,
         },
         children: embedChildren,
@@ -634,11 +634,11 @@ async function generateStoryImage(uri) {
         style: {
           display: 'flex',
           flexDirection: 'column',
-          backgroundColor: '#27272A',
+          backgroundColor: '#F9FAFB',
           borderRadius: 16,
           padding: 16,
           marginBottom: postImage ? 20 : 0,
-          border: '1px solid #3F3F46',
+          border: '1px solid #E5E7EB',
         },
         children: [
           // Quoted post author row
@@ -680,7 +680,7 @@ async function generateStoryImage(uri) {
                         type: 'span',
                         props: {
                           style: {
-                            color: '#FAFAFA',
+                            color: '#0F172A',
                             fontSize: 18,
                             fontWeight: 600,
                           },
@@ -691,7 +691,7 @@ async function generateStoryImage(uri) {
                         type: 'span',
                         props: {
                           style: {
-                            color: '#71717A',
+                            color: '#6B7280',
                             fontSize: 16,
                           },
                           children: quotedHandle,
@@ -709,7 +709,7 @@ async function generateStoryImage(uri) {
                 type: 'div',
                 props: {
                   style: {
-                    color: '#A1A1AA',
+                    color: '#374151',
                     fontSize: 22,
                     lineHeight: 1.4,
                   },
@@ -749,7 +749,7 @@ async function generateStoryImage(uri) {
         justifyContent: 'space-between',
         marginTop: 24,
         paddingTop: 24,
-        borderTop: '1px solid #27272A',
+        borderTop: '1px solid #E5E7EB',
         width: '100%',
       },
       children: [
@@ -790,7 +790,7 @@ async function generateStoryImage(uri) {
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          backgroundColor: '#0A0A0A',
+          backgroundColor: '#FFFFFF',
           fontFamily: 'Inter',
           // Instagram Stories safe zone: ~250px top/bottom for UI elements
           paddingTop: 180,
@@ -802,12 +802,13 @@ async function generateStoryImage(uri) {
             style: {
               display: 'flex',
               flexDirection: 'column',
-              backgroundColor: '#18181B',
-              borderRadius: 32,
+              backgroundColor: '#FFFFFF',
+              borderRadius: 24,
               padding: 36,
               marginLeft: 32,
               marginRight: 32,
-              border: '2px solid #27272A',
+              border: '1px solid #E5E7EB',
+              boxShadow: '0 4px 24px rgba(0, 0, 0, 0.08)',
               width: 1016, // 1080 - 32*2 margins
               maxHeight: 1360, // 1920 - 180*2 safe zone - 32 extra padding
               overflow: 'hidden',
