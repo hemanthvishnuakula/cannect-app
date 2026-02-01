@@ -425,7 +425,7 @@ async function generateStoryImage(uri) {
             color: segment.isLink ? '#10B981' : '#1F2937',
             fontSize,
             lineHeight: 1.6,
-            fontWeight: segment.isLink ? 600 : 400,
+            fontWeight: 400,
           },
           children: segment.text,
         },
@@ -573,46 +573,6 @@ async function generateStoryImage(uri) {
           },
         } : null,
       ].filter(Boolean),
-    },
-  });
-
-  // 4. BRANDING FOOTER
-  cardContent.push({
-    type: 'div',
-    props: {
-      style: {
-        display: 'flex',
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '20px 32px 28px 32px',
-        borderTop: '1px solid #F3F4F6',
-        marginTop: 'auto',
-      },
-      children: [
-        {
-          type: 'span',
-          props: {
-            style: {
-              color: '#9CA3AF',
-              fontSize: 18,
-              fontWeight: 500,
-            },
-            children: 'From ',
-          },
-        },
-        {
-          type: 'span',
-          props: {
-            style: {
-              color: '#10B981',
-              fontSize: 18,
-              fontWeight: 600,
-            },
-            children: 'cannect.net',
-          },
-        },
-      ],
     },
   });
 
