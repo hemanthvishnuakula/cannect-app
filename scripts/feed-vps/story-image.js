@@ -417,11 +417,22 @@ async function generateStoryImage(uri) {
       // Parse line with facets
       const lineSegments = parseTextWithFacets(line, lineFacets);
       
-      // Create spans for this line (strip https://www. from link text)
+      // Create spans for this line (strip https://www. and trailing paths/params from link text)
       const lineSpans = lineSegments.map((segment, idx) => {
         let displayText = segment.text;
         if (segment.isLink) {
+          // Remove protocol and www
           displayText = displayText.replace(/^https?:\/\/(www\.)?/, '');
+          // Remove trailing slash
+          displayText = displayText.replace(/\/$/, '');
+          // Remove query params and fragments (keep just domain + path)
+          displayText = displayText.split('?')[0].split('#')[0];
+          // If it's just a domain with a long path, truncate intelligently
+          const parts = displayText.split('/');
+          if (parts.length > 2) {
+            // Keep domain and first path segment, indicate more with ...
+            displayText = parts[0] + '/' + parts[1] + (parts.length > 2 ? '/...' : '');
+          }
         }
         return {
           type: 'span',
