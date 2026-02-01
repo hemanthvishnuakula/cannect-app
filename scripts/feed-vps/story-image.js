@@ -338,54 +338,67 @@ async function generateStoryImage(uri) {
                 props: {
                   style: {
                     display: 'flex',
-                    flexDirection: 'row',
-                    alignItems: 'center',
+                    flexDirection: 'column',
                     marginLeft: 16,
-                    gap: 8,
                   },
                   children: [
-                    // Name
+                    // Name row with checkmark
                     {
-                      type: 'span',
+                      type: 'div',
                       props: {
                         style: {
-                          color: '#0F172A',
-                          fontSize: 26,
-                          fontWeight: 700,
+                          display: 'flex',
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          gap: 6,
                         },
-                        children: displayName,
-                      },
-                    },
-                    // Checkmark
-                    {
-                      type: 'svg',
-                      props: {
-                        width: 22,
-                        height: 22,
-                        viewBox: '0 0 24 24',
                         children: [
-                          { type: 'circle', props: { cx: 12, cy: 12, r: 10, fill: '#10B981' } },
+                          // Name
                           {
-                            type: 'path',
+                            type: 'span',
                             props: {
-                              d: 'M8 12l2.5 2.5L16 9',
-                              stroke: '#FFFFFF',
-                              strokeWidth: 2.5,
-                              strokeLinecap: 'round',
-                              strokeLinejoin: 'round',
-                              fill: 'none',
+                              style: {
+                                color: '#0F172A',
+                                fontSize: 26,
+                                fontWeight: 700,
+                              },
+                              children: displayName,
+                            },
+                          },
+                          // Checkmark
+                          {
+                            type: 'svg',
+                            props: {
+                              width: 22,
+                              height: 22,
+                              viewBox: '0 0 24 24',
+                              children: [
+                                { type: 'circle', props: { cx: 12, cy: 12, r: 10, fill: '#10B981' } },
+                                {
+                                  type: 'path',
+                                  props: {
+                                    d: 'M8 12l2.5 2.5L16 9',
+                                    stroke: '#FFFFFF',
+                                    strokeWidth: 2.5,
+                                    strokeLinecap: 'round',
+                                    strokeLinejoin: 'round',
+                                    fill: 'none',
+                                  },
+                                },
+                              ],
                             },
                           },
                         ],
                       },
                     },
-                    // Handle
+                    // Handle below name
                     {
                       type: 'span',
                       props: {
                         style: {
                           color: '#6B7280',
                           fontSize: 20,
+                          marginTop: 2,
                         },
                         children: handle.replace('.cannect.space', ''),
                       },
@@ -458,7 +471,7 @@ async function generateStoryImage(uri) {
             style: {
               color: segment.isLink ? '#10B981' : '#1F2937',
               fontSize,
-              lineHeight: 1.3,
+              lineHeight: 1.4,
               fontWeight: 400,
             },
             children: displayText,
@@ -475,7 +488,7 @@ async function generateStoryImage(uri) {
               display: 'flex',
               flexDirection: 'row',
               flexWrap: 'wrap',
-              minHeight: line.trim() ? fontSize * 1.3 : fontSize * 0.5,
+              minHeight: line.trim() ? fontSize * 1.4 : fontSize * 0.5,
             },
             children: lineSpans.length > 0 ? lineSpans : null,
           },
@@ -701,7 +714,7 @@ async function generateStoryImage(uri) {
               display: 'flex',
               flexDirection: 'column',
               backgroundColor: '#FFFFFF',
-              borderRadius: 24,
+              borderRadius: 32,
               marginLeft: cardMargin,
               marginRight: cardMargin,
               width: cardWidth,
