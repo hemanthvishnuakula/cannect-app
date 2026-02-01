@@ -307,7 +307,7 @@ async function generateStoryImage(uri) {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        padding: '32px 32px 20px 32px',
+        padding: '36px 36px 24px 36px',
       },
       children: [
         // Left: Avatar + Name/Handle
@@ -325,10 +325,10 @@ async function generateStoryImage(uri) {
                 type: 'img',
                 props: {
                   src: avatarUrl,
-                  width: 56,
-                  height: 56,
+                  width: 64,
+                  height: 64,
                   style: {
-                    borderRadius: 28,
+                    borderRadius: 32,
                   },
                 },
               },
@@ -340,7 +340,7 @@ async function generateStoryImage(uri) {
                     display: 'flex',
                     flexDirection: 'row',
                     alignItems: 'center',
-                    marginLeft: 14,
+                    marginLeft: 16,
                     gap: 8,
                   },
                   children: [
@@ -350,7 +350,7 @@ async function generateStoryImage(uri) {
                       props: {
                         style: {
                           color: '#0F172A',
-                          fontSize: 22,
+                          fontSize: 26,
                           fontWeight: 700,
                         },
                         children: displayName,
@@ -360,8 +360,8 @@ async function generateStoryImage(uri) {
                     {
                       type: 'svg',
                       props: {
-                        width: 20,
-                        height: 20,
+                        width: 22,
+                        height: 22,
                         viewBox: '0 0 24 24',
                         children: [
                           { type: 'circle', props: { cx: 12, cy: 12, r: 10, fill: '#10B981' } },
@@ -385,7 +385,7 @@ async function generateStoryImage(uri) {
                       props: {
                         style: {
                           color: '#6B7280',
-                          fontSize: 18,
+                          fontSize: 20,
                         },
                         children: handle.replace('.cannect.space', ''),
                       },
@@ -401,10 +401,10 @@ async function generateStoryImage(uri) {
           type: 'img',
           props: {
             src: 'https://cannect.net/favicon.png',
-            width: 40,
-            height: 40,
+            width: 48,
+            height: 48,
             style: {
-              borderRadius: 10,
+              borderRadius: 12,
             },
           },
         },
@@ -413,7 +413,7 @@ async function generateStoryImage(uri) {
   });
 
   // 2. POST TEXT with links and newlines
-  const fontSize = 28;
+  const fontSize = 32;
   const textElements = [];
   
   if (text) {
@@ -458,7 +458,7 @@ async function generateStoryImage(uri) {
             style: {
               color: segment.isLink ? '#10B981' : '#1F2937',
               fontSize,
-              lineHeight: 1.5,
+              lineHeight: 1.3,
               fontWeight: 400,
             },
             children: displayText,
@@ -475,7 +475,7 @@ async function generateStoryImage(uri) {
               display: 'flex',
               flexDirection: 'row',
               flexWrap: 'wrap',
-              minHeight: line.trim() ? fontSize * 1.5 : fontSize * 0.6,
+              minHeight: line.trim() ? fontSize * 1.3 : fontSize * 0.5,
             },
             children: lineSpans.length > 0 ? lineSpans : null,
           },
@@ -493,8 +493,8 @@ async function generateStoryImage(uri) {
         style: {
           display: 'flex',
           flexDirection: 'column',
-          padding: '8px 28px 20px 28px',
-          gap: 2,
+          padding: '12px 36px 24px 36px',
+          gap: 0,
         },
         children: textElements,
       },
