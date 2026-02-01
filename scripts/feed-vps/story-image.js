@@ -292,7 +292,7 @@ async function generateStoryImage(uri) {
   // Dark background, white card, clean minimal layout
   // Layout: Header (avatar+name | logo) → Text → Preview → Metrics
   
-  const cardWidth = 820;
+  const cardWidth = 720;
   const cardMargin = (1080 - cardWidth) / 2;
 
   // Build card content
@@ -413,7 +413,7 @@ async function generateStoryImage(uri) {
   });
 
   // 2. POST TEXT with links and newlines
-  const fontSize = 22;
+  const fontSize = 24;
   const textElements = [];
   
   if (text) {
