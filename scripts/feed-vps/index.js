@@ -320,6 +320,78 @@ app.get('/api/boost', generalLimiter, (req, res) => {
   }
 });
 
+// =============================================================================
+// Trending Topics - Cannabis Industry Specific
+// =============================================================================
+
+/**
+ * Get trending/suggested topics for the cannabis industry
+ * GET /api/trending
+ * 
+ * Returns curated cannabis-specific hashtags for discovery.
+ * TODO: In the future, extract these dynamically from post content.
+ */
+app.get('/api/trending', generalLimiter, (req, res) => {
+  // Curated cannabis industry topics - rotate based on day for variety
+  const allTopics = [
+    // Core industry
+    { topic: 'cannabis', displayName: 'Cannabis' },
+    { topic: 'hemp', displayName: 'Hemp' },
+    { topic: 'marijuana', displayName: 'Marijuana' },
+    { topic: 'weed', displayName: 'Weed' },
+    
+    // Business & Regulation
+    { topic: 'cannabisindustry', displayName: 'Cannabis Industry' },
+    { topic: 'cannabisbusiness', displayName: 'Cannabis Business' },
+    { topic: 'cannabislegislation', displayName: 'Cannabis Legislation' },
+    { topic: 'legalization', displayName: 'Legalization' },
+    { topic: 'cannabisreform', displayName: 'Cannabis Reform' },
+    
+    // Products & Science
+    { topic: 'cbd', displayName: 'CBD' },
+    { topic: 'thc', displayName: 'THC' },
+    { topic: 'edibles', displayName: 'Edibles' },
+    { topic: 'concentrates', displayName: 'Concentrates' },
+    { topic: 'terpenes', displayName: 'Terpenes' },
+    
+    // Cultivation
+    { topic: 'growyourown', displayName: 'Grow Your Own' },
+    { topic: 'homegrow', displayName: 'Home Grow' },
+    { topic: 'cultivation', displayName: 'Cultivation' },
+    { topic: 'harvest', displayName: 'Harvest' },
+    
+    // Medical
+    { topic: 'medicalcannabis', displayName: 'Medical Cannabis' },
+    { topic: 'medicalmj', displayName: 'Medical MJ' },
+    { topic: 'cannabismedicine', displayName: 'Cannabis Medicine' },
+    
+    // Culture
+    { topic: '420', displayName: '420' },
+    { topic: 'stonerfam', displayName: 'Stoner Fam' },
+    { topic: 'cannabiscommunity', displayName: 'Cannabis Community' },
+  ];
+  
+  // Shuffle based on day so topics rotate
+  const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0)) / 86400000);
+  const shuffled = [...allTopics].sort((a, b) => {
+    const hashA = (a.topic.charCodeAt(0) * dayOfYear) % 100;
+    const hashB = (b.topic.charCodeAt(0) * dayOfYear) % 100;
+    return hashA - hashB;
+  });
+  
+  // Return top 10
+  const topics = shuffled.slice(0, 10).map(t => ({
+    topic: t.topic,
+    displayName: t.displayName,
+    link: `https://bsky.app/search?q=%23${t.topic}`,
+  }));
+  
+  return res.json({
+    topics,
+    suggested: [],
+  });
+});
+
 /**
  * Get all active boosted post URIs
  * GET /api/boosts
@@ -574,9 +646,9 @@ app.get('/api/views/post', generalLimiter, async (req, res) => {
 
 /**
  * Get trending posts (most viewed)
- * GET /api/trending?hours=24&limit=20
+ * GET /api/trending-posts?hours=24&limit=20
  */
-app.get('/api/trending', generalLimiter, async (req, res) => {
+app.get('/api/trending-posts', generalLimiter, async (req, res) => {
   try {
     const hours = Math.min(parseInt(req.query.hours) || 24, 168); // Max 1 week
     const limit = Math.min(parseInt(req.query.limit) || 20, 50);

@@ -737,17 +737,29 @@ export function useSearchPosts(
   });
 }
 
+const FEED_API_URL = 'https://feed.cannect.space';
+
 /**
- * Get trending topics from the network
+ * Get trending topics for cannabis industry
+ * Uses our own feed generator API instead of Bluesky's network-wide trending
  */
 export function useTrendingTopics() {
   return useQuery({
-    queryKey: ['trendingTopics'],
+    queryKey: ['trendingTopics', 'cannect'],
     queryFn: async () => {
-      return atproto.getTrendingTopics(10);
+      try {
+        const response = await fetch(`${FEED_API_URL}/api/trending`);
+        if (!response.ok) {
+          return { topics: [], suggested: [] };
+        }
+        return response.json();
+      } catch (error) {
+        console.warn('[useTrendingTopics] Failed to fetch:', error);
+        return { topics: [], suggested: [] };
+      }
     },
-    staleTime: 1000 * 60 * 5, // 5 minutes
-    gcTime: 1000 * 60 * 15,
+    staleTime: 1000 * 60 * 10, // 10 minutes - curated topics don't change often
+    gcTime: 1000 * 60 * 30,
   });
 }
 
@@ -784,8 +796,6 @@ export function useSuggestedPosts() {
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
 }
-
-const FEED_API_URL = 'https://feed.cannect.space';
 
 /**
  * Get list of currently boosted post URIs
