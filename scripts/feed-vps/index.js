@@ -18,7 +18,7 @@ const express = require('express');
 const WebSocket = require('ws');
 const db = require('./db');
 const { shouldIncludePost, getPostText } = require('./feed-logic');
-const { verifyWithAI } = require('./ai-filter');
+const { verifyWithAI, scorePost, QUALITY_THRESHOLD } = require('./ai-filter');
 const { generateStoryImage, loadFonts } = require('./story-image');
 const { generateProfileImage, loadFonts: loadProfileFonts } = require('./profile-image');
 
@@ -993,11 +993,11 @@ function handleNewPost(did, commit) {
 }
 
 /**
- * Process a post with AI verification
+ * Process a post with AI quality scoring
  */
 async function processWithAI(uri, cid, did, handle, text, indexedAt, reason) {
   try {
-    const aiResult = await verifyWithAI(text);
+    const aiResult = await scorePost(text);
 
     if (aiResult.error) {
       // If AI fails, don't include (conservative approach)
@@ -1006,11 +1006,11 @@ async function processWithAI(uri, cid, did, handle, text, indexedAt, reason) {
     }
 
     if (aiResult.isCannabis) {
-      db.addPost(uri, cid, did, handle, indexedAt);
+      db.addPost(uri, cid, did, handle, indexedAt, aiResult.score, aiResult.category);
       stats.indexed++;
-      console.log(`[AI-Filter] ✓ INCLUDED (${reason}): ${text.substring(0, 50)}...`);
+      console.log(`[AI-Filter] ✓ INCLUDED [${aiResult.score}/10 ${aiResult.category}] (${reason}): ${text.substring(0, 50)}...`);
     } else {
-      console.log(`[AI-Filter] ✗ REJECTED (${reason}): ${text.substring(0, 50)}...`);
+      console.log(`[AI-Filter] ✗ REJECTED [${aiResult.score}/10 ${aiResult.category}] (${reason}): ${text.substring(0, 50)}...`);
     }
   } catch (err) {
     console.error(`[AI-Filter] Exception:`, err.message);

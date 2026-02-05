@@ -98,16 +98,55 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_user_reach ON user_reach(total_reach DESC);
 `);
 
+// Migration: Add quality columns if they don't exist
+try {
+  db.exec(`ALTER TABLE posts ADD COLUMN quality_score INTEGER DEFAULT 5`);
+  console.log('[DB] Added quality_score column');
+} catch (e) { /* column exists */ }
+
+try {
+  db.exec(`ALTER TABLE posts ADD COLUMN category TEXT DEFAULT 'lifestyle'`);
+  console.log('[DB] Added category column');
+} catch (e) { /* column exists */ }
+
+try {
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_quality ON posts(quality_score DESC)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_category ON posts(category)`);
+} catch (e) { /* index exists */ }
+
 // Prepared statements for performance
 const insertPost = db.prepare(`
+  INSERT OR REPLACE INTO posts (uri, cid, author_did, author_handle, indexed_at, quality_score, category)
+  VALUES (?, ?, ?, ?, ?, ?, ?)
+`);
+
+const insertPostBasic = db.prepare(`
   INSERT OR REPLACE INTO posts (uri, cid, author_did, author_handle, indexed_at)
   VALUES (?, ?, ?, ?, ?)
+`);
+
+const updatePostQuality = db.prepare(`
+  UPDATE posts SET quality_score = ?, category = ? WHERE uri = ?
 `);
 
 const deletePost = db.prepare(`DELETE FROM posts WHERE uri = ?`);
 
 const getFeed = db.prepare(`
   SELECT uri FROM posts
+  ORDER BY indexed_at DESC
+  LIMIT ? OFFSET ?
+`);
+
+const getQualityFeed = db.prepare(`
+  SELECT uri FROM posts
+  WHERE quality_score >= ?
+  ORDER BY indexed_at DESC
+  LIMIT ? OFFSET ?
+`);
+
+const getCategoryFeed = db.prepare(`
+  SELECT uri FROM posts
+  WHERE category = ? AND quality_score >= ?
   ORDER BY indexed_at DESC
   LIMIT ? OFFSET ?
 `);
@@ -242,14 +281,40 @@ const getEngagementBatch = db.prepare(`
 `);
 
 /**
- * Add a post to the feed
+ * Add a post to the feed with quality score
  */
-function addPost(uri, cid, authorDid, authorHandle, indexedAt) {
+function addPost(uri, cid, authorDid, authorHandle, indexedAt, qualityScore = 5, category = 'lifestyle') {
   try {
-    insertPost.run(uri, cid, authorDid, authorHandle, indexedAt);
+    insertPost.run(uri, cid, authorDid, authorHandle, indexedAt, qualityScore, category);
     return true;
   } catch (err) {
     console.error('[DB] Insert error:', err.message);
+    return false;
+  }
+}
+
+/**
+ * Add a post without quality score (backward compatibility)
+ */
+function addPostBasic(uri, cid, authorDid, authorHandle, indexedAt) {
+  try {
+    insertPostBasic.run(uri, cid, authorDid, authorHandle, indexedAt);
+    return true;
+  } catch (err) {
+    console.error('[DB] Insert error:', err.message);
+    return false;
+  }
+}
+
+/**
+ * Update quality score for existing post
+ */
+function setPostQuality(uri, score, category) {
+  try {
+    updatePostQuality.run(score, category, uri);
+    return true;
+  } catch (err) {
+    console.error('[DB] Update quality error:', err.message);
     return false;
   }
 }
@@ -268,10 +333,25 @@ function removePost(uri) {
 }
 
 /**
- * Get posts for feed (paginated)
+ * Get posts for feed (paginated) - all posts
  */
 function getPosts(limit = 30, offset = 0) {
   return getFeed.all(limit, offset).map((row) => row.uri);
+}
+
+/**
+ * Get quality-filtered posts for feed (paginated)
+ * @param {number} minScore - Minimum quality score (1-10)
+ */
+function getQualityPosts(limit = 30, offset = 0, minScore = 5) {
+  return getQualityFeed.all(minScore, limit, offset).map((row) => row.uri);
+}
+
+/**
+ * Get posts by category (paginated)
+ */
+function getCategoryPosts(category, limit = 30, offset = 0, minScore = 5) {
+  return getCategoryFeed.all(category, minScore, limit, offset).map((row) => row.uri);
 }
 
 /**
@@ -707,8 +787,12 @@ function close() {
 
 module.exports = {
   addPost,
+  addPostBasic,
+  setPostQuality,
   removePost,
   getPosts,
+  getQualityPosts,
+  getCategoryPosts,
   getAllPosts,
   getCount,
   cleanup,
