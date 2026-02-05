@@ -423,18 +423,8 @@ app.get('/api/top-users', generalLimiter, async (req, res) => {
       });
     }
 
-    // Fallback: Return random Cannect users from the cache
-    const allUsers = Array.from(cannectUserDIDs);
-    if (allUsers.length === 0) {
-      return res.json({ users: [], source: 'none' });
-    }
-
-    // Shuffle and return top N
-    const shuffled = allUsers.sort(() => Math.random() - 0.5);
-    return res.json({
-      users: shuffled.slice(0, limit),
-      source: 'random',
-    });
+    // No curated users - return empty so app can fallback to sorting by followers
+    return res.json({ users: [], source: 'none' });
   } catch (err) {
     console.error('[TopUsers] Error:', err);
     return res.status(500).json({ error: 'Failed to fetch top users' });
