@@ -123,6 +123,7 @@ export default function SearchScreen() {
   const [query, setQuery] = useState(q || '');
   const [sort, setSort] = useState<'top' | 'latest'>('latest');
   const [showTypeahead, setShowTypeahead] = useState(false);
+  const [visibleTopUsers, setVisibleTopUsers] = useState(10);
   const suggestedListRef = useRef<FlashList<any>>(null);
   const searchListRef = useRef<FlashList<any>>(null);
   const inputRef = useRef<TextInput>(null);
@@ -160,7 +161,7 @@ export default function SearchScreen() {
   const trendingQuery = useTrendingTopics();
 
   // Top users in Cannect - shown when no query
-  const topUsersQuery = useTopUsers(3);
+  const topUsersQuery = useTopUsers();
 
   // Suggested users - shown when no query
   const suggestedUsersQuery = useSuggestedUsers();
@@ -314,8 +315,14 @@ export default function SearchScreen() {
 
   const getItemType = (item: SearchResultItem) => item.type;
 
-  // Top users data
-  const topUsers = topUsersQuery.data || [];
+  // Top users data - paginated display
+  const allTopUsers = topUsersQuery.data || [];
+  const topUsers = allTopUsers.slice(0, visibleTopUsers);
+  const hasMoreTopUsers = allTopUsers.length > visibleTopUsers;
+
+  const handleLoadMoreTopUsers = () => {
+    setVisibleTopUsers((prev) => prev + 10);
+  };
 
   const renderTrendingSection = () => (
     <View className="px-4 pt-4 pb-2">
@@ -357,6 +364,14 @@ export default function SearchScreen() {
                 {index < topUsers.length - 1 && <View className="h-px bg-border" />}
               </View>
             ))}
+            {hasMoreTopUsers && (
+              <Pressable
+                onPress={handleLoadMoreTopUsers}
+                className="py-3 items-center border-t border-border"
+              >
+                <Text className="text-primary text-sm font-medium">Load more</Text>
+              </Pressable>
+            )}
           </View>
         </View>
       )}

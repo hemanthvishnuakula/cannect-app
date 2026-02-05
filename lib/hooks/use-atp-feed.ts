@@ -762,14 +762,15 @@ export function useTrendingTopics() {
 /**
  * Get top users in the Cannect community
  * Fetches DIDs from our API and resolves their profiles sorted by reach
+ * Returns up to 50 users - UI handles pagination/"load more"
  */
-export function useTopUsers(limit: number = 3) {
+export function useTopUsers() {
   return useQuery({
-    queryKey: ['topUsers', 'cannect', limit],
+    queryKey: ['topUsers', 'cannect'],
     queryFn: async () => {
       try {
         // Fetch top user DIDs from our feed server
-        const response = await fetch(`${FEED_API_URL}/api/top-users?limit=10`);
+        const response = await fetch(`${FEED_API_URL}/api/top-users?limit=50`);
         if (!response.ok) {
           return [];
         }
@@ -778,11 +779,11 @@ export function useTopUsers(limit: number = 3) {
 
         if (dids.length === 0) {
           // Fallback: get Cannect users directly and sort by followers
-          const profiles = await atproto.getCannectUsers(50);
+          const profiles = await atproto.getCannectUsers(100);
           const sorted = profiles
             .filter((p) => p.followersCount && p.followersCount > 0)
             .sort((a, b) => (b.followersCount || 0) - (a.followersCount || 0));
-          return sorted.slice(0, limit);
+          return sorted.slice(0, 50);
         }
 
         // Fetch profiles for these DIDs
@@ -793,7 +794,7 @@ export function useTopUsers(limit: number = 3) {
           (a, b) => (b.followersCount || 0) - (a.followersCount || 0)
         );
 
-        return sorted.slice(0, limit);
+        return sorted.slice(0, 50);
       } catch (error) {
         console.warn('[useTopUsers] Failed to fetch:', error);
         return [];
