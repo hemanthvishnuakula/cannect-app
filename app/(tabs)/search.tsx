@@ -339,12 +339,12 @@ export default function SearchScreen() {
         </View>
       )}
 
-      {/* Top Users in Cannect */}
+      {/* Cannect Community Members */}
       {topUsers.length > 0 && (
         <View className="mb-4">
           <View className="flex-row items-center gap-2 mb-3">
             <Crown size={18} color="#F59E0B" />
-            <Text className="text-text-primary font-semibold text-lg">Top Users in Cannect</Text>
+            <Text className="text-text-primary font-semibold text-lg">Cannect Community</Text>
           </View>
           <View className="bg-surface-elevated rounded-xl overflow-hidden border border-border">
             {topUsers.map((user, index) => (
