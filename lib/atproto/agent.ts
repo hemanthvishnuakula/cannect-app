@@ -1238,10 +1238,33 @@ export async function searchActorsTypeahead(query: string, limit = 8) {
 
 /**
  * Search posts
+ * @param sort - 'latest' (default) or 'top' for relevance ranking
+ * @param tag - Filter by hashtag(s)
  */
-export async function searchPosts(query: string, cursor?: string, limit = 25) {
+export async function searchPosts(
+  query: string,
+  cursor?: string,
+  limit = 25,
+  sort: 'top' | 'latest' = 'latest',
+  tag?: string[]
+) {
   const bskyAgent = getAgent();
-  return bskyAgent.app.bsky.feed.searchPosts({ q: query, cursor, limit });
+  return bskyAgent.app.bsky.feed.searchPosts({ q: query, cursor, limit, sort, tag });
+}
+
+/**
+ * Get trending topics from the network
+ * Note: This is an unspecced API and may change
+ */
+export async function getTrendingTopics(limit = 10) {
+  const bskyAgent = getAgent();
+  try {
+    const result = await bskyAgent.app.bsky.unspecced.getTrendingTopics({ limit });
+    return result.data;
+  } catch (error) {
+    console.warn('[getTrendingTopics] Failed to fetch:', error);
+    return { topics: [], suggested: [] };
+  }
 }
 
 /**

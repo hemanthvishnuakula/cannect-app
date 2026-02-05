@@ -102,17 +102,23 @@ db.exec(`
 try {
   db.exec(`ALTER TABLE posts ADD COLUMN quality_score INTEGER DEFAULT 5`);
   console.log('[DB] Added quality_score column');
-} catch (e) { /* column exists */ }
+} catch (e) {
+  /* column exists */
+}
 
 try {
   db.exec(`ALTER TABLE posts ADD COLUMN category TEXT DEFAULT 'lifestyle'`);
   console.log('[DB] Added category column');
-} catch (e) { /* column exists */ }
+} catch (e) {
+  /* column exists */
+}
 
 try {
   db.exec(`CREATE INDEX IF NOT EXISTS idx_quality ON posts(quality_score DESC)`);
   db.exec(`CREATE INDEX IF NOT EXISTS idx_category ON posts(category)`);
-} catch (e) { /* index exists */ }
+} catch (e) {
+  /* index exists */
+}
 
 // Prepared statements for performance
 const insertPost = db.prepare(`
@@ -283,7 +289,15 @@ const getEngagementBatch = db.prepare(`
 /**
  * Add a post to the feed with quality score
  */
-function addPost(uri, cid, authorDid, authorHandle, indexedAt, qualityScore = 5, category = 'lifestyle') {
+function addPost(
+  uri,
+  cid,
+  authorDid,
+  authorHandle,
+  indexedAt,
+  qualityScore = 5,
+  category = 'lifestyle'
+) {
   try {
     insertPost.run(uri, cid, authorDid, authorHandle, indexedAt, qualityScore, category);
     return true;

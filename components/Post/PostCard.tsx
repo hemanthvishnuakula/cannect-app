@@ -213,7 +213,11 @@ export function PostCard({
               </Text>
               {/* Only show handle if different from display name */}
               {author.displayName && author.displayName !== author.handle && (
-                <Text className="text-text-muted text-[14px] ml-1 flex-shrink" numberOfLines={1} style={{ maxWidth: '25%' }}>
+                <Text
+                  className="text-text-muted text-[14px] ml-1 flex-shrink"
+                  numberOfLines={1}
+                  style={{ maxWidth: '25%' }}
+                >
                   @{author.handle?.split('.')[0]}
                 </Text>
               )}

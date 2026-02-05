@@ -291,7 +291,7 @@ async function generateStoryImage(uri) {
   // === MODERN X-LIKE DESIGN ===
   // Dark background, white card, clean minimal layout
   // Layout: Header (avatar+name | logo) → Text → Preview → Metrics
-  
+
   const cardWidth = 720;
   const cardMargin = (1080 - cardWidth) / 2;
 
@@ -373,7 +373,10 @@ async function generateStoryImage(uri) {
                               height: 22,
                               viewBox: '0 0 24 24',
                               children: [
-                                { type: 'circle', props: { cx: 12, cy: 12, r: 10, fill: '#10B981' } },
+                                {
+                                  type: 'circle',
+                                  props: { cx: 12, cy: 12, r: 10, fill: '#10B981' },
+                                },
                                 {
                                   type: 'path',
                                   props: {
@@ -428,19 +431,21 @@ async function generateStoryImage(uri) {
   // 2. POST TEXT with links and newlines
   const fontSize = 32;
   const textElements = [];
-  
+
   if (text) {
     const lines = text.split('\n');
     let byteOffset = 0;
     const encoder = new TextEncoder();
-    
+
     for (let lineIdx = 0; lineIdx < lines.length; lineIdx++) {
       const line = lines[lineIdx];
       const lineBytes = encoder.encode(line).length;
-      
+
       // Find facets for this line
       const lineFacets = facets
-        .filter((f) => f.index.byteStart >= byteOffset && f.index.byteStart < byteOffset + lineBytes)
+        .filter(
+          (f) => f.index.byteStart >= byteOffset && f.index.byteStart < byteOffset + lineBytes
+        )
         .map((f) => ({
           ...f,
           index: {
@@ -448,10 +453,10 @@ async function generateStoryImage(uri) {
             byteEnd: Math.min(f.index.byteEnd - byteOffset, lineBytes),
           },
         }));
-      
+
       // Parse line with facets
       const lineSegments = parseTextWithFacets(line, lineFacets);
-      
+
       // Create spans for this line
       const lineSpans = lineSegments.map((segment, idx) => {
         let displayText = segment.text;
@@ -478,7 +483,7 @@ async function generateStoryImage(uri) {
           },
         };
       });
-      
+
       if (line.trim() || lineIdx < lines.length - 1) {
         textElements.push({
           type: 'div',
@@ -494,7 +499,7 @@ async function generateStoryImage(uri) {
           },
         });
       }
-      
+
       byteOffset += lineBytes + 1;
     }
   }
@@ -543,17 +548,19 @@ async function generateStoryImage(uri) {
           overflow: 'hidden',
         },
         children: [
-          externalEmbed.thumb ? {
-            type: 'img',
-            props: {
-              src: externalEmbed.thumb,
-              style: {
-                width: '100%',
-                height: 180,
-                objectFit: 'cover',
-              },
-            },
-          } : null,
+          externalEmbed.thumb
+            ? {
+                type: 'img',
+                props: {
+                  src: externalEmbed.thumb,
+                  style: {
+                    width: '100%',
+                    height: 180,
+                    objectFit: 'cover',
+                  },
+                },
+              }
+            : null,
           {
             type: 'div',
             props: {
@@ -564,20 +571,23 @@ async function generateStoryImage(uri) {
                 backgroundColor: '#F9FAFB',
               },
               children: [
-                externalEmbed.title ? {
-                  type: 'span',
-                  props: {
-                    style: {
-                      color: '#0F172A',
-                      fontSize: 17,
-                      fontWeight: 600,
-                      marginBottom: 4,
-                    },
-                    children: externalEmbed.title.length > 60 
-                      ? externalEmbed.title.substring(0, 60) + '...' 
-                      : externalEmbed.title,
-                  },
-                } : null,
+                externalEmbed.title
+                  ? {
+                      type: 'span',
+                      props: {
+                        style: {
+                          color: '#0F172A',
+                          fontSize: 17,
+                          fontWeight: 600,
+                          marginBottom: 4,
+                        },
+                        children:
+                          externalEmbed.title.length > 60
+                            ? externalEmbed.title.substring(0, 60) + '...'
+                            : externalEmbed.title,
+                      },
+                    }
+                  : null,
                 {
                   type: 'span',
                   props: {
@@ -586,9 +596,11 @@ async function generateStoryImage(uri) {
                       fontSize: 14,
                     },
                     children: (() => {
-                      try { 
-                        return new URL(externalEmbed.uri).hostname.replace(/^www\./, ''); 
-                      } catch { return externalEmbed.uri; }
+                      try {
+                        return new URL(externalEmbed.uri).hostname.replace(/^www\./, '');
+                      } catch {
+                        return externalEmbed.uri;
+                      }
                     })(),
                   },
                 },
@@ -602,7 +614,7 @@ async function generateStoryImage(uri) {
 
   // 4. BOTTOM ROW: Metrics left, cannect.net right (like X)
   const hasMetrics = viewCount > 0 || likeCount > 0 || replyCount > 0 || repostCount > 0;
-  
+
   cardContent.push({
     type: 'div',
     props: {
@@ -616,65 +628,75 @@ async function generateStoryImage(uri) {
       },
       children: [
         // Metrics on left (thin grey text)
-        hasMetrics ? {
-          type: 'div',
-          props: {
-            style: {
-              display: 'flex',
-              flexDirection: 'row',
-              gap: 18,
+        hasMetrics
+          ? {
+              type: 'div',
+              props: {
+                style: {
+                  display: 'flex',
+                  flexDirection: 'row',
+                  gap: 18,
+                },
+                children: [
+                  viewCount > 0
+                    ? {
+                        type: 'span',
+                        props: {
+                          style: {
+                            color: '#9CA3AF',
+                            fontSize: 17,
+                            fontWeight: 400,
+                          },
+                          children: `${formatCount(viewCount)} views`,
+                        },
+                      }
+                    : null,
+                  likeCount > 0
+                    ? {
+                        type: 'span',
+                        props: {
+                          style: {
+                            color: '#9CA3AF',
+                            fontSize: 17,
+                            fontWeight: 400,
+                          },
+                          children: `${formatCount(likeCount)} likes`,
+                        },
+                      }
+                    : null,
+                  replyCount > 0
+                    ? {
+                        type: 'span',
+                        props: {
+                          style: {
+                            color: '#9CA3AF',
+                            fontSize: 17,
+                            fontWeight: 400,
+                          },
+                          children: `${formatCount(replyCount)} replies`,
+                        },
+                      }
+                    : null,
+                  repostCount > 0
+                    ? {
+                        type: 'span',
+                        props: {
+                          style: {
+                            color: '#9CA3AF',
+                            fontSize: 17,
+                            fontWeight: 400,
+                          },
+                          children: `${formatCount(repostCount)} reposts`,
+                        },
+                      }
+                    : null,
+                ].filter(Boolean),
+              },
+            }
+          : {
+              type: 'div',
+              props: { children: null },
             },
-            children: [
-              viewCount > 0 ? {
-                type: 'span',
-                props: {
-                  style: {
-                    color: '#9CA3AF',
-                    fontSize: 17,
-                    fontWeight: 400,
-                  },
-                  children: `${formatCount(viewCount)} views`,
-                },
-              } : null,
-              likeCount > 0 ? {
-                type: 'span',
-                props: {
-                  style: {
-                    color: '#9CA3AF',
-                    fontSize: 17,
-                    fontWeight: 400,
-                  },
-                  children: `${formatCount(likeCount)} likes`,
-                },
-              } : null,
-              replyCount > 0 ? {
-                type: 'span',
-                props: {
-                  style: {
-                    color: '#9CA3AF',
-                    fontSize: 17,
-                    fontWeight: 400,
-                  },
-                  children: `${formatCount(replyCount)} replies`,
-                },
-              } : null,
-              repostCount > 0 ? {
-                type: 'span',
-                props: {
-                  style: {
-                    color: '#9CA3AF',
-                    fontSize: 17,
-                    fontWeight: 400,
-                  },
-                  children: `${formatCount(repostCount)} reposts`,
-                },
-              } : null,
-            ].filter(Boolean),
-          },
-        } : {
-          type: 'div',
-          props: { children: null },
-        },
         // cannect.net on right (thin grey text)
         {
           type: 'span',

@@ -538,11 +538,18 @@ export default function ComposeScreen() {
       }
 
       // Handle link preview embed (only if no other embed)
-      console.log('[Compose] Checking link preview:', { 
-        hasEmbed: !!embed, 
-        linkPreview: linkPreview ? { url: linkPreview.url, title: linkPreview.title, loading: linkPreview.loading, error: linkPreview.error } : null 
+      console.log('[Compose] Checking link preview:', {
+        hasEmbed: !!embed,
+        linkPreview: linkPreview
+          ? {
+              url: linkPreview.url,
+              title: linkPreview.title,
+              loading: linkPreview.loading,
+              error: linkPreview.error,
+            }
+          : null,
       });
-      
+
       if (
         !embed &&
         linkPreview &&
@@ -558,12 +565,12 @@ export default function ComposeScreen() {
           try {
             setUploadStatus('Uploading link thumbnail...');
             const thumbResponse = await fetch(linkPreview.image, { mode: 'cors' });
-            
+
             if (!thumbResponse.ok) {
               console.log('[Compose] Thumbnail fetch failed:', thumbResponse.status);
             } else {
               const thumbData = await thumbResponse.blob();
-              
+
               // Skip if image is too large (> 1MB)
               if (thumbData.size > 1000000) {
                 console.log('[Compose] Thumbnail too large, skipping:', thumbData.size);
@@ -571,7 +578,7 @@ export default function ComposeScreen() {
                 const thumbArrayBuffer = await thumbData.arrayBuffer();
                 const thumbUint8Array = new Uint8Array(thumbArrayBuffer);
                 const thumbMimeType = thumbResponse.headers.get('content-type') || 'image/jpeg';
-                
+
                 const uploadResult = await atproto.uploadBlob(thumbUint8Array, thumbMimeType);
                 thumbBlob = uploadResult.data.blob;
                 console.log('[Compose] Thumbnail uploaded');

@@ -170,22 +170,21 @@ async function verifyBatchWithAI(texts) {
 function getTokenStats() {
   const runningHours = (Date.now() - tokenStats.lastResetTime) / (1000 * 60 * 60);
   const inputCost = (tokenStats.totalPromptTokens / 1_000_000) * 0.15;
-  const outputCost = (tokenStats.totalCompletionTokens / 1_000_000) * 0.60;
+  const outputCost = (tokenStats.totalCompletionTokens / 1_000_000) * 0.6;
   const totalCost = inputCost + outputCost;
-  
+
   return {
     ...tokenStats,
     runningHours: runningHours.toFixed(2),
-    avgTokensPerRequest: tokenStats.requestCount > 0 
-      ? Math.round(tokenStats.totalTokens / tokenStats.requestCount) 
-      : 0,
+    avgTokensPerRequest:
+      tokenStats.requestCount > 0
+        ? Math.round(tokenStats.totalTokens / tokenStats.requestCount)
+        : 0,
     estimatedCost: `$${totalCost.toFixed(4)}`,
-    costPerRequest: tokenStats.requestCount > 0 
-      ? `$${(totalCost / tokenStats.requestCount).toFixed(6)}` 
-      : '$0',
-    projectedDailyCost: runningHours > 0 
-      ? `$${((totalCost / runningHours) * 24).toFixed(4)}` 
-      : '$0',
+    costPerRequest:
+      tokenStats.requestCount > 0 ? `$${(totalCost / tokenStats.requestCount).toFixed(6)}` : '$0',
+    projectedDailyCost:
+      runningHours > 0 ? `$${((totalCost / runningHours) * 24).toFixed(4)}` : '$0',
   };
 }
 

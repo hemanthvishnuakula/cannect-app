@@ -199,7 +199,7 @@ export const RichText = memo(function RichText({
   // Filter out URLs that should be hidden (when embed card is shown)
   const filteredSegments = useMemo(() => {
     if (hideUrls.length === 0) return segments;
-    
+
     return segments.filter((segment) => {
       if (segment.type === 'link' && segment.value) {
         // Check if this URL should be hidden

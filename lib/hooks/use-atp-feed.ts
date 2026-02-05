@@ -717,19 +717,52 @@ export function useToggleRepost() {
 }
 
 /**
- * Search posts
+ * Search posts with optional sort and tag filters
  */
-export function useSearchPosts(query: string) {
+export function useSearchPosts(
+  query: string,
+  sort: 'top' | 'latest' = 'latest',
+  tag?: string[]
+) {
   return useInfiniteQuery({
-    queryKey: ['searchPosts', query],
+    queryKey: ['searchPosts', query, sort, tag],
     queryFn: async ({ pageParam }) => {
-      const result = await atproto.searchPosts(query, pageParam, 25);
+      const result = await atproto.searchPosts(query, pageParam, 25, sort, tag);
       return result.data;
     },
     getNextPageParam: (lastPage) => lastPage.cursor,
     initialPageParam: undefined as string | undefined,
     enabled: query.length > 0,
     staleTime: 1000 * 60,
+  });
+}
+
+/**
+ * Get trending topics from the network
+ */
+export function useTrendingTopics() {
+  return useQuery({
+    queryKey: ['trendingTopics'],
+    queryFn: async () => {
+      return atproto.getTrendingTopics(10);
+    },
+    staleTime: 1000 * 60 * 5, // 5 minutes
+    gcTime: 1000 * 60 * 15,
+  });
+}
+
+/**
+ * Typeahead search for users (optimized for real-time typing)
+ */
+export function useSearchTypeahead(query: string) {
+  return useQuery({
+    queryKey: ['searchTypeahead', query],
+    queryFn: async () => {
+      const result = await atproto.searchActorsTypeahead(query, 6);
+      return result.data.actors;
+    },
+    enabled: query.length >= 1,
+    staleTime: 1000 * 30, // 30 seconds
   });
 }
 
