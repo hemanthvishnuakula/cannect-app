@@ -351,23 +351,21 @@ export default function SearchScreen() {
           <View className="flex-row items-center gap-2 mb-3">
             <Text className="text-text-primary font-semibold text-lg">Cannect Community</Text>
           </View>
-          <View className="bg-surface-elevated rounded-xl overflow-hidden border border-border">
-            {topUsers.map((user, index) => (
-              <View key={user.did}>
-                <UserRow
-                  user={user}
-                  onPress={() => handleUserPress(user)}
-                  showFollowButton
-                  showBio={false}
-                  shortHandle
-                />
-                {index < topUsers.length - 1 && <View className="h-px bg-border" />}
-              </View>
+          <View className="-mx-4">
+            {topUsers.map((user) => (
+              <UserRow
+                key={user.did}
+                user={user}
+                onPress={() => handleUserPress(user)}
+                showFollowButton
+                showBio={false}
+                shortHandle
+              />
             ))}
             {hasMoreTopUsers && (
               <Pressable
                 onPress={handleLoadMoreTopUsers}
-                className="py-3 items-center border-t border-border"
+                className="py-3 items-center"
               >
                 <Text className="text-primary text-sm font-medium">Load more</Text>
               </Pressable>
