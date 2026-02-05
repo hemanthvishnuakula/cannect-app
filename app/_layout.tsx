@@ -1,7 +1,7 @@
 import '../global.css';
 
 import { useEffect, useState } from 'react';
-import { LogBox, Platform, View, ActivityIndicator } from 'react-native';
+import { LogBox, Platform, View, ActivityIndicator, StyleSheet } from 'react-native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { QueryClientProvider } from '@tanstack/react-query';
@@ -245,10 +245,39 @@ export default function RootLayout() {
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
-        <GestureHandlerRootView style={{ flex: 1 }}>
-          <AppContent />
+        <GestureHandlerRootView style={styles.gestureRoot}>
+          {/* Desktop wrapper - centers app with max-width on web */}
+          <View style={styles.desktopWrapper}>
+            <View style={styles.appContainer}>
+              <AppContent />
+            </View>
+          </View>
         </GestureHandlerRootView>
       </QueryClientProvider>
     </ErrorBoundary>
   );
 }
+
+const styles = StyleSheet.create({
+  gestureRoot: {
+    flex: 1,
+    backgroundColor: '#000000', // Black background for side margins
+  },
+  desktopWrapper: {
+    flex: 1,
+    alignItems: 'center',
+    backgroundColor: '#000000',
+  },
+  appContainer: {
+    flex: 1,
+    width: '100%',
+    maxWidth: Platform.OS === 'web' ? 480 : undefined, // Mobile width on desktop
+    backgroundColor: '#0A0A0A',
+    // Add subtle border on desktop to separate from black margins
+    ...(Platform.OS === 'web' && {
+      borderLeftWidth: 1,
+      borderRightWidth: 1,
+      borderColor: '#1a1a1a',
+    }),
+  },
+});
