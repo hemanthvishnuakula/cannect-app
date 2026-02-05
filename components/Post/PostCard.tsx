@@ -13,7 +13,7 @@
  * - Thread replies
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { View, Text, Pressable } from 'react-native';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
@@ -95,6 +95,14 @@ export function PostCard({
 
   const record = post.record as AppBskyFeedPost.Record;
   const author = post.author;
+
+  // Extract embedded URL to hide from text (when link preview card is shown)
+  const embeddedUrl = useMemo(() => {
+    if (post.embed?.$type === 'app.bsky.embed.external#view') {
+      return (post.embed as any).external?.uri;
+    }
+    return null;
+  }, [post.embed]);
 
   // Check if text needs truncation (simple heuristic based on length)
   const textLength = record.text?.length || 0;
@@ -184,7 +192,7 @@ export function PostCard({
 
         {/* Content */}
         <View className="flex-1 ml-2">
-          {/* Header - Name, Badge, and Time (single line, name truncates only if needed) */}
+          {/* Header - Name @handle · time (grouped on left, X/Threads style) */}
           <View className="flex-row items-center">
             <Pressable
               onPressIn={stopEvent}
@@ -196,10 +204,17 @@ export function PostCard({
               style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
             >
               <Text
-                className="text-[15px] font-semibold text-text-primary flex-shrink"
+                className="text-[15px] font-semibold text-text-primary"
                 numberOfLines={1}
               >
                 {author.displayName || author.handle}
+              </Text>
+              <Text className="text-text-muted text-[14px] ml-1" numberOfLines={1}>
+                @{author.handle?.split('.')[0]}
+              </Text>
+              <Text className="text-text-muted text-[14px] mx-1">·</Text>
+              <Text className="text-text-muted text-[13px] flex-shrink-0">
+                {formatTime(record.createdAt)}
               </Text>
               {/* Boosted badge */}
               {isBoosted && (
@@ -208,9 +223,6 @@ export function PostCard({
                 </View>
               )}
             </Pressable>
-            <Text className="text-text-muted text-[13px] flex-shrink-0">
-              {formatTime(record.createdAt)}
-            </Text>
             {/* Follow button - show only if not following, not own post, and not hidden */}
             {!hideFollowButton && !author.viewer?.following && author.did !== currentUserDid && (
               <View className="ml-2 flex-shrink-0" onStartShouldSetResponder={() => true}>
@@ -225,6 +237,7 @@ export function PostCard({
             facets={record.facets}
             className="mt-1"
             numberOfLines={shouldTruncate ? MAX_TEXT_LINES : undefined}
+            hideUrls={embeddedUrl ? [embeddedUrl] : undefined}
           />
 
           {/* Show more button for truncated text */}

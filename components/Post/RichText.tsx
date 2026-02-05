@@ -28,6 +28,8 @@ interface RichTextProps {
   className?: string;
   /** Number of lines before truncating (optional) */
   numberOfLines?: number;
+  /** URLs to hide from text (e.g., when a link preview card is shown) */
+  hideUrls?: string[];
 }
 
 interface TextSegment {
@@ -188,10 +190,24 @@ export const RichText = memo(function RichText({
   facets,
   className = '',
   numberOfLines,
+  hideUrls = [],
 }: RichTextProps) {
   const router = useRouter();
 
   const segments = useMemo(() => parseTextWithFacets(text, facets), [text, facets]);
+
+  // Filter out URLs that should be hidden (when embed card is shown)
+  const filteredSegments = useMemo(() => {
+    if (hideUrls.length === 0) return segments;
+    
+    return segments.filter((segment) => {
+      if (segment.type === 'link' && segment.value) {
+        // Check if this URL should be hidden
+        return !hideUrls.some((url) => segment.value === url || segment.text === url);
+      }
+      return true;
+    });
+  }, [segments, hideUrls]);
 
   const handleMentionPress = (did: string) => {
     // Navigate to user profile by DID
@@ -225,7 +241,7 @@ export const RichText = memo(function RichText({
       className={`text-zinc-300 text-[15px] leading-relaxed ${className}`}
       numberOfLines={numberOfLines}
     >
-      {segments.map((segment, index) => {
+      {filteredSegments.map((segment, index) => {
         const textStyle = getTextStyle(segment);
 
         switch (segment.type) {

@@ -236,7 +236,7 @@ function LinkPreview({ external }: { external: AppBskyEmbedExternal.ViewExternal
 
   let hostname = '';
   try {
-    hostname = new URL(external.uri).hostname;
+    hostname = new URL(external.uri).hostname.replace('www.', '');
   } catch {
     hostname = external.uri;
   }
@@ -248,31 +248,23 @@ function LinkPreview({ external }: { external: AppBskyEmbedExternal.ViewExternal
         stopEvent(e);
         handlePress();
       }}
-      className="mt-2 border border-neutral-800/60 rounded-lg overflow-hidden"
+      className="mt-2 border border-neutral-800/60 rounded-2xl overflow-hidden bg-neutral-900/30"
     >
       {external.thumb && (
         <Image
           source={{ uri: external.thumb }}
-          className="w-full h-32 bg-neutral-900"
+          className="w-full h-36 bg-neutral-900"
           contentFit="cover"
           transition={50}
           cachePolicy="memory-disk"
           recyclingKey={external.thumb}
         />
       )}
-      <View className="p-3">
-        <Text className="text-text-primary font-medium" numberOfLines={2}>
+      <View className="px-4 py-3">
+        <Text className="text-text-muted text-xs mb-1">{hostname}</Text>
+        <Text className="text-text-primary font-medium text-[15px] leading-snug" numberOfLines={2}>
           {external.title || hostname}
         </Text>
-        {external.description && (
-          <Text className="text-text-muted text-sm mt-1" numberOfLines={2}>
-            {external.description}
-          </Text>
-        )}
-        <View className="flex-row items-center mt-2">
-          <ExternalLink size={12} color="#6B7280" />
-          <Text className="text-text-muted text-xs ml-1">{hostname}</Text>
-        </View>
       </View>
     </Pressable>
   );
