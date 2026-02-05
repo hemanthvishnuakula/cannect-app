@@ -203,16 +203,21 @@ export function PostCard({
               className="flex-row items-center flex-1 mr-2"
               style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
             >
+              {/* Name - truncates first, max-width to leave room for handle/time */}
               <Text
-                className="text-[15px] font-semibold text-text-primary"
+                className="text-[15px] font-semibold text-text-primary flex-shrink"
                 numberOfLines={1}
+                style={{ maxWidth: '50%' }}
               >
-                {author.displayName || author.handle}
+                {author.displayName || author.handle?.split('.')[0]}
               </Text>
-              <Text className="text-text-muted text-[14px] ml-1" numberOfLines={1}>
-                @{author.handle?.split('.')[0]}
-              </Text>
-              <Text className="text-text-muted text-[14px] mx-1">·</Text>
+              {/* Only show handle if different from display name */}
+              {author.displayName && author.displayName !== author.handle && (
+                <Text className="text-text-muted text-[14px] ml-1 flex-shrink" numberOfLines={1} style={{ maxWidth: '25%' }}>
+                  @{author.handle?.split('.')[0]}
+                </Text>
+              )}
+              <Text className="text-text-muted text-[14px] mx-1 flex-shrink-0">·</Text>
               <Text className="text-text-muted text-[13px] flex-shrink-0">
                 {formatTime(record.createdAt)}
               </Text>
@@ -235,7 +240,7 @@ export function PostCard({
           <RichText
             text={record.text}
             facets={record.facets}
-            className="mt-1"
+            className="mt-1.5 mb-1"
             numberOfLines={shouldTruncate ? MAX_TEXT_LINES : undefined}
             hideUrls={embeddedUrl ? [embeddedUrl] : undefined}
           />
@@ -245,7 +250,7 @@ export function PostCard({
             <Pressable
               onPressIn={stopEvent}
               onPress={handleShowMore}
-              className="mt-1 py-0.5 self-start"
+              className="mt-0.5 mb-1 py-0.5 self-start"
               hitSlop={8}
               style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
             >

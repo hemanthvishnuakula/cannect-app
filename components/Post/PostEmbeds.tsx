@@ -229,17 +229,26 @@ function ImageGrid({
   );
 }
 
+/**
+ * Clean domain for display - strip common tracking/redirect subdomains
+ */
+function cleanDomain(url: string): string {
+  try {
+    let hostname = new URL(url).hostname;
+    // Strip common subdomains: www, m, l, mobile, amp, etc.
+    hostname = hostname.replace(/^(www\.|m\.|l\.|mobile\.|amp\.)/i, '');
+    return hostname;
+  } catch {
+    return url;
+  }
+}
+
 function LinkPreview({ external }: { external: AppBskyEmbedExternal.ViewExternal }) {
   const handlePress = () => {
     Linking.openURL(external.uri);
   };
 
-  let hostname = '';
-  try {
-    hostname = new URL(external.uri).hostname.replace('www.', '');
-  } catch {
-    hostname = external.uri;
-  }
+  const hostname = cleanDomain(external.uri);
 
   return (
     <Pressable
@@ -248,12 +257,12 @@ function LinkPreview({ external }: { external: AppBskyEmbedExternal.ViewExternal
         stopEvent(e);
         handlePress();
       }}
-      className="mt-2 border border-neutral-800/60 rounded-2xl overflow-hidden bg-neutral-900/30"
+      className="mt-3 border border-neutral-800/60 rounded-2xl overflow-hidden bg-neutral-900/30"
     >
       {external.thumb && (
         <Image
           source={{ uri: external.thumb }}
-          className="w-full h-36 bg-neutral-900"
+          className="w-full h-40 bg-neutral-900"
           contentFit="cover"
           transition={50}
           cachePolicy="memory-disk"
