@@ -18,7 +18,7 @@ const express = require('express');
 const WebSocket = require('ws');
 const db = require('./db');
 const { shouldIncludePost, getPostText } = require('./feed-logic');
-const { verifyWithAI, scorePost, QUALITY_THRESHOLD } = require('./ai-filter');
+const { verifyWithAI, scorePost, getTokenStats, QUALITY_THRESHOLD } = require('./ai-filter');
 const { generateStoryImage, loadFonts } = require('./story-image');
 const { generateProfileImage, loadFonts: loadProfileFonts } = require('./profile-image');
 
@@ -1008,9 +1008,13 @@ async function processWithAI(uri, cid, did, handle, text, indexedAt, reason) {
     if (aiResult.isCannabis) {
       db.addPost(uri, cid, did, handle, indexedAt, aiResult.score, aiResult.category);
       stats.indexed++;
-      console.log(`[AI-Filter] ✓ INCLUDED [${aiResult.score}/10 ${aiResult.category}] (${reason}): ${text.substring(0, 50)}...`);
+      console.log(
+        `[AI-Filter] ✓ INCLUDED [${aiResult.score}/10 ${aiResult.category}] (${reason}): ${text.substring(0, 50)}...`
+      );
     } else {
-      console.log(`[AI-Filter] ✗ REJECTED [${aiResult.score}/10 ${aiResult.category}] (${reason}): ${text.substring(0, 50)}...`);
+      console.log(
+        `[AI-Filter] ✗ REJECTED [${aiResult.score}/10 ${aiResult.category}] (${reason}): ${text.substring(0, 50)}...`
+      );
     }
   } catch (err) {
     console.error(`[AI-Filter] Exception:`, err.message);
@@ -1037,8 +1041,12 @@ async function processWithAI(uri, cid, did, handle, text, indexedAt, reason) {
 
 setInterval(() => {
   const count = db.getCount();
+  const tokenStats = getTokenStats();
   console.log(
     `[Stats] Posts in DB: ${count} | Indexed: ${stats.indexed} | Processed: ${stats.processed}`
+  );
+  console.log(
+    `[AI Cost] Requests: ${tokenStats.requestCount} | Tokens: ${tokenStats.totalTokens} | Cost: ${tokenStats.estimatedCost} | Projected/day: ${tokenStats.projectedDailyCost}`
   );
 }, 60 * 1000); // Every minute
 

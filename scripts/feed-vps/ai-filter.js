@@ -9,6 +9,15 @@ const MODEL = 'gpt-4o-mini';
 const MIN_DELAY_MS = 100;
 let lastRequestTime = 0;
 
+// Token usage tracking
+const tokenStats = {
+  totalPromptTokens: 0,
+  totalCompletionTokens: 0,
+  totalTokens: 0,
+  requestCount: 0,
+  lastResetTime: Date.now(),
+};
+
 // Quality threshold - posts below this score are filtered out
 const QUALITY_THRESHOLD = 5;
 
@@ -85,7 +94,13 @@ async function waitForRateLimit() {
 async function scorePost(text) {
   if (!OPENAI_API_KEY) {
     console.error('[AI-Filter] OPENAI_API_KEY not set');
-    return { score: 0, category: 'error', reason: 'API key missing', isCannabis: false, error: true };
+    return {
+      score: 0,
+      category: 'error',
+      reason: 'API key missing',
+      isCannabis: false,
+      error: true,
+    };
   }
 
   try {
@@ -119,7 +134,15 @@ async function scorePost(text) {
 
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content?.trim();
-    
+
+    // Track token usage
+    if (data.usage) {
+      tokenStats.totalPromptTokens += data.usage.prompt_tokens || 0;
+      tokenStats.totalCompletionTokens += data.usage.completion_tokens || 0;
+      tokenStats.totalTokens += data.usage.total_tokens || 0;
+      tokenStats.requestCount++;
+    }
+
     // Parse JSON response
     let result;
     try {
@@ -134,7 +157,9 @@ async function scorePost(text) {
     const reason = result.reason || '';
     const isCannabis = score >= QUALITY_THRESHOLD && category !== 'spam';
 
-    console.log(`[AI-Filter] Score ${score}/10 [${category}] "${text.substring(0, 40)}..." → ${isCannabis ? 'INCLUDE' : 'EXCLUDE'}`);
+    console.log(
+      `[AI-Filter] Score ${score}/10 [${category}] "${text.substring(0, 40)}..." → ${isCannabis ? 'INCLUDE' : 'EXCLUDE'}`
+    );
 
     return { score, category, reason, isCannabis, error: false };
   } catch (error) {
@@ -173,7 +198,44 @@ async function scoreBatch(texts) {
  */
 async function verifyBatchWithAI(texts) {
   const { results } = await scoreBatch(texts);
-  return { results: results.map(r => r.isCannabis), error: false };
+  return { results: results.map((r) => r.isCannabis), error: false };
+}
+
+/**
+ * Get token usage statistics
+ * gpt-4o-mini pricing: $0.15/1M input, $0.60/1M output
+ */
+function getTokenStats() {
+  const runningHours = (Date.now() - tokenStats.lastResetTime) / (1000 * 60 * 60);
+  const inputCost = (tokenStats.totalPromptTokens / 1_000_000) * 0.15;
+  const outputCost = (tokenStats.totalCompletionTokens / 1_000_000) * 0.60;
+  const totalCost = inputCost + outputCost;
+  
+  return {
+    ...tokenStats,
+    runningHours: runningHours.toFixed(2),
+    avgTokensPerRequest: tokenStats.requestCount > 0 
+      ? Math.round(tokenStats.totalTokens / tokenStats.requestCount) 
+      : 0,
+    estimatedCost: `$${totalCost.toFixed(4)}`,
+    costPerRequest: tokenStats.requestCount > 0 
+      ? `$${(totalCost / tokenStats.requestCount).toFixed(6)}` 
+      : '$0',
+    projectedDailyCost: runningHours > 0 
+      ? `$${((totalCost / runningHours) * 24).toFixed(4)}` 
+      : '$0',
+  };
+}
+
+/**
+ * Reset token stats (call daily or on restart)
+ */
+function resetTokenStats() {
+  tokenStats.totalPromptTokens = 0;
+  tokenStats.totalCompletionTokens = 0;
+  tokenStats.totalTokens = 0;
+  tokenStats.requestCount = 0;
+  tokenStats.lastResetTime = Date.now();
 }
 
 module.exports = {
@@ -181,5 +243,7 @@ module.exports = {
   scoreBatch,
   verifyWithAI,
   verifyBatchWithAI,
+  getTokenStats,
+  resetTokenStats,
   QUALITY_THRESHOLD,
 };
