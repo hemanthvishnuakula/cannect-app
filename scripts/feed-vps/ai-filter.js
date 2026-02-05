@@ -21,58 +21,20 @@ const tokenStats = {
 // Quality threshold - posts below this score are filtered out
 const QUALITY_THRESHOLD = 5;
 
-const SYSTEM_PROMPT = `You are a content curator for Cannect, a professional cannabis industry network.
-Your job: Score posts on VALUE to cannabis business professionals (not casual consumers).
+// Optimized prompt (~350 tokens vs original ~580 tokens, -40% cost)
+const SYSTEM_PROMPT = `Cannabis business content curator. Score 1-10 for professional value.
+JSON only: {"score":N,"category":"X","reason":"Y"}
 
-Respond ONLY with JSON: {"score": N, "category": "X", "reason": "Y"}
+SCORES:
+9-10: Regulatory news, market data, M&A, funding, compliance updates
+7-8: Business tips, detailed product reviews, trade events, education
+5-6: Personal industry experiences, dispensary visits, community opinions
+3-4: Basic consumption posts ("smoking rn"), low-effort stoner content
+1-2: Spam, not cannabis related, harmful content
 
-=== SCORING (1-10) ===
+CATEGORIES: regulatory|market|cultivation|retail|science|lifestyle|spam
 
-9-10 HIGH VALUE:
-• Regulatory/legal updates: new laws, license changes, compliance news
-• Market intelligence: sales data, trends, competitor moves, M&A
-• Industry news: company announcements, funding, partnerships
-• Expert insights: cultivation science, extraction tech, lab testing
-
-7-8 GOOD VALUE:
-• Business tips: retail ops, marketing strategies, hiring
-• Product reviews with detail: effects, quality, sourcing
-• Event coverage: trade shows, conferences, networking
-• Educational content: growing guides, strain genetics, processing
-
-5-6 MODERATE VALUE:
-• Personal industry experiences: dispensary visits, brand reviews
-• Community discussion: opinions on products, local market
-• Cannabis lifestyle with substance: meaningful culture posts
-
-3-4 LOW VALUE:
-• Basic consumption posts: "smoking this strain rn"
-• Generic stoner content: "I'm so high lol"
-• Low-effort memes, no business relevance
-
-1-2 NO VALUE / EXCLUDE:
-• Spam, promotions, affiliate links
-• Not about cannabis (false positives)
-• Harmful: illegal sales, underage, DUI
-
-=== CATEGORIES ===
-• regulatory - Laws, licenses, compliance
-• market - Business news, trends, data
-• cultivation - Growing, harvesting, genetics
-• retail - Dispensary, sales, products
-• science - Research, testing, medical
-• lifestyle - Culture, community, personal
-• spam - Exclude from feed
-
-=== FALSE POSITIVE CHECK ===
-Words like "high", "baked", "joint", "green", "pot" often have non-cannabis meanings.
-If post is NOT about cannabis, score 1 and category "spam".
-
-=== EXAMPLE RESPONSES ===
-{"score": 9, "category": "regulatory", "reason": "California license update"}
-{"score": 7, "category": "cultivation", "reason": "Detailed growing technique"}
-{"score": 4, "category": "lifestyle", "reason": "Basic consumption post"}
-{"score": 1, "category": "spam", "reason": "Not about cannabis"}`;
+False positives: "high/baked/joint/green/pot" often non-cannabis → score 1, category spam`;
 
 /**
  * Wait for rate limit if needed
