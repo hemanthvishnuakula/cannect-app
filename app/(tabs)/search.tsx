@@ -21,7 +21,6 @@ import {
   TrendingUp,
   Hash,
   ArrowUpDown,
-  Crown,
 } from 'lucide-react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import {
@@ -343,7 +342,6 @@ export default function SearchScreen() {
       {topUsers.length > 0 && (
         <View className="mb-4">
           <View className="flex-row items-center gap-2 mb-3">
-            <Crown size={18} color="#F59E0B" />
             <Text className="text-text-primary font-semibold text-lg">Cannect Community</Text>
           </View>
           <View className="bg-surface-elevated rounded-xl overflow-hidden border border-border">
