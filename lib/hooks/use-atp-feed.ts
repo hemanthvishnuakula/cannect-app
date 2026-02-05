@@ -719,11 +719,7 @@ export function useToggleRepost() {
 /**
  * Search posts with optional sort and tag filters
  */
-export function useSearchPosts(
-  query: string,
-  sort: 'top' | 'latest' = 'latest',
-  tag?: string[]
-) {
+export function useSearchPosts(query: string, sort: 'top' | 'latest' = 'latest', tag?: string[]) {
   return useInfiniteQuery({
     queryKey: ['searchPosts', query, sort, tag],
     queryFn: async ({ pageParam }) => {
@@ -760,6 +756,51 @@ export function useTrendingTopics() {
     },
     staleTime: 1000 * 60 * 10, // 10 minutes - curated topics don't change often
     gcTime: 1000 * 60 * 30,
+  });
+}
+
+/**
+ * Get top users in the Cannect community
+ * Fetches DIDs from our API and resolves their profiles sorted by reach
+ */
+export function useTopUsers(limit: number = 3) {
+  return useQuery({
+    queryKey: ['topUsers', 'cannect', limit],
+    queryFn: async () => {
+      try {
+        // Fetch top user DIDs from our feed server
+        const response = await fetch(`${FEED_API_URL}/api/top-users?limit=10`);
+        if (!response.ok) {
+          return [];
+        }
+        const data = await response.json();
+        const dids: string[] = data.users || [];
+
+        if (dids.length === 0) {
+          // Fallback: get Cannect users directly and sort by followers
+          const profiles = await atproto.getCannectUsers(50);
+          const sorted = profiles
+            .filter((p) => p.followersCount && p.followersCount > 0)
+            .sort((a, b) => (b.followersCount || 0) - (a.followersCount || 0));
+          return sorted.slice(0, limit);
+        }
+
+        // Fetch profiles for these DIDs
+        const profiles = await atproto.getProfiles(dids);
+        
+        // Sort by follower count (highest reach first)
+        const sorted = profiles.sort(
+          (a, b) => (b.followersCount || 0) - (a.followersCount || 0)
+        );
+
+        return sorted.slice(0, limit);
+      } catch (error) {
+        console.warn('[useTopUsers] Failed to fetch:', error);
+        return [];
+      }
+    },
+    staleTime: 1000 * 60 * 15, // 15 minutes - top users don't change often
+    gcTime: 1000 * 60 * 60,
   });
 }
 

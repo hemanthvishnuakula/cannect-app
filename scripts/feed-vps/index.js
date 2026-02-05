@@ -327,7 +327,7 @@ app.get('/api/boost', generalLimiter, (req, res) => {
 /**
  * Get trending/suggested topics for the cannabis industry
  * GET /api/trending
- * 
+ *
  * Returns curated cannabis-specific hashtags for discovery.
  * TODO: In the future, extract these dynamically from post content.
  */
@@ -339,38 +339,38 @@ app.get('/api/trending', generalLimiter, (req, res) => {
     { topic: 'hemp', displayName: 'Hemp' },
     { topic: 'marijuana', displayName: 'Marijuana' },
     { topic: 'weed', displayName: 'Weed' },
-    
+
     // Business & Regulation
     { topic: 'cannabisindustry', displayName: 'Cannabis Industry' },
     { topic: 'cannabisbusiness', displayName: 'Cannabis Business' },
     { topic: 'cannabislegislation', displayName: 'Cannabis Legislation' },
     { topic: 'legalization', displayName: 'Legalization' },
     { topic: 'cannabisreform', displayName: 'Cannabis Reform' },
-    
+
     // Products & Science
     { topic: 'cbd', displayName: 'CBD' },
     { topic: 'thc', displayName: 'THC' },
     { topic: 'edibles', displayName: 'Edibles' },
     { topic: 'concentrates', displayName: 'Concentrates' },
     { topic: 'terpenes', displayName: 'Terpenes' },
-    
+
     // Cultivation
     { topic: 'growyourown', displayName: 'Grow Your Own' },
     { topic: 'homegrow', displayName: 'Home Grow' },
     { topic: 'cultivation', displayName: 'Cultivation' },
     { topic: 'harvest', displayName: 'Harvest' },
-    
+
     // Medical
     { topic: 'medicalcannabis', displayName: 'Medical Cannabis' },
     { topic: 'medicalmj', displayName: 'Medical MJ' },
     { topic: 'cannabismedicine', displayName: 'Cannabis Medicine' },
-    
+
     // Culture
     { topic: '420', displayName: '420' },
     { topic: 'stonerfam', displayName: 'Stoner Fam' },
     { topic: 'cannabiscommunity', displayName: 'Cannabis Community' },
   ];
-  
+
   // Shuffle based on day so topics rotate
   const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0)) / 86400000);
   const shuffled = [...allTopics].sort((a, b) => {
@@ -378,18 +378,67 @@ app.get('/api/trending', generalLimiter, (req, res) => {
     const hashB = (b.topic.charCodeAt(0) * dayOfYear) % 100;
     return hashA - hashB;
   });
-  
+
   // Return top 10
-  const topics = shuffled.slice(0, 10).map(t => ({
+  const topics = shuffled.slice(0, 10).map((t) => ({
     topic: t.topic,
     displayName: t.displayName,
     link: `https://bsky.app/search?q=%23${t.topic}`,
   }));
-  
+
   return res.json({
     topics,
     suggested: [],
   });
+});
+
+// =============================================================================
+// Top Users - Featured Cannect Community Members
+// =============================================================================
+
+/**
+ * Get top users in the Cannect community
+ * GET /api/top-users
+ *
+ * Returns featured community members sorted by reach/influence.
+ * Currently curated; will be dynamic based on engagement metrics in the future.
+ */
+app.get('/api/top-users', generalLimiter, async (req, res) => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit) || 5, 10);
+
+    // Curated list of top Cannect community members (DIDs)
+    // These are active members with high engagement in the cannabis community
+    // TODO: Make this dynamic based on follower count, post engagement, etc.
+    const topUserDIDs = [
+      // Add real Cannect user DIDs here - these are placeholders
+      // Will be populated with actual active users from cannect.space
+    ];
+
+    // If we have curated users, return them
+    if (topUserDIDs.length > 0) {
+      return res.json({
+        users: topUserDIDs.slice(0, limit),
+        source: 'curated',
+      });
+    }
+
+    // Fallback: Return random Cannect users from the cache
+    const allUsers = Array.from(cannectUserDIDs);
+    if (allUsers.length === 0) {
+      return res.json({ users: [], source: 'none' });
+    }
+
+    // Shuffle and return top N
+    const shuffled = allUsers.sort(() => Math.random() - 0.5);
+    return res.json({
+      users: shuffled.slice(0, limit),
+      source: 'random',
+    });
+  } catch (err) {
+    console.error('[TopUsers] Error:', err);
+    return res.status(500).json({ error: 'Failed to fetch top users' });
+  }
 });
 
 /**

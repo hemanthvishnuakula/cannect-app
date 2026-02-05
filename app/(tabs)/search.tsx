@@ -9,14 +9,7 @@
  */
 
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  Pressable,
-  ActivityIndicator,
-  RefreshControl,
-} from 'react-native';
+import { View, Text, TextInput, Pressable, ActivityIndicator, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { FlashList } from '@shopify/flash-list';
 import {
@@ -28,6 +21,7 @@ import {
   TrendingUp,
   Hash,
   ArrowUpDown,
+  Crown,
 } from 'lucide-react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import {
@@ -35,6 +29,7 @@ import {
   useSuggestedUsers,
   useSearchPosts,
   useTrendingTopics,
+  useTopUsers,
   useSearchTypeahead,
   useDebounce,
 } from '@/lib/hooks';
@@ -68,13 +63,7 @@ function SectionHeader({ title, icon }: { title: string; icon: 'users' | 'posts'
   );
 }
 
-function SortToggle({
-  sort,
-  onToggle,
-}: {
-  sort: 'top' | 'latest';
-  onToggle: () => void;
-}) {
+function SortToggle({ sort, onToggle }: { sort: 'top' | 'latest'; onToggle: () => void }) {
   return (
     <Pressable
       onPress={onToggle}
@@ -86,13 +75,7 @@ function SortToggle({
   );
 }
 
-function TrendingTopicChip({
-  topic,
-  onPress,
-}: {
-  topic: string;
-  onPress: () => void;
-}) {
+function TrendingTopicChip({ topic, onPress }: { topic: string; onPress: () => void }) {
   return (
     <Pressable
       onPress={onPress}
@@ -172,13 +155,13 @@ export default function SearchScreen() {
 
   // Search queries - only run when we have a query and typeahead is closed
   const usersQuery = useSearchUsers(hasQuery && !showTypeahead ? debouncedQuery : '');
-  const postsQuery = useSearchPosts(
-    hasQuery && !showTypeahead ? debouncedQuery : '',
-    sort
-  );
+  const postsQuery = useSearchPosts(hasQuery && !showTypeahead ? debouncedQuery : '', sort);
 
   // Trending topics - shown when no query
   const trendingQuery = useTrendingTopics();
+
+  // Top users in Cannect - shown when no query
+  const topUsersQuery = useTopUsers(3);
 
   // Suggested users - shown when no query
   const suggestedUsersQuery = useSuggestedUsers();
@@ -271,7 +254,14 @@ export default function SearchScreen() {
     }
 
     return results;
-  }, [hasQuery, showTypeahead, searchUsers, searchPosts, usersQuery.isLoading, postsQuery.isLoading]);
+  }, [
+    hasQuery,
+    showTypeahead,
+    searchUsers,
+    searchPosts,
+    usersQuery.isLoading,
+    postsQuery.isLoading,
+  ]);
 
   const handleUserPress = (user: AnyProfileView | AppBskyActorDefs.ProfileViewBasic) => {
     setShowTypeahead(false);
@@ -325,8 +315,12 @@ export default function SearchScreen() {
 
   const getItemType = (item: SearchResultItem) => item.type;
 
+  // Top users data
+  const topUsers = topUsersQuery.data || [];
+
   const renderTrendingSection = () => (
     <View className="px-4 pt-4 pb-2">
+      {/* Trending Topics */}
       {trendingTopics.length > 0 && (
         <View className="mb-4">
           <View className="flex-row items-center gap-2 mb-3">
@@ -344,10 +338,37 @@ export default function SearchScreen() {
           </View>
         </View>
       )}
-      <View className="flex-row items-center gap-2 mb-3">
-        <Sparkles size={18} color="#10B981" />
-        <Text className="text-text-primary font-semibold text-lg">Suggested for you</Text>
-      </View>
+
+      {/* Top Users in Cannect */}
+      {topUsers.length > 0 && (
+        <View className="mb-4">
+          <View className="flex-row items-center gap-2 mb-3">
+            <Crown size={18} color="#F59E0B" />
+            <Text className="text-text-primary font-semibold text-lg">Top Users in Cannect</Text>
+          </View>
+          <View className="bg-surface-elevated rounded-xl overflow-hidden border border-border">
+            {topUsers.map((user, index) => (
+              <View key={user.did}>
+                <UserRow
+                  user={user}
+                  onPress={() => handleUserPress(user)}
+                  showFollowButton
+                  showBio={false}
+                />
+                {index < topUsers.length - 1 && <View className="h-px bg-border" />}
+              </View>
+            ))}
+          </View>
+        </View>
+      )}
+
+      {/* Suggested for you - only show if there are suggestions */}
+      {suggestedUsers.length > 0 && (
+        <View className="flex-row items-center gap-2 mb-3">
+          <Sparkles size={18} color="#10B981" />
+          <Text className="text-text-primary font-semibold text-lg">Suggested for you</Text>
+        </View>
+      )}
     </View>
   );
 
@@ -401,20 +422,14 @@ export default function SearchScreen() {
       {showTypeahead && typeaheadResults.data && typeaheadResults.data.length > 0 && (
         <View className="bg-background border-b border-border">
           {typeaheadResults.data.slice(0, 5).map((user) => (
-            <TypeaheadSuggestion
-              key={user.did}
-              user={user}
-              onPress={() => handleUserPress(user)}
-            />
+            <TypeaheadSuggestion key={user.did} user={user} onPress={() => handleUserPress(user)} />
           ))}
           <Pressable
             onPress={handleSubmitSearch}
             className="flex-row items-center gap-2 px-4 py-3 bg-surface-elevated"
           >
             <SearchIcon size={16} color="#10B981" />
-            <Text className="text-primary text-sm font-medium">
-              Search for "{query}"
-            </Text>
+            <Text className="text-primary text-sm font-medium">Search for "{query}"</Text>
           </Pressable>
         </View>
       )}
@@ -432,10 +447,11 @@ export default function SearchScreen() {
           }}
           refreshControl={
             <RefreshControl
-              refreshing={suggestedUsersQuery.isRefetching || trendingQuery.isRefetching}
+              refreshing={suggestedUsersQuery.isRefetching || trendingQuery.isRefetching || topUsersQuery.isRefetching}
               onRefresh={() => {
                 suggestedUsersQuery.refetch();
                 trendingQuery.refetch();
+                topUsersQuery.refetch();
               }}
               tintColor="#10B981"
               colors={['#10B981']}
@@ -446,10 +462,13 @@ export default function SearchScreen() {
             <UserRow user={item} onPress={() => handleUserPress(item)} showFollowButton />
           )}
           ListEmptyComponent={
-            suggestedUsersQuery.isLoading ? (
+            suggestedUsersQuery.isLoading || topUsersQuery.isLoading ? (
               <View className="py-8 items-center">
                 <ActivityIndicator size="large" color="#10B981" />
               </View>
+            ) : topUsers.length > 0 || trendingTopics.length > 0 ? (
+              // Don't show empty state if we have top users or trending topics
+              null
             ) : (
               <View className="py-12 items-center px-6">
                 <Users size={48} color="#6B7280" />

@@ -37,6 +37,7 @@ export {
   useSuggestedPosts,
   useBoostedPosts,
   useTrendingTopics,
+  useTopUsers,
   useSearchTypeahead,
   type FeedViewPost,
   type PostView,
