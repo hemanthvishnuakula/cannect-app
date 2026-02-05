@@ -38,6 +38,8 @@ export interface UserRowProps {
   showBio?: boolean;
   /** Custom right element (replaces follow button) */
   rightElement?: React.ReactNode;
+  /** Strip .cannect.space from handle display (default: false) */
+  shortHandle?: boolean;
 }
 
 export function UserRow({
@@ -48,12 +50,18 @@ export function UserRow({
   onUnfollow,
   showBio = true,
   rightElement,
+  shortHandle = false,
 }: UserRowProps) {
   const { did: currentUserDid } = useAuthStore();
 
   const isFollowing = !!user.viewer?.following;
   const isSelf = user.did === currentUserDid;
   const isBlocked = !!user.viewer?.blocking || !!user.viewer?.blockedBy;
+
+  // Optionally strip .cannect.space suffix for cleaner display
+  const displayHandle = shortHandle
+    ? user.handle.replace(/\.cannect\.space$/, '')
+    : user.handle;
 
   return (
     <Pressable
@@ -77,7 +85,7 @@ export function UserRow({
           {user.displayName || user.handle}
         </Text>
         <Text className="text-text-muted" numberOfLines={1}>
-          @{user.handle}
+          @{displayHandle}
         </Text>
         {showBio && user.description && (
           <Text className="text-text-secondary text-sm mt-1" numberOfLines={2}>

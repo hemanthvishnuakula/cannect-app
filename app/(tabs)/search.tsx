@@ -354,6 +354,7 @@ export default function SearchScreen() {
                   onPress={() => handleUserPress(user)}
                   showFollowButton
                   showBio={false}
+                  shortHandle
                 />
                 {index < topUsers.length - 1 && <View className="h-px bg-border" />}
               </View>
